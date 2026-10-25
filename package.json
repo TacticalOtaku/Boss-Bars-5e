@@ -1,6 +1,6 @@
 {
   "name": "boss-bars-5e",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "RPG boss bars and elite cards for important D&D 5e enemies in Foundry VTT.",
   "author": "TacticalOtaku",
@@ -35,6 +35,7 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
+    "handlebars": "^4.7.10",
     "happy-dom": "^20.14.6",
     "prettier": "^3.9.10",
     "sass": "^1.106.1",

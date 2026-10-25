@@ -43,6 +43,8 @@ export default defineConfig(({ command }) =>
             fileName: () => "scripts/boss-bars-5e.js",
             cssFileName: "styles/boss-bars-5e",
           },
+          // GM windows load through import(); hashed names keep a stale cached chunk from surviving an update.
+          rollupOptions: { output: { chunkFileNames: "scripts/[name]-[hash].js" } },
         },
         plugins: [copyStaticFiles(outDir)],
       },

@@ -1,5 +1,73 @@
 {
   "BB5E": {
-    "Title": "Boss Bars 5e"
+    "Title": "Boss Bars 5e",
+    "Bar": {
+      "Collapse": "Collapse the boss bar",
+      "Expand": "Expand the boss bar"
+    },
+    "Hud": {
+      "Setup": "Set up a boss profile",
+      "Show": "Show the boss bar",
+      "Hide": "Hide the boss bar",
+      "RightClick": "Right-click: boss profile"
+    },
+    "Profile": {
+      "Open": "Boss profile",
+      "Title": "Boss profile",
+      "Tab": {
+        "Main": "Main"
+      },
+      "PlayerName": {
+        "Label": "Name for players",
+        "Hint": "Leave empty to show the token's name. Change it to reveal the boss."
+      },
+      "TitleField": {
+        "Label": "Title"
+      },
+      "Portrait": {
+        "Label": "Portrait",
+        "Hint": "Image, GIF, WebP or a webm video. Empty: the actor's image."
+      },
+      "Size": {
+        "Label": "Size, %"
+      },
+      "Save": "Save",
+      "Unsaved": {
+        "Badge": "Unsaved",
+        "Title": "Unsaved changes",
+        "Body": "Close the profile and discard the changes?"
+      },
+      "Remove": {
+        "Button": "Remove profile",
+        "Title": "Remove the boss profile",
+        "Body": "The actor stops being a boss and its bars are hidden on every scene. Remove the profile?"
+      }
+    },
+    "Panel": {
+      "Title": "Active bosses",
+      "Show": "Show",
+      "Hide": "Hide",
+      "HideAll": "Hide all",
+      "Empty": "No tokens with a boss profile on this scene.",
+      "NoScene": "No scene is being viewed."
+    },
+    "Setting": {
+      "PlayersMayCollapse": {
+        "Name": "Players may collapse boss bars",
+        "Hint": "Each player can collapse a boss bar to its name and a thin bar on their own screen."
+      }
+    },
+    "Error": {
+      "TooLong": "Too long.",
+      "SizeRange": "Size must be between 50 and 200%.",
+      "NotGM": "Only a GM can change the boss bars.",
+      "NoGM": "No GM is online: showing and hiding wait for a GM.",
+      "NotActiveGM": "This GM is not the active GM.",
+      "Invalid": "The request or the stored data is invalid.",
+      "NewerData": "This data was saved by a newer Boss Bars 5e version and is left unchanged.",
+      "NoProfile": "This token's actor has no boss profile.",
+      "WriteFailed": "The boss bars could not be changed. See the console.",
+      "WindowFailed": "The Boss Bars 5e window could not be loaded. See the console."
+    }
   }
 }
