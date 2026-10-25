@@ -10,6 +10,8 @@ import {
 
 /** Stage 4 fields as readProfile fills them in for a profile written by 0.4.0. */
 const stage4 = { autoShow: DEFAULT_AUTO_SHOW, statuses: { hidden: [], custom: [] }, miniBars: [] };
+/** Stage 5 boss fields: no look chosen yet. */
+const stage5 = { look: null, overrides: {} };
 
 const boss = {
   dataVersion: 2,
@@ -33,7 +35,7 @@ describe("readProfile", () => {
   it("reads boss and elite profiles and keeps unknown keys", () => {
     expect(readProfile({ ...boss, future: { x: 1 } })).toEqual({
       status: "ok",
-      value: { ...boss, ...stage4, future: { x: 1 } },
+      value: { ...boss, ...stage4, ...stage5, future: { x: 1 } },
     });
     expect(readProfile(elite)).toEqual({ status: "ok", value: { ...elite, ...stage4 } });
   });
@@ -42,7 +44,7 @@ describe("readProfile", () => {
     const v1 = { dataVersion: 1, kind: "boss", playerName: "A", title: "T", portrait: null, size: 80 };
     expect(readProfile(v1)).toEqual({
       status: "ok",
-      value: { ...v1, ...stage4, dataVersion: PROFILE_VERSION, displayMode: "token" },
+      value: { ...v1, ...stage4, ...stage5, dataVersion: PROFILE_VERSION, displayMode: "token" },
     });
   });
 
@@ -254,5 +256,20 @@ describe("profileErrors — stage 4 fields", () => {
     expect(profileErrors({ ...base, kind: "elite", rank: "r", statuses: { hidden: [], custom } })).toEqual(
       {},
     );
+  });
+});
+
+describe("stage 5 look fields", () => {
+  it("keeps a valid look and known overrides of a boss", () => {
+    const read = readProfile({
+      ...boss,
+      look: "neon",
+      overrides: { frame: "frost-frame", music: "x", fill: "bad id!" },
+    });
+    expect(
+      read.status === "ok" && read.value.kind === "boss" && [read.value.look, read.value.overrides],
+    ).toEqual(["neon", { frame: "frost-frame" }]);
+    const bad = readProfile({ ...boss, look: "<b>" });
+    expect(bad.status === "ok" && bad.value.kind === "boss" && bad.value.look).toBeNull();
   });
 });

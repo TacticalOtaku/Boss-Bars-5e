@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_LAYOUT } from "../src/core/layout";
+import { CLASSIC_STYLE } from "../src/core/look/builtin";
 import type { BossBarView } from "../src/core/view";
 import { createBossStack } from "../src/ui/boss-stack";
 
@@ -19,6 +20,7 @@ const view = (id: string, extra: Partial<BossBarView> = {}): BossBarView => ({
   statuses: [],
   statusOverflow: 0,
   miniBars: [],
+  look: CLASSIC_STYLE,
   ...extra,
 });
 
@@ -27,7 +29,7 @@ let overlay: HTMLElement;
 const onCollapse = vi.fn();
 const make = () =>
   createBossStack(overlay, {
-    labels: { collapse: "Collapse", expand: "Expand" },
+    labels: { collapse: "Collapse", expand: "Expand", defeated: "Defeated" },
     onCollapse,
     reducedMotion: () => true,
   });
@@ -180,5 +182,18 @@ describe("boss bar extras", () => {
     expect(overlay.querySelector<HTMLElement>(".bb5e-boss__shield")!.hidden).toBe(true);
     expect(overlay.querySelector<HTMLElement>(".bb5e-statuses")!.hidden).toBe(true);
     expect(overlay.querySelector<HTMLElement>(".bb5e-minibars")!.hidden).toBe(true);
+  });
+});
+
+describe("look paths", () => {
+  it("makes FilePicker paths in look variables absolute against the page, not the stylesheet", () => {
+    const look = {
+      ...CLASSIC_STYLE,
+      key: "with-texture",
+      vars: { ...CLASSIC_STYLE.vars, "--bb5e-fill": 'url("worlds/w/tex.webp") center / cover, #000' },
+    };
+    make().update([view("a", { look })], BLOCK, 1);
+    const value = bars()[0]!.style.getPropertyValue("--bb5e-fill");
+    expect(value).toBe(`url("${new URL("worlds/w/tex.webp", document.baseURI).href}") center / cover, #000`);
   });
 });

@@ -1,0 +1,427 @@
+// What a look changes on both the boss bar and the elite card (spec §9): portrait shape, frame, fill kind, HP
+// effects, defeat banner, status and mini-bar styles. Attributes come from core/look/style.ts.
+
+// Elements set their own display; the hidden attribute must still win inside the HUD (the id outranks any class
+// rule) and in editor previews (whose toggled parts carry a single class).
+#boss-bars-5e [hidden],
+.bb5e-preview [hidden] {
+  display: none;
+}
+
+// ---- portrait and icon (portrait category) ----
+
+.bb5e-face {
+  overflow: hidden;
+  border: var(--bb5e-portrait-border, 0.1875em) solid var(--bb5e-portrait-color, var(--bb5e-gold));
+  border-radius: 50%;
+  background: var(--bb5e-empty);
+  box-shadow:
+    0 0 0 0.125em #000,
+    0 0.375em 1em rgb(0 0 0 / 67%),
+    var(--bb5e-portrait-glow, 0 0 0 transparent);
+
+  img,
+  video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    object-fit: cover;
+  }
+}
+
+// Elite icons are small: a thin outline, no drop shadow.
+.bb5e-elite__icon.bb5e-face {
+  border-width: 1px;
+  border-color: rgb(255 255 255 / 20%);
+  border-radius: 0.25em;
+  box-shadow: var(--bb5e-portrait-glow, 0 0 0 transparent);
+}
+
+.bb5e-look[data-look-pframe="0"] .bb5e-face {
+  border-color: transparent;
+}
+
+.bb5e-look[data-look-shape="square"] .bb5e-face {
+  border-radius: 0.25em;
+}
+
+.bb5e-look[data-look-shape="diamond"] .bb5e-face {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.bb5e-look[data-look-shape="shield"] .bb5e-face {
+  border-radius: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+}
+
+.bb5e-look[data-look-shape="hexagon"] .bb5e-face {
+  border-radius: 0;
+  clip-path: polygon(25% 2%, 75% 2%, 100% 50%, 75% 98%, 25% 98%, 0 50%);
+}
+
+.bb5e-look[data-look-shape="notch"] .bb5e-face {
+  border: 0;
+  border-radius: 0;
+  clip-path: polygon(0 0, 100% 0, 78% 100%, 0 100%);
+  mask-image: linear-gradient(90deg, #000 60%, transparent);
+}
+
+// Tint by % HP: darker, or redder, as HP drops (--bb5e-f is the shown share).
+.bb5e-look[data-look-tint="darken"] .bb5e-face :is(img, video) {
+  filter: brightness(calc(0.45 + 0.55 * var(--bb5e-f, 1)));
+}
+
+.bb5e-look[data-look-tint="red"] .bb5e-face {
+  position: relative;
+
+  &::after {
+    position: absolute;
+    inset: 0;
+    background: #c0101a;
+    content: "";
+    mix-blend-mode: multiply;
+    opacity: calc((1 - var(--bb5e-f, 1)) * 0.7);
+  }
+}
+
+// ---- frame ----
+
+.bb5e-look[data-look-frame="double"] .bb5e-boss__meter {
+  border-width: max(3px, calc(var(--bb5e-frame-width) * 2));
+  border-style: double;
+}
+
+.bb5e-look[data-look-frame="inset"] .bb5e-boss__meter {
+  border-color: transparent;
+  box-shadow:
+    inset 0 0 0 var(--bb5e-frame-width) var(--bb5e-gold),
+    var(--bb5e-frame-glow);
+}
+
+.bb5e-look[data-look-frame="none"] .bb5e-boss__meter {
+  border: 0;
+  box-shadow: var(--bb5e-frame-glow);
+}
+
+// A GM 9-slice image: the border is drawn from the picture.
+.bb5e-look[data-look-frame="image"] .bb5e-boss__meter {
+  border-image-source: var(--bb5e-frame-image);
+  border-image-slice: var(--bb5e-frame-slice) fill;
+  border-image-width: 1;
+  border-image-repeat: stretch;
+}
+
+// Corner ornaments at both ends of the bar.
+.bb5e-look:not([data-look-corners="none"]) .bb5e-boss__frame {
+  &::before,
+  &::after {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    width: 0.625em;
+    height: 0.625em;
+    background: var(--bb5e-gold);
+    box-shadow: 0 0 0.25em #000;
+    content: "";
+    translate: 0 -50%;
+  }
+
+  &::before {
+    left: -0.3125em;
+  }
+
+  &::after {
+    right: -0.3125em;
+  }
+}
+
+.bb5e-look[data-look-corners="studs"] .bb5e-boss__frame {
+  &::before,
+  &::after {
+    border-radius: 50%;
+  }
+}
+
+.bb5e-look[data-look-corners="spikes"] .bb5e-boss__frame {
+  &::before {
+    clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  }
+
+  &::after {
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+}
+
+.bb5e-look[data-look-corners="filigree"] .bb5e-boss__frame {
+  &::before,
+  &::after {
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    box-shadow: 0 0 0.4em var(--bb5e-gold);
+  }
+}
+
+// ---- fill kinds ----
+
+// Segments every N% (the "segmented" bar shape uses narrow fixed segments).
+.bb5e-look[data-look-segments="every"] .bb5e-boss__meter::before,
+.bb5e-look[data-look-bar="segmented"] .bb5e-boss__meter::before {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(var(--bb5e-segment) - 0.12em),
+    rgb(0 0 0 / 75%) calc(var(--bb5e-segment) - 0.12em) var(--bb5e-segment)
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.bb5e-look[data-look-bar="segmented"] .bb5e-boss__meter {
+  --bb5e-segment: 10%;
+}
+
+// Gloss on the upper half.
+.bb5e-look[data-look-shine="1"] :is(.bb5e-boss__fill, .bb5e-elite__fill)::before {
+  position: absolute;
+  inset: 0 0 50%;
+  background: linear-gradient(rgb(255 255 255 / 35%), transparent);
+  content: "";
+}
+
+// Glow at the fill's edge, following the shown share.
+.bb5e-look[data-look-edge="1"] .bb5e-boss__meter::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--bb5e-f, 1) * 100% - 0.3em);
+  z-index: 2;
+  width: 0.6em;
+  background: radial-gradient(closest-side, var(--bb5e-edge), transparent);
+  content: "";
+  pointer-events: none;
+}
+
+// Live fills (liquid, energy, flame, ice, void): until the WebGL fills of stage 9, their palette with a moving
+// sheen. Only the sheen's transform moves.
+.bb5e-look:is(
+    [data-look-fill="liquid"],
+    [data-look-fill="energy"],
+    [data-look-fill="flame"],
+    [data-look-fill="ice"],
+    [data-look-fill="void"]
+  )
+  :is(.bb5e-boss__fill, .bb5e-elite__fill)::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--bb5e-sheen, rgb(255 255 255 / 30%)), transparent);
+  content: "";
+  animation: bb5e-sheen var(--bb5e-sheen-speed, 2.6s) linear infinite;
+}
+
+.bb5e-look[data-look-fill="flame"] {
+  --bb5e-sheen: rgb(255 214 120 / 45%);
+  --bb5e-sheen-speed: 1.4s;
+}
+
+.bb5e-look[data-look-fill="energy"] {
+  --bb5e-sheen: rgb(255 255 255 / 45%);
+  --bb5e-sheen-speed: 1.1s;
+}
+
+.bb5e-look[data-look-fill="ice"] {
+  --bb5e-sheen: rgb(255 255 255 / 55%);
+  --bb5e-sheen-speed: 3.4s;
+}
+
+.bb5e-look[data-look-fill="void"] {
+  --bb5e-sheen: rgb(0 0 0 / 55%);
+  --bb5e-sheen-speed: 4s;
+}
+
+@keyframes bb5e-sheen {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+// ---- HP effects ----
+
+.bb5e-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bb5e-fx--flash {
+  background: #fff;
+}
+
+.bb5e-fx--wave {
+  background: linear-gradient(90deg, transparent, rgb(190 255 200 / 70%), transparent);
+}
+
+.bb5e-fx--crack {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M0 9 L22 12 L38 4 L55 14 L71 7 L90 13 L104 3 L121 11 L140 6 L158 15 L176 5 L200 10' fill='none' stroke='white' stroke-width='1.6'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+}
+
+// Low HP: the frame breathes (pulse) or the fill flickers; only opacity moves.
+.bb5e-boss[data-low="pulse"] .bb5e-boss__meter,
+.bb5e-elite[data-low="pulse"] .bb5e-elite__meter {
+  animation: bb5e-low-pulse 1.2s ease-in-out infinite;
+}
+
+.bb5e-boss[data-low="flicker"] .bb5e-boss__fill,
+.bb5e-elite[data-low="flicker"] .bb5e-elite__fill {
+  animation: bb5e-low-flicker 1.6s steps(1) infinite;
+}
+
+@keyframes bb5e-low-pulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes bb5e-low-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  12% {
+    opacity: 0.45;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  62% {
+    opacity: 0.6;
+  }
+}
+
+// Defeat banner (motion.defeat = banner), shown while the bar leaves.
+.bb5e-banner {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, transparent, rgb(0 0 0 / 80%) 20% 80%, transparent);
+  color: var(--bb5e-ink);
+  font: 700 1.5em / 1 var(--bb5e-font-display);
+  letter-spacing: 0.3em;
+  text-shadow: var(--bb5e-name-shadow);
+  text-transform: uppercase;
+}
+
+// ---- statuses ----
+
+.bb5e-look .bb5e-status {
+  width: var(--bb5e-status-size, 1.5em);
+  height: var(--bb5e-status-size, 1.5em);
+}
+
+.bb5e-look[data-look-status="circle"] .bb5e-status {
+  border-radius: 50%;
+
+  .bb5e-status__icon {
+    border-radius: 50%;
+  }
+}
+
+.bb5e-look[data-look-status="diamond"] .bb5e-status {
+  rotate: 45deg;
+
+  .bb5e-status__icon {
+    rotate: -45deg;
+    scale: 1.3;
+  }
+
+  .bb5e-status__stacks {
+    rotate: -45deg;
+  }
+}
+
+.bb5e-look[data-look-status="plain"] .bb5e-status {
+  border: 0;
+  background: none;
+}
+
+.bb5e-look[data-look-sborder="0"] .bb5e-status {
+  border-color: transparent;
+}
+
+.bb5e-look[data-look-sgrid="1"] .bb5e-statuses__icons {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+}
+
+// ---- mini-bars ----
+
+.bb5e-look .bb5e-mini__track {
+  height: var(--bb5e-mini-height, 0.5em);
+  background: var(--bb5e-mini-empty, var(--bb5e-empty));
+}
+
+.bb5e-look .bb5e-mini__fill {
+  background: var(--bb5e-mini-fill);
+}
+
+.bb5e-look .bb5e-mini__pip {
+  background: var(--bb5e-mini-empty, var(--bb5e-empty));
+
+  &--on {
+    background: var(--bb5e-mini-on, var(--bb5e-gold));
+  }
+}
+
+.bb5e-look[data-look-pip="dot"] .bb5e-mini__pip {
+  border-radius: 50%;
+  rotate: none;
+}
+
+.bb5e-look[data-look-mlabel="0"] .bb5e-mini__label {
+  display: none;
+}
+
+// Ring mini-bars: a small donut instead of the strip.
+.bb5e-look[data-look-mini="ring"] .bb5e-mini__track {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  border: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--bb5e-mini-on) 0 calc(var(--bb5e-mf, 0) * 1turn), var(--bb5e-mini-empty) 0);
+  mask: radial-gradient(farthest-side, transparent 52%, #000 54%);
+
+  .bb5e-mini__fill {
+    display: none;
+  }
+}
+
+// Reduced motion (spec §12): no sheen, no pulse or flicker; the palette stays still.
+@media (prefers-reduced-motion: reduce) {
+  .bb5e-look :is(.bb5e-boss__fill, .bb5e-elite__fill)::after,
+  .bb5e-look :is(.bb5e-boss__meter, .bb5e-elite__meter, .bb5e-boss__fill, .bb5e-elite__fill) {
+    animation: none;
+  }
+}
+
+.performance-low .bb5e-look {
+  :is(.bb5e-boss__fill, .bb5e-elite__fill)::after,
+  :is(.bb5e-boss__meter, .bb5e-elite__meter, .bb5e-boss__fill, .bb5e-elite__fill) {
+    animation: none;
+  }
+}

@@ -121,6 +121,7 @@ declare global {
   const ui: {
     notifications: {
       error(message: string, options?: { localize?: boolean }): void;
+      info(message: string, options?: { localize?: boolean }): void;
       warn(message: string, options?: { localize?: boolean }): void;
     };
   };
@@ -137,6 +138,8 @@ declare global {
       hasProperty(object: object, key: string): boolean;
       getProperty(object: object, key: string): unknown;
       expandObject(object: Record<string, unknown>): Record<string, unknown>;
+      saveDataToFile(data: string, type: string, filename: string): void;
+      readTextFromFile(file: File): Promise<string>;
       escapeHTML(value: string): string;
     };
     applications: {

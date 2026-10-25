@@ -56,8 +56,18 @@ export function plainText(html: string): string {
 /** "Poison (3)" from a DAE stack is hidden by the name "Poison" too. */
 const baseName = (name: string) => name.replace(/\s*\(\d+\)$/, "");
 
-const tooltipOf = (name: string, duration: string, description: string) =>
-  [name, duration, plainText(description)].filter(Boolean).join("\n");
+/** Which parts the status style puts in the tooltip. */
+export interface TooltipParts {
+  name: boolean;
+  description: boolean;
+  duration: boolean;
+}
+const ALL_PARTS: TooltipParts = { name: true, description: true, duration: true };
+
+const tooltipOf = (name: string, duration: string, description: string, parts: TooltipParts) =>
+  [parts.name ? name : "", parts.duration ? duration : "", parts.description ? plainText(description) : ""]
+    .filter(Boolean)
+    .join("\n") || name;
 
 /**
  * Status icons of one bar or card: the effects Foundry would draw on the tokens (merged over ×N tokens by name and
@@ -69,6 +79,7 @@ export function buildStatuses(
   hidden: string[],
   custom: CustomStatus[],
   limit: number,
+  parts: TooltipParts = ALL_PARTS,
 ): { statuses: StatusView[]; overflow: number } {
   const hiddenSet = new Set(hidden.map((entry) => entry.trim().toLowerCase()));
   const merged = new Map<string, StatusView>();
@@ -95,7 +106,7 @@ export function buildStatuses(
       name,
       img: effect.img,
       stacks: effect.stacks,
-      tooltip: tooltipOf(name, effect.duration, effect.description),
+      tooltip: tooltipOf(name, effect.duration, effect.description, parts),
     });
   }
   const all = [
@@ -105,7 +116,7 @@ export function buildStatuses(
       name: status.name,
       img: status.img,
       stacks: 0,
-      tooltip: tooltipOf(status.name, "", status.description),
+      tooltip: tooltipOf(status.name, "", status.description, parts),
     })),
   ];
   return { statuses: all.slice(0, limit), overflow: Math.max(0, all.length - limit) };

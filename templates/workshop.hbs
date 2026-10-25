@@ -1,0 +1,32 @@
+<section class="bb5e-workshop">
+  <div class="bb5e-preview bb5e-workshop__preview"></div>
+  <div class="bb5e-workshop__console" role="group" aria-label="{{localize "BB5E.Workshop.Console"}}">
+    <button type="button" data-action="console" data-step="damage10">{{localize "BB5E.Workshop.DamageSmall"}}</button>
+    <button type="button" data-action="console" data-step="damage30">{{localize "BB5E.Workshop.DamageLarge"}}</button>
+    <button type="button" data-action="console" data-step="heal">{{localize "BB5E.Workshop.Heal"}}</button>
+    <button type="button" data-action="console" data-step="defeat">{{localize "BB5E.Workshop.Defeat"}}</button>
+    <button type="button" data-action="console" data-step="reset">{{localize "BB5E.Workshop.Reset"}}</button>
+  </div>
+  <div class="bb5e-card">
+    <h3 class="bb5e-panel__heading">{{localize "BB5E.Workshop.Look"}}</h3>
+    <div class="bb5e-workshop__looks">
+      {{#each looks}}
+      <button type="button" data-action="look" data-id="{{id}}" aria-pressed="{{#if selected}}true{{else}}false{{/if}}">{{name}}{{#unless builtIn}} <span class="bb5e-library__badge">{{localize "BB5E.Library.OwnBadge"}}</span>{{/unless}}</button>
+      {{/each}}
+    </div>
+  </div>
+  <div class="bb5e-card">
+    <h3 class="bb5e-panel__heading">{{localize "BB5E.Workshop.Overrides"}}</h3>
+    {{#each rows}}
+    <div class="form-group">
+      <label for="{{../partId}}-{{category}}">{{label}}</label>
+      <div class="form-fields">
+        <select id="{{../partId}}-{{category}}" name="overrides.{{category}}">
+          <option value="">{{inLook}}</option>
+          {{#each options}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}
+        </select>
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</section>

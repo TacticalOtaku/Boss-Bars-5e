@@ -1,6 +1,8 @@
+import { LOOK_ID } from "./look/schema";
 import { isRecord, migrate, text, type ReadResult } from "./schema";
 
-export const RANKS_VERSION = 1;
+/** v2 added the rank's look: a v1 reader rebuilds ranks from known fields and would drop it. */
+export const RANKS_VERSION = 2;
 
 /** A step of the GM's ordered list: the higher, the stronger. The icon is always on the card. */
 export interface Rank {
@@ -10,6 +12,8 @@ export interface Rank {
   parts: { name: boolean; fill: boolean; statuses: boolean };
   /** Icon side in px. */
   size: number;
+  /** Look id; null — "Classic RPG". */
+  look: string | null;
 }
 
 export interface RankState {
@@ -26,10 +30,31 @@ const ID = /^[A-Za-z0-9_-]{1,32}$/;
 export function defaultRanks(names: readonly [string, string, string, string]): Rank[] {
   const parts = (name: boolean, fill: boolean, statuses: boolean) => ({ name, fill, statuses });
   return [
-    { id: "captain", name: names[0], color: "#e5c06a", parts: parts(true, true, true), size: 40 },
-    { id: "veteran", name: names[1], color: "#b0b8c8", parts: parts(true, true, false), size: 34 },
-    { id: "fighter", name: names[2], color: "#9a7b5c", parts: parts(true, false, false), size: 30 },
-    { id: "guard", name: names[3], color: FALLBACK_COLOR, parts: parts(false, false, false), size: 30 },
+    { id: "captain", name: names[0], color: "#e5c06a", parts: parts(true, true, true), size: 40, look: null },
+    {
+      id: "veteran",
+      name: names[1],
+      color: "#b0b8c8",
+      parts: parts(true, true, false),
+      size: 34,
+      look: null,
+    },
+    {
+      id: "fighter",
+      name: names[2],
+      color: "#9a7b5c",
+      parts: parts(true, false, false),
+      size: 30,
+      look: null,
+    },
+    {
+      id: "guard",
+      name: names[3],
+      color: FALLBACK_COLOR,
+      parts: parts(false, false, false),
+      size: 30,
+      look: null,
+    },
   ];
 }
 
@@ -44,6 +69,7 @@ function readRank(raw: unknown): Rank | null {
     color: typeof raw.color === "string" && HEX.test(raw.color) ? raw.color.toLowerCase() : FALLBACK_COLOR,
     parts: { name: Boolean(parts.name), fill: Boolean(parts.fill), statuses: Boolean(parts.statuses) },
     size: Number.isFinite(size) ? Math.min(RANK_LIMITS.sizeMax, Math.max(RANK_LIMITS.sizeMin, size)) : 30,
+    look: typeof raw.look === "string" && LOOK_ID.test(raw.look) ? raw.look : null,
   };
 }
 
@@ -52,7 +78,7 @@ export function readRanks(raw: unknown, defaults: Rank[]): ReadResult<RankState>
   const fallback = { status: "ok", value: { dataVersion: RANKS_VERSION, items: defaults } } as const;
   if (!isRecord(raw) || raw.dataVersion === undefined) return fallback;
   if (!Array.isArray(raw.items)) return { status: "invalid" };
-  const migrated = migrate(raw, RANKS_VERSION, {});
+  const migrated = migrate(raw, RANKS_VERSION, { 1: (value) => value });
   if (migrated.status !== "ok") return migrated;
   const items = (migrated.value.items as unknown[]).flatMap((item) => readRank(item) ?? []);
   return items.length

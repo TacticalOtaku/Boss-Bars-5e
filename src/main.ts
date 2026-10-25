@@ -9,7 +9,9 @@ import { registerSettings, setCollapsed } from "./foundry/settings";
 import { startStore, uiScale, type BossHud } from "./foundry/store";
 import { logger } from "./logger";
 import { createBossStack } from "./ui/boss-stack";
+import { FONT_FACES } from "./core/look/fonts";
 import { createEliteColumn } from "./ui/elite-column";
+import { registerFonts } from "./ui/look";
 import { mountOverlay } from "./ui/overlay";
 
 let hud: BossHud | null = null;
@@ -23,6 +25,7 @@ function loadFailed(error: unknown): void {
 
 const openRanks = () =>
   void import("./apps/ranks-editor").then(({ openRanksEditor }) => openRanksEditor(), loadFailed);
+const openLibrary = () => void import("./apps/library").then(({ openLibrary: open }) => open(), loadFailed);
 const openLayout = () =>
   void import("./apps/layout-panel").then(
     ({ openLayoutPanel }) => layoutHost && openLayoutPanel(layoutHost),
@@ -30,7 +33,7 @@ const openLayout = () =>
   );
 
 Hooks.once("init", () => {
-  registerSettings(() => hud?.refresh(), openRanks);
+  registerSettings(() => hud?.refresh(), openRanks, openLibrary);
   registerAuthority();
   registerEntryPoints({
     openProfile: (actor) =>
@@ -40,11 +43,15 @@ Hooks.once("init", () => {
       ),
     openPanel: () =>
       void import("./apps/active-bosses").then(
-        ({ openActiveBosses }) => hud && openActiveBosses(hud, { openRanks, openLayout }),
+        ({ openActiveBosses }) => hud && openActiveBosses(hud, { openRanks, openLayout, openLibrary }),
         loadFailed,
       ),
   });
 });
+
+// The module root, from this script's own URL (scripts/boss-bars-5e.js): right under a route prefix or a CDN.
+const moduleRoot = import.meta.url.replace(/scripts\/[^/]*$/, "");
+registerFonts(FONT_FACES, (file) => `${moduleRoot}fonts/${file}`);
 
 // #interface exists from Game#initializeUI, so it is guaranteed by "ready" (research/foundry-ui §1).
 Hooks.once("ready", () => {
@@ -67,6 +74,7 @@ Hooks.once("ready", () => {
     labels: {
       collapse: game.i18n.localize("BB5E.Bar.Collapse"),
       expand: game.i18n.localize("BB5E.Bar.Expand"),
+      defeated: game.i18n.localize("BB5E.Bar.Defeated"),
     },
     onCollapse: collapse,
     reducedMotion,

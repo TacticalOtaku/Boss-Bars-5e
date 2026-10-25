@@ -1,5 +1,17 @@
-// Boss stack and bar, layout A in the "Classic RPG" look (mock-up prototype/hud-variants, variant A).
-// Every size is in em: font-size = 16px × profile size × uiScale scales the whole bar at once.
+// Boss stack and bar. The look (core/look/style.ts) sets data-look-* attributes and --bb5e-* variables on each bar;
+// the defaults below are "Classic RPG", layout A. Every size is in em: font-size = 16px × profile size × uiScale.
+
+@property --bb5e-f {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
+@property --bb5e-t {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
 
 .bb5e-stack {
   display: flex;
@@ -18,12 +30,16 @@
 }
 
 .bb5e-boss {
+  position: relative;
   display: flex;
   align-items: center;
-  width: 38.75em;
+  width: var(--bb5e-width, 38.75em);
   font-size: calc(16px * var(--bb5e-ui-scale, 1) * var(--bb5e-size, 1));
   color: var(--bb5e-ink);
-  transition: opacity 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    --bb5e-f 0.18s ease-out,
+    --bb5e-t var(--bb5e-trail-speed, 0.6s) ease var(--bb5e-trail-delay, 0.55s);
 
   &--muted {
     opacity: 0.5;
@@ -34,60 +50,149 @@
   }
 }
 
-.bb5e-boss__portrait {
+// ---- portrait placement (layoutBar.portrait) ----
+
+.bb5e-boss__avatar {
   position: relative;
   z-index: 1;
   flex: none;
   width: 4.75em;
   height: 4.75em;
-  overflow: hidden;
-  border: 0.1875em solid var(--bb5e-gold);
-  border-radius: 50%;
-  background: var(--bb5e-empty);
-  box-shadow:
-    0 0 0 0.125em #000,
-    0 0.375em 1em rgb(0 0 0 / 67%);
+}
 
-  img,
-  video {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+.bb5e-boss__portrait {
+  width: 100%;
+  height: 100%;
 }
 
 .bb5e-boss__body {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
   margin-left: -0.875em;
   padding-left: 1.375em;
 }
 
+.bb5e-boss[data-look-portrait="right"] {
+  flex-direction: row-reverse;
+
+  .bb5e-boss__body {
+    margin: 0 -0.875em 0 0;
+    padding: 0 1.375em 0 0;
+  }
+}
+
+.bb5e-boss[data-look-portrait="top"],
+.bb5e-boss[data-look-portrait="medallion"] {
+  flex-direction: column;
+
+  .bb5e-boss__body {
+    align-self: stretch;
+    margin: 0.25em 0 0;
+    padding: 0;
+  }
+
+  .bb5e-boss__head {
+    justify-content: center;
+  }
+}
+
+// Medallion: a large portrait sitting on the bar.
+.bb5e-boss[data-look-portrait="medallion"] {
+  .bb5e-boss__avatar {
+    width: 6em;
+    height: 6em;
+    margin-bottom: -1.5em;
+  }
+
+  .bb5e-boss__body {
+    padding-top: 0;
+  }
+}
+
+// Notch: a square portrait cut into the bar's edge (layout C).
+.bb5e-boss[data-look-portrait="notch"] {
+  .bb5e-boss__avatar {
+    width: 7em;
+    height: 5.5em;
+  }
+
+  .bb5e-boss__body {
+    margin-left: -2em;
+    padding-left: 2em;
+  }
+}
+
+.bb5e-boss[data-look-portrait="none"] {
+  .bb5e-boss__avatar {
+    display: none;
+  }
+
+  .bb5e-boss__body {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+// ---- head (layoutBar.name) ----
+
 .bb5e-boss__head {
   display: flex;
   gap: 0.625em;
   align-items: baseline;
+  order: 0;
   min-width: 0;
 }
 
 .bb5e-boss__name {
   overflow: hidden;
-  font: 600 1.25em / 1.2 var(--bb5e-font-display);
-  letter-spacing: 0.06em;
+  font: var(--bb5e-name-weight, 600) var(--bb5e-name-size, 1.25em) / 1.2 var(--bb5e-font-display);
+  letter-spacing: var(--bb5e-spacing, 0.06em);
   text-overflow: ellipsis;
-  text-shadow: 0 0.1em 0.2em #000;
-  text-transform: uppercase;
+  text-shadow: var(--bb5e-name-shadow, 0 0.1em 0.2em #000);
+  text-transform: var(--bb5e-name-case, uppercase);
   white-space: nowrap;
+  -webkit-text-stroke: var(--bb5e-stroke, 0) var(--bb5e-stroke-color, #000);
+}
+
+// A two-colour name: the gradient shows through the letters.
+.bb5e-look[data-look-inkfill="1"] .bb5e-boss__name {
+  background: var(--bb5e-ink-fill);
+  background-clip: text;
+  color: transparent;
 }
 
 .bb5e-boss__title {
   overflow: hidden;
-  color: var(--bb5e-gold);
-  font: italic 0.8125em / 1.2 var(--bb5e-font-display);
+  color: var(--bb5e-title, var(--bb5e-gold));
+  font: italic var(--bb5e-title-size, 0.8125em) / 1.2 var(--bb5e-font-display);
   text-overflow: ellipsis;
   text-shadow: 0 0.1em 0.2em #000;
   white-space: nowrap;
+}
+
+.bb5e-boss[data-look-name="below"] .bb5e-boss__head {
+  order: 2;
+  margin-top: 0.125em;
+}
+
+// Inside: the head lies over the bar; the name shrinks to the bar's height.
+.bb5e-boss[data-look-name="inside"] .bb5e-boss__head {
+  position: relative;
+  z-index: 2;
+  align-items: center;
+  height: var(--bb5e-height);
+  margin-bottom: calc(-1 * var(--bb5e-height) - 0.1875em);
+  padding: 0.1875em 0.5em 0;
+
+  .bb5e-boss__name {
+    font-size: min(var(--bb5e-name-size), calc(var(--bb5e-height) * 0.85));
+  }
+
+  .bb5e-boss__title {
+    display: none;
+  }
 }
 
 .bb5e-boss__collapse {
@@ -96,7 +201,7 @@
   height: 1.5em;
   margin-left: auto;
   padding: 0;
-  border: 1px solid rgb(201 164 92 / 60%);
+  border: 1px solid color-mix(in srgb, var(--bb5e-gold) 60%, transparent);
   border-radius: 0.25em;
   background: rgb(0 0 0 / 55%);
   color: var(--bb5e-gold);
@@ -115,16 +220,36 @@
   }
 }
 
+// ---- the bar (layoutBar.bar, frame, fill) ----
+
+.bb5e-boss__frame {
+  position: relative;
+  order: 1;
+  margin-top: 0.1875em;
+}
+
 .bb5e-boss__meter {
   position: relative;
-  height: 1.125em;
-  margin-top: 0.1875em;
+  height: var(--bb5e-height, 1.125em);
   overflow: hidden;
-  border: 0.125em solid var(--bb5e-gold);
+  border: var(--bb5e-frame-width, 0.125em) solid var(--bb5e-gold);
   background: var(--bb5e-empty);
   box-shadow:
     0 0 0 1px #000,
-    inset 0 0.125em 0.375em #000;
+    inset 0 0.125em 0.375em #000,
+    var(--bb5e-frame-glow, 0 0 0 transparent);
+}
+
+.bb5e-boss[data-look-bar="thin"] {
+  .bb5e-boss__meter {
+    height: calc(var(--bb5e-height) * 0.5);
+  }
+
+  .bb5e-boss__numbers {
+    top: auto;
+    bottom: calc(100% + 0.125em);
+    translate: none;
+  }
 }
 
 .bb5e-boss__fill,
@@ -136,10 +261,11 @@
 
 .bb5e-boss__trail {
   background: var(--bb5e-trail);
-  transition: transform 0.6s ease 0.55s;
+  transition: transform var(--bb5e-trail-speed, 0.6s) ease var(--bb5e-trail-delay, 0.55s);
 }
 
 .bb5e-boss__fill {
+  overflow: hidden;
   background: var(--bb5e-fill);
   transition: transform 0.18s ease-out;
 }
@@ -148,22 +274,100 @@
   position: absolute;
   top: 50%;
   right: 0.375em;
+  z-index: 3;
   translate: 0 -50%;
   color: #fff;
   font: 0.6875em / 1 monospace;
   text-shadow: 0 0 0.2em #000;
 }
 
-// Collapsed: the name and a thin fill.
-.bb5e-boss--collapsed {
-  .bb5e-boss__portrait,
-  .bb5e-boss__title {
+// Ring (layout B): the HP ring around the portrait replaces the bar.
+.bb5e-boss__ring {
+  position: absolute;
+  inset: -0.5em;
+  display: none;
+  border-radius: 50%;
+  background:
+    conic-gradient(var(--bb5e-edge) 0 calc(var(--bb5e-f) * 1turn), transparent 0),
+    conic-gradient(var(--bb5e-trail) 0 calc(var(--bb5e-t) * 1turn), var(--bb5e-empty) 0);
+  box-shadow: var(--bb5e-frame-glow, 0 0 0 transparent);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 0.45em), #000 calc(100% - 0.44em));
+}
+
+.bb5e-boss[data-look-bar="ring"] {
+  .bb5e-boss__ring {
+    display: block;
+  }
+
+  .bb5e-boss__frame {
     display: none;
   }
 
   .bb5e-boss__body {
     margin-left: 0;
-    padding-left: 0;
+    padding-left: 1em;
+  }
+}
+
+// ---- extras (layoutBar.extras) ----
+
+.bb5e-boss__extras {
+  order: 3;
+  min-width: 0;
+}
+
+.bb5e-boss[data-look-extras="above"] .bb5e-boss__extras {
+  order: -1;
+}
+
+.bb5e-boss[data-look-extras="side"] .bb5e-boss__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.75em;
+
+  .bb5e-boss__head,
+  .bb5e-boss__frame {
+    grid-column: 1;
+  }
+
+  .bb5e-boss__extras {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    align-self: center;
+    width: 10em;
+  }
+}
+
+// On the portrait: statuses gather under the portrait, mini-bars stay under the bar.
+.bb5e-boss[data-look-extras="portrait"] .bb5e-boss__statuses {
+  position: absolute;
+  bottom: -0.75em;
+  left: 0;
+  z-index: 2;
+  justify-content: center;
+  width: 4.75em;
+}
+
+.bb5e-boss[data-look-extras="portrait"][data-look-portrait="right"] .bb5e-boss__statuses {
+  right: 0;
+  left: auto;
+}
+
+// Collapsed: the name and a thin fill.
+.bb5e-boss--collapsed {
+  .bb5e-boss__avatar,
+  .bb5e-boss__title,
+  .bb5e-boss__extras {
+    display: none;
+  }
+
+  .bb5e-boss__body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .bb5e-boss__frame {
+    display: block;
   }
 
   .bb5e-boss__name {
@@ -181,13 +385,17 @@
 
 // Reduced motion: no fill or trail animation, opacity changes stay (spec §12).
 @media (prefers-reduced-motion: reduce) {
+  .bb5e-boss,
   .bb5e-boss__fill,
   .bb5e-boss__trail {
-    transition: none;
+    transition: opacity 0.3s ease;
   }
 }
 
-.performance-low .bb5e-boss__fill,
-.performance-low .bb5e-boss__trail {
-  transition: none;
+.performance-low {
+  .bb5e-boss,
+  .bb5e-boss__fill,
+  .bb5e-boss__trail {
+    transition: opacity 0.3s ease;
+  }
 }

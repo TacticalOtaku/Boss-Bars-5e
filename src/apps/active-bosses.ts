@@ -10,6 +10,7 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 export interface PanelLinks {
   openRanks(): void;
   openLayout(): void;
+  openLibrary(): void;
 }
 
 interface Row {
@@ -99,6 +100,7 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
       hideAll: ActiveBosses.#onHideAll,
       openRanks: ActiveBosses.#onOpenRanks,
       openLayout: ActiveBosses.#onOpenLayout,
+      openLibrary: ActiveBosses.#onOpenLibrary,
     },
   };
 
@@ -187,6 +189,10 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onOpenLayout(this: ActiveBosses) {
     this.#open.openLayout();
+  }
+
+  static async #onOpenLibrary(this: ActiveBosses) {
+    this.#open.openLibrary();
   }
 }
 

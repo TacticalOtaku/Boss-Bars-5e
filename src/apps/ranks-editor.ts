@@ -2,7 +2,9 @@ import { MODULE_ID } from "../constants";
 import { readProfile } from "../core/profile";
 import { RANK_LIMITS, RANKS_VERSION, rankErrors, readRanks, type Rank } from "../core/ranks";
 import { currentRanks, defaultRankList } from "../foundry/settings";
-import { confirmDiscard, previewCard } from "./shared";
+import { BUILTIN_IDS, CLASSIC } from "../core/look/builtin";
+import { readLibrary } from "../core/look/schema";
+import { confirmDiscard, displayName, previewCard, sourcesOf, styleFor } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
@@ -34,6 +36,11 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   };
 
   #draft: Rank[] = structuredClone(currentRanks());
+  /** Looks to pick from: built-ins and the world library. */
+  readonly #sources = (() => {
+    const read = readLibrary(game.settings.get(MODULE_ID, "library"), BUILTIN_IDS);
+    return sourcesOf(read.status === "ok" ? read.value : null);
+  })();
   #dirty = false;
   #confirming = false;
 
@@ -45,6 +52,11 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         index,
         first: index === 0,
         last: index === this.#draft.length - 1,
+        looks: this.#sources.looks.map((look) => ({
+          id: look.id,
+          name: displayName(look),
+          selected: look.id === (rank.look ?? CLASSIC.id),
+        })),
       })),
       limits: RANK_LIMITS,
     };
@@ -78,6 +90,9 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       rank.color = value("color") || rank.color;
       rank.size = Number(value("size"));
       rank.parts = { name: part("name"), fill: part("fill"), statuses: part("statuses") };
+      // "Classic RPG" is stored as no look, the default.
+      const look = value("look");
+      rank.look = look && look !== CLASSIC.id ? look : null;
     }
   }
 
@@ -86,7 +101,8 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     for (const row of this.element.querySelectorAll<HTMLElement>("[data-rank-index]")) {
       const rank = this.#draft[Number(row.dataset.rankIndex)];
       const host = row.querySelector<HTMLElement>(".bb5e-preview");
-      if (rank && host) previewCard(host, { label, img: SAMPLE_IMG, rank });
+      if (rank && host)
+        previewCard(host, { label, img: SAMPLE_IMG, rank, look: styleFor(this.#sources, rank.look) });
     }
   }
 
@@ -134,6 +150,7 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         name: game.i18n.localize("BB5E.Ranks.NewName"),
         color: "#9a7b5c",
         parts: { name: true, fill: true, statuses: false },
+        look: null,
         size: 30,
       }),
     );

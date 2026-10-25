@@ -1,10 +1,10 @@
-// Elite column and card, layout A rows in the "Classic RPG" look (mock-up prototype/hud-variants, variant A).
+// Elite column and card. Each card wears its rank's look (data-look-* and --bb5e-* on the card); the defaults are
+// "Classic RPG", layout A rows.
 
 .bb5e-column {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  width: 14.375em;
   font-size: calc(16px * var(--bb5e-ui-scale, 1));
 
   // Up: the column grows upwards from its anchor, the first card nearest to it.
@@ -19,7 +19,6 @@
   flex-direction: column;
   gap: 0.375em;
   align-items: flex-start;
-  width: 100%;
 }
 
 // Player-side collapse: "▾" above the cards, or the "Elites · N ▸" chip when collapsed.
@@ -31,14 +30,14 @@
   border: 1px solid rgb(201 164 92 / 60%);
   border-radius: 0.25em;
   background: rgb(0 0 0 / 55%);
-  color: var(--bb5e-gold);
+  color: #c9a45c;
   font-size: 0.75em;
   line-height: 1.4;
   cursor: pointer;
   pointer-events: auto;
 
   &:focus-visible {
-    outline: 2px solid var(--bb5e-gold);
+    outline: 2px solid #c9a45c;
     outline-offset: 1px;
   }
 }
@@ -49,15 +48,16 @@
   width: max-content;
   border-radius: 0.1875em;
   background: rgb(0 0 0 / 60%);
-  color: var(--bb5e-ink);
+  color: #e8e2d6;
   font-size: 0.75em;
 }
 
 .bb5e-elite {
+  position: relative;
   display: flex;
   gap: 0.5em;
   align-items: center;
-  width: 100%;
+  width: var(--bb5e-card-width, 14.375em);
   padding: 0.25em 0.5em 0.25em 0.25em;
   border-left: 0.1875em solid var(--bb5e-rank-color, var(--bb5e-gold));
   border-radius: 0.1875em;
@@ -84,23 +84,16 @@
   }
 }
 
-.bb5e-elite__icon {
+.bb5e-elite__avatar {
+  position: relative;
   flex: none;
   width: calc(var(--bb5e-icon, 2.125) * 1em);
   height: calc(var(--bb5e-icon, 2.125) * 1em);
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 20%);
-  border-radius: 0.25em;
-  background: var(--bb5e-empty);
+}
 
-  img,
-  video {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    object-fit: cover;
-  }
+.bb5e-elite__icon {
+  width: 100%;
+  height: 100%;
 }
 
 .bb5e-elite__info {
@@ -118,6 +111,7 @@
 
 .bb5e-elite__name {
   overflow: hidden;
+  font-family: var(--bb5e-font-display);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -141,13 +135,13 @@
   height: 0.3125em;
   margin-top: 0.1875em;
   overflow: hidden;
-  background: #000;
+  background: var(--bb5e-empty, #000);
 }
 
 .bb5e-elite__fill {
   position: absolute;
   inset: 0;
-  background: #c23b33;
+  background: var(--bb5e-fill);
   transform-origin: left center;
   transition: transform 0.25s ease-out;
 }
@@ -158,6 +152,118 @@
   font-size: 0.625em;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+// ---- icon placement (layoutCard.icon) ----
+
+// Top (layout B): icon above, the rest centred under it.
+.bb5e-elite[data-look-icon="top"]:not(.bb5e-elite--icon-only) {
+  flex-direction: column;
+  padding: 0.375em 0.25em;
+  border-top: 0.1875em solid var(--bb5e-rank-color, var(--bb5e-gold));
+  border-left: 0;
+  text-align: center;
+
+  .bb5e-elite__info {
+    width: 100%;
+  }
+
+  .bb5e-elite__head {
+    justify-content: center;
+  }
+
+  .bb5e-elite__numbers {
+    margin-left: 0;
+  }
+}
+
+// Tile (layout C): the icon fills the card, the text lies over its foot.
+.bb5e-elite[data-look-icon="tile"]:not(.bb5e-elite--icon-only) {
+  align-items: flex-end;
+  min-height: calc(var(--bb5e-icon, 2.125) * 1.6em);
+  padding: 0.25em 0.5em 0.25em 0.375em;
+  overflow: hidden;
+  border: 1px solid var(--bb5e-rank-color, var(--bb5e-gold));
+
+  .bb5e-elite__avatar {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    opacity: 0.85;
+  }
+
+  .bb5e-elite__info {
+    position: relative;
+    padding: 0.125em 0.25em;
+    background: linear-gradient(transparent, rgb(0 0 0 / 80%) 35%);
+  }
+}
+
+// ---- name and statuses (layoutCard.name, layoutCard.statuses) ----
+
+.bb5e-elite[data-look-cname="below"] .bb5e-elite__info {
+  display: flex;
+  flex-direction: column;
+
+  .bb5e-elite__head {
+    order: 2;
+  }
+}
+
+.bb5e-elite[data-look-cname="overlay"]:not([data-look-icon="tile"]) .bb5e-elite__head {
+  position: absolute;
+  bottom: 0.25em;
+  left: 0.25em;
+  z-index: 1;
+  padding: 0 0.25em;
+  background: rgb(0 0 0 / 70%);
+}
+
+// Side: statuses as a badge on the icon's corner.
+.bb5e-elite[data-look-cstatuses="side"] .bb5e-elite__statuses {
+  position: absolute;
+  top: -0.25em;
+  right: -0.25em;
+  z-index: 2;
+  margin: 0;
+}
+
+// ---- fill (layoutCard.fill) ----
+
+// Vertical (layout C): a slim bar on the card's right edge, growing upwards.
+.bb5e-elite[data-look-cfill="vertical"] .bb5e-elite__meter {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 0.3125em;
+  height: auto;
+  margin: 0;
+
+  .bb5e-elite__fill {
+    transform-origin: center bottom;
+  }
+}
+
+// Ring (layout B): the HP ring around the icon replaces the bar.
+.bb5e-elite__ring {
+  position: absolute;
+  inset: -0.25em;
+  display: none;
+  border-radius: 50%;
+  background: conic-gradient(var(--bb5e-edge) 0 calc(var(--bb5e-f) * 1turn), var(--bb5e-empty) 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 0.25em), #000 calc(100% - 0.24em));
+}
+
+.bb5e-elite--fill[data-look-cfill="ring"] {
+  .bb5e-elite__ring {
+    display: block;
+  }
+
+  .bb5e-elite__meter {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

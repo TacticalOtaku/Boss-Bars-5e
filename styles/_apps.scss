@@ -354,6 +354,7 @@
 
 .bb5e-panel__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
 }
@@ -449,4 +450,184 @@
   gap: 8px;
   align-items: center;
   margin: 4px 0;
+}
+
+// "Looks and presets": sections on the left, list and the selected item with live previews.
+.bb5e-library {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+
+.bb5e-library__nav {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+
+  button {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  button[aria-pressed="true"] {
+    background: var(--bb5e-app-surface);
+    box-shadow: var(--bb5e-app-raise);
+    font-weight: 600;
+  }
+}
+
+.bb5e-library__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.bb5e-library__bar,
+.bb5e-library__filters,
+.bb5e-library__actions,
+.bb5e-workshop__console,
+.bb5e-workshop__looks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+
+  button {
+    flex: none;
+    width: auto;
+  }
+
+  button[aria-pressed="true"] {
+    background: var(--bb5e-app-accent);
+    color: #23262e;
+  }
+}
+
+.bb5e-library__bar input[type="search"] {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.bb5e-library__body {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.bb5e-library__list {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+
+  button {
+    justify-content: flex-start;
+    width: 100%;
+    text-align: left;
+  }
+
+  button[aria-pressed="true"] {
+    background: var(--bb5e-app-surface);
+    box-shadow: var(--bb5e-app-raise);
+    font-weight: 600;
+  }
+}
+
+.bb5e-library__badge {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bb5e-app-sunken);
+  color: var(--bb5e-app-muted);
+  font-size: var(--font-size-11, 11px);
+  font-weight: 400;
+}
+
+.bb5e-library__detail,
+.bb5e-library__sheet {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.bb5e-library__sheet {
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+
+  figure {
+    margin: 0;
+  }
+
+  figcaption {
+    margin-top: 4px;
+    color: var(--bb5e-app-muted);
+    font-size: var(--font-size-12, 12px);
+  }
+}
+
+// Previews of boss bars: the bar is laid out in place and scaled to fit the window.
+.bb5e-library__boss,
+.bb5e-library__tile,
+.bb5e-workshop__preview {
+  overflow: hidden;
+
+  .bb5e-stack {
+    position: static;
+    translate: none;
+    align-items: flex-start;
+  }
+
+  // Never wider than the window: the bar keeps its proportions in em, its width is capped.
+  .bb5e-boss {
+    max-width: 100%;
+  }
+}
+
+.bb5e-library__boss,
+.bb5e-workshop__preview {
+  --bb5e-ui-scale: 0.8;
+
+  min-height: 7.5rem;
+  padding: 14px 18px;
+}
+
+.bb5e-library__tile {
+  --bb5e-ui-scale: 0.45;
+
+  padding: 8px;
+}
+
+.bb5e-library__card {
+  justify-self: start;
+}
+
+.bb5e-workshop {
+  display: grid;
+  gap: 10px;
+}
+
+.bb5e-look-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.bb5e-ranks__look {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: var(--font-size-12, 12px);
+
+  select {
+    flex: 1;
+  }
 }

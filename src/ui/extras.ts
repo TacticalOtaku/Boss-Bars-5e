@@ -97,6 +97,8 @@ function updateMiniBar(el: HTMLElement, bar: MiniBarView): void {
   setText(label, bar.label);
   track.hidden = Boolean(bar.pips);
   (track.firstElementChild as HTMLElement).style.transform = `scaleX(${bar.fraction})`;
+  // The ring style of the look draws the same share as a conic gradient.
+  el.style.setProperty("--bb5e-mf", String(bar.fraction));
   pips.hidden = !bar.pips;
   const total = bar.pips?.total ?? 0;
   if (pips.childElementCount !== total) {

@@ -120,8 +120,47 @@ const context = {
       color: "#ffffff",
       size: 30,
       parts: { name: true, fill: true, statuses: true },
+      looks: [{ id: "neon", name: "<b>N</b>", selected: true }],
+      // Workshop rows share the key: their fields ride along.
+      category: "frame",
+      label: "<b>F</b>",
+      inLook: "<b>I</b>",
+      options: [{ id: "p", name: "<b>P</b>", selected: true }],
     },
   ],
+  lookName: "<b>L</b>",
+  sections: [{ id: "looks", label: "<b>S</b>", active: true }],
+  filters: [{ id: "all", label: "<b>A</b>", active: true }],
+  search: '"><b>s</b>',
+  items: [{ id: "x", name: "<b>X</b>", builtIn: true, selected: true }],
+  looks: [{ id: "x", name: "<b>X</b>", builtIn: false, selected: true }],
+  sheet: false,
+  detail: {
+    own: true,
+    isLook: true,
+    name: '"><b>D</b>',
+    rows: [
+      {
+        category: "frame",
+        label: "<b>R</b>",
+        current: "<b>C</b>",
+        options: [{ id: "p", name: "<b>P</b>", selected: true }],
+      },
+    ],
+    fields: [
+      {
+        name: "params.a",
+        label: "<b>1</b>",
+        isEnum: true,
+        options: [{ value: "v", label: "<b>V</b>", selected: true }],
+      },
+      { name: "params.b", label: "<b>2</b>", isNumber: true, value: 1, min: 0, max: 2, step: 1 },
+      { name: "params.c", label: "<b>3</b>", isBool: true, checked: true },
+      { name: "params.d", label: "<b>4</b>", isColor: true, value: '"><b>c</b>' },
+      { name: "params.e", label: "<b>5</b>", isText: true, value: '"><b>t</b>', max: 40, hint: "<b>H</b>" },
+      { name: "params.f", label: "<b>6</b>", isPath: true, value: '"><b>p</b>', pickType: "image" },
+    ],
+  },
 };
 
 describe("templates", () => {
