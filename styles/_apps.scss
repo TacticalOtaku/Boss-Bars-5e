@@ -178,3 +178,141 @@
 .bb5e-hud-button.active {
   color: #c9a45c;
 }
+
+// Profile kind switch.
+.bb5e-kind {
+  display: flex;
+  gap: 16px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+
+  label {
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+  }
+}
+
+// A live card drawn by the HUD renderer: the column is laid out in place, not on the screen.
+.bb5e-preview {
+  padding: 10px;
+  border-radius: 9px;
+  background: #2b2f38;
+
+  .bb5e-column {
+    position: static;
+    translate: none;
+    width: 14.375em;
+    font-size: 16px;
+  }
+}
+
+// Elite ranks editor.
+.bb5e-ranks {
+  container-type: inline-size;
+}
+
+.bb5e-ranks__list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.bb5e-ranks__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 16em auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--bb5e-app-surface);
+  box-shadow: var(--bb5e-app-raise);
+
+  .bb5e-preview {
+    padding: 6px;
+  }
+}
+
+.bb5e-ranks__order {
+  display: grid;
+  gap: 4px;
+
+  button {
+    width: 28px;
+    height: 24px;
+    padding: 0;
+  }
+}
+
+.bb5e-ranks__line,
+.bb5e-ranks__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.bb5e-ranks__line {
+  input[type="color"] {
+    flex: none;
+    width: 32px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    min-width: 8em;
+  }
+}
+
+.bb5e-ranks__size input {
+  width: 4.5em;
+}
+
+.bb5e-ranks__parts {
+  margin-top: 6px;
+  font-size: var(--font-size-12, 12px);
+}
+
+.bb5e-ranks__remove {
+  width: 32px;
+  color: var(--bb5e-app-danger);
+}
+
+.bb5e-panel__heading {
+  margin: 8px 0 4px;
+  border: 0;
+  color: var(--bb5e-app-muted);
+  font-size: var(--font-size-12, 12px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bb5e-panel__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+// Narrow windows: the live card goes under the fields.
+@container (width < 560px) {
+  .bb5e-ranks__row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+
+    .bb5e-preview {
+      grid-column: 2;
+    }
+  }
+}

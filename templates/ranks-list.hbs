@@ -1,0 +1,33 @@
+<section class="bb5e-ranks">
+  <p class="hint">{{localize "BB5E.Ranks.Hint"}}</p>
+  <ol class="bb5e-ranks__list">
+    {{#each rows}}
+    <li class="bb5e-ranks__row" data-rank-index="{{index}}">
+      <div class="bb5e-ranks__order">
+        <button type="button" data-action="moveUp" data-index="{{index}}" aria-label="{{localize "BB5E.Ranks.MoveUp"}}" {{#if first}}disabled{{/if}}><i class="fa-solid fa-arrow-up" inert></i></button>
+        <button type="button" data-action="moveDown" data-index="{{index}}" aria-label="{{localize "BB5E.Ranks.MoveDown"}}" {{#if last}}disabled{{/if}}><i class="fa-solid fa-arrow-down" inert></i></button>
+      </div>
+      <div class="bb5e-ranks__fields">
+        <div class="bb5e-ranks__line">
+          <input type="color" data-field="color" value="{{color}}" aria-label="{{localize "BB5E.Ranks.Color"}}">
+          <input type="text" data-field="name" value="{{name}}" maxlength="{{@root.limits.name}}" aria-label="{{localize "BB5E.Ranks.Name"}}">
+          <label class="bb5e-ranks__size">{{localize "BB5E.Ranks.Size"}}
+            <input type="number" data-field="size" min="{{@root.limits.sizeMin}}" max="{{@root.limits.sizeMax}}" step="1" value="{{size}}">
+          </label>
+        </div>
+        <div class="bb5e-ranks__parts">
+          <label><input type="checkbox" checked disabled> {{localize "BB5E.Ranks.Part.Icon"}}</label>
+          <label><input type="checkbox" data-part="name" {{#if parts.name}}checked{{/if}}> {{localize "BB5E.Ranks.Part.Name"}}</label>
+          <label><input type="checkbox" data-part="fill" {{#if parts.fill}}checked{{/if}}> {{localize "BB5E.Ranks.Part.Fill"}}</label>
+          <label><input type="checkbox" data-part="statuses" {{#if parts.statuses}}checked{{/if}}> {{localize "BB5E.Ranks.Part.Statuses"}}</label>
+        </div>
+        <p class="bb5e-field-error" data-rank-error="{{index}}" role="alert" hidden></p>
+      </div>
+      <div class="bb5e-preview"></div>
+      <button type="button" class="bb5e-ranks__remove" data-action="removeRank" data-index="{{index}}" aria-label="{{localize "BB5E.Ranks.Remove"}}"><i class="fa-solid fa-trash" inert></i></button>
+    </li>
+    {{/each}}
+  </ol>
+  <p class="bb5e-field-error" data-rank-error="-1" role="alert" hidden></p>
+  <button type="button" data-action="addRank"><i class="fa-solid fa-plus" inert></i> {{localize "BB5E.Ranks.Add"}}</button>
+</section>

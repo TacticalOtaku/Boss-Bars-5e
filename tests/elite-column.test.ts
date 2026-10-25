@@ -1,0 +1,60 @@
+// @vitest-environment happy-dom
+import { beforeEach, describe, expect, it } from "vitest";
+import type { EliteCardView } from "../src/core/view";
+import { createEliteColumn } from "../src/ui/elite-column";
+
+const card = (id: string, extra: Partial<EliteCardView> = {}): EliteCardView => ({
+  id,
+  label: `Orc ${id}`,
+  portrait: { src: "orc.webp", video: false },
+  fraction: 0.5,
+  defeated: false,
+  muted: false,
+  rank: { name: "Veteran", color: "#b0b8c8", size: 34 },
+  parts: { name: true, fill: true },
+  ...extra,
+});
+
+let host: HTMLElement;
+const cards = () => [...host.querySelectorAll<HTMLElement>(".bb5e-elite")];
+
+beforeEach(() => {
+  document.body.innerHTML = '<div id="boss-bars-5e"></div>';
+  host = document.getElementById("boss-bars-5e")!;
+});
+
+describe("createEliteColumn", () => {
+  it("shows the parts the rank allows, rank colour and size, texts as text", () => {
+    createEliteColumn(host, () => true).update([card("a", { label: "<b>Orc</b>" })], 0, 1);
+    const el = cards()[0]!;
+    expect(el.querySelector(".bb5e-elite__name")?.textContent).toBe("<b>Orc</b>");
+    expect(el.querySelector("b")).toBeNull();
+    expect(el.style.getPropertyValue("--bb5e-rank-color")).toBe("#b0b8c8");
+    expect(el.style.getPropertyValue("--bb5e-icon")).toBe("2.125");
+    expect(el.querySelector<HTMLElement>(".bb5e-elite__fill")?.style.transform).toBe("scaleX(0.5)");
+    expect(el.querySelector<HTMLElement>(".bb5e-elite__numbers")?.hidden).toBe(true);
+  });
+
+  it("reduces an icon-only rank to the icon, with the GM's numbers in the tooltip", () => {
+    const parts = { name: false, fill: false };
+    const column = createEliteColumn(host, () => true);
+    column.update([card("a", { parts })], 0, 1);
+    expect(cards()[0]?.classList.contains("bb5e-elite--icon-only")).toBe(true);
+    expect(cards()[0]?.querySelector<HTMLElement>(".bb5e-elite__info")?.hidden).toBe(true);
+    expect(cards()[0]?.dataset.tooltipText).toBeUndefined();
+    expect(cards()[0]?.getAttribute("aria-label")).toBe("Orc a, Veteran");
+    column.update([card("a", { parts, numbers: { value: 5, max: 10, temp: 0 } })], 0, 1);
+    expect(cards()[0]?.dataset.tooltipText).toBe("Orc a: 5 / 10");
+  });
+
+  it("follows the given order and shows the overflow", () => {
+    const column = createEliteColumn(host, () => true);
+    column.update([card("b"), card("a", { count: 2 })], 3, 0.8);
+    expect(cards().map((el) => el.dataset.instanceId)).toEqual(["b", "a"]);
+    expect(cards()[1]?.querySelector(".bb5e-elite__count")?.textContent).toBe("×2");
+    const more = host.querySelector<HTMLElement>(".bb5e-column__more")!;
+    expect([more.hidden, more.textContent]).toEqual([false, "+3"]);
+    column.update([card("b")], 0, 0.8);
+    expect(more.hidden).toBe(true);
+  });
+});

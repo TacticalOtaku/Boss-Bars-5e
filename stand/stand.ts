@@ -1,9 +1,10 @@
 import "../styles/boss-bars-5e.scss";
 import { PLAYER_SCREENS } from "../src/core/screens";
-import { buildBossView, type BossViewInput } from "../src/core/view";
+import { buildViews, type SubjectInput } from "../src/core/view";
 import { createBossStack } from "../src/ui/boss-stack";
+import { createEliteColumn } from "../src/ui/elite-column";
 import { mountOverlay } from "../src/ui/overlay";
-import { FIXTURE_BOSSES } from "./fixtures";
+import { FIXTURE_BOSSES, FIXTURE_ELITES, FIXTURE_RANKS } from "./fixtures";
 
 const select = document.querySelector<HTMLSelectElement>("#screen")!;
 const viewport = document.querySelector<HTMLElement>(".stand-viewport")!;
@@ -27,53 +28,64 @@ select.addEventListener("change", applyScreen);
 new ResizeObserver(applyScreen).observe(viewport);
 applyScreen();
 
-const state = {
-  gm: true,
-  uiScale: 1,
+const fresh = () => ({
   bosses: [structuredClone(FIXTURE_BOSSES[0]!)],
-  collapsed: new Set<string>(),
-};
+  elites: structuredClone(FIXTURE_ELITES),
+});
+const state = { gm: true, uiScale: 1, limit: 12, collapsed: new Set<string>(), ...fresh() };
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const stack = createBossStack(mountOverlay(host), {
+const overlay = mountOverlay(host);
+const stack = createBossStack(overlay, {
   labels: { collapse: "Свернуть", expand: "Развернуть" },
   onCollapse(id, collapsed) {
     if (collapsed) state.collapsed.add(id);
     else state.collapsed.delete(id);
     render();
   },
-  reducedMotion: () => matchMedia("(prefers-reduced-motion: reduce)").matches,
+  reducedMotion,
 });
+const column = createEliteColumn(overlay, reducedMotion);
 
 function render(): void {
   const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true };
-  stack.update(
-    state.bosses.flatMap((boss) => buildBossView(boss, viewer) ?? []),
-    state.uiScale,
-  );
+  const views = buildViews([...state.bosses, ...state.elites], FIXTURE_RANKS, viewer, state.limit);
+  stack.update(views.bosses, state.uiScale);
+  column.update(views.elites, views.eliteOverflow, state.uiScale);
 }
 
-const first = () => state.bosses[0];
-const hurt = (share: number) => (boss: BossViewInput) => {
-  if (boss.hp) boss.hp.value = Math.max(0, Math.round(boss.hp.value - boss.hp.effectiveMax * share));
+const firstHp = () => state.bosses[0]?.tokens[0]?.hp;
+const hurt = (subject: SubjectInput | undefined, share: number) => {
+  for (const token of subject?.tokens ?? []) {
+    if (token.hp) token.hp.value = Math.max(0, Math.round(token.hp.value - token.hp.effectiveMax * share));
+  }
 };
 
 const ACTIONS: Record<string, () => void> = {
-  "Урон 10%": () => first() && hurt(0.1)(first()!),
-  "Урон 30%": () => first() && hurt(0.3)(first()!),
+  "Урон 10%": () => hurt(state.bosses[0], 0.1),
+  "Урон 30%": () => hurt(state.bosses[0], 0.3),
   Лечение: () => {
-    const hp = first()?.hp;
+    const hp = firstHp();
     if (hp) hp.value = Math.min(hp.effectiveMax, hp.value + Math.round(hp.effectiveMax * 0.2));
   },
-  Поражение: () => first() && (first()!.dead = !first()!.dead),
-  "Скрыть токен": () => first() && (first()!.tokenHidden = !first()!.tokenHidden),
+  Поражение: () => {
+    const token = state.bosses[0]?.tokens[0];
+    if (token) token.defeated = !token.defeated;
+  },
+  "Скрыть токен": () => {
+    const token = state.bosses[0]?.tokens[0];
+    if (token) token.hidden = !token.hidden;
+  },
   "Второй босс": () => {
     if (state.bosses.length > 1) state.bosses.pop();
     else state.bosses.push(structuredClone(FIXTURE_BOSSES[1]!));
   },
+  "Урон элите": () => state.elites.forEach((elite) => hurt(elite, 0.2)),
+  "Лимит 12 / 3": () => (state.limit = state.limit === 12 ? 3 : 12),
   "ГМ / игрок": () => (state.gm = !state.gm),
   "uiScale 0.8 / 1": () => (state.uiScale = state.uiScale === 1 ? 0.8 : 1),
   Сброс: () => {
-    state.bosses = [structuredClone(FIXTURE_BOSSES[0]!)];
+    Object.assign(state, fresh());
     state.collapsed.clear();
   },
 };

@@ -1,58 +1,64 @@
 <section class="tab {{tabs.main.cssClass}}" data-tab="main" data-group="sheet">
   <div class="bb5e-card">
+    <fieldset class="bb5e-kind">
+      <legend>{{localize "BB5E.Profile.Kind.Label"}}</legend>
+      <label><input type="radio" name="kind" value="boss" {{#unless isElite}}checked{{/unless}}> {{localize "BB5E.Profile.Kind.Boss"}}</label>
+      <label><input type="radio" name="kind" value="elite" {{#if isElite}}checked{{/if}}> {{localize "BB5E.Profile.Kind.Elite"}}</label>
+    </fieldset>
     <div class="form-group">
       <label for="{{partId}}-playerName">{{localize "BB5E.Profile.PlayerName.Label"}}</label>
       <div class="form-fields">
-        <input
-          type="text"
-          id="{{partId}}-playerName"
-          name="playerName"
-          value="{{profile.playerName}}"
-          maxlength="{{limits.text}}"
-        />
+        <input type="text" id="{{partId}}-playerName" name="playerName" value="{{values.playerName}}" maxlength="{{limits.text}}">
       </div>
       <p class="hint">{{localize "BB5E.Profile.PlayerName.Hint"}}</p>
       <p class="bb5e-field-error" data-error-for="playerName" role="alert" hidden></p>
     </div>
     <div class="form-group">
-      <label for="{{partId}}-title">{{localize "BB5E.Profile.TitleField.Label"}}</label>
-      <div class="form-fields">
-        <input
-          type="text"
-          id="{{partId}}-title"
-          name="title"
-          value="{{profile.title}}"
-          maxlength="{{limits.text}}"
-        />
-      </div>
-      <p class="bb5e-field-error" data-error-for="title" role="alert" hidden></p>
-    </div>
-    <div class="form-group">
       <label for="{{partId}}-portrait">{{localize "BB5E.Profile.Portrait.Label"}}</label>
       <div class="form-fields">
-        <file-picker
-          id="{{partId}}-portrait"
-          name="portrait"
-          type="imagevideo"
-          value="{{profile.portrait}}"
-        ></file-picker>
+        <file-picker id="{{partId}}-portrait" name="portrait" type="imagevideo" value="{{values.portrait}}"></file-picker>
       </div>
       <p class="hint">{{localize "BB5E.Profile.Portrait.Hint"}}</p>
       <p class="bb5e-field-error" data-error-for="portrait" role="alert" hidden></p>
     </div>
     <div class="form-group">
-      <label for="{{partId}}-size">{{localize "BB5E.Profile.Size.Label"}}</label>
+      <label for="{{partId}}-displayMode">{{localize "BB5E.Profile.DisplayMode.Label"}}</label>
       <div class="form-fields">
-        <range-picker
-          id="{{partId}}-size"
-          name="size"
-          min="{{limits.sizeMin}}"
-          max="{{limits.sizeMax}}"
-          step="5"
-          value="{{profile.size}}"
-        ></range-picker>
+        <select id="{{partId}}-displayMode" name="displayMode">
+          <option value="token" {{#unless byActor}}selected{{/unless}}>{{localize "BB5E.Profile.DisplayMode.Token"}}</option>
+          <option value="actor" {{#if byActor}}selected{{/if}}>{{localize "BB5E.Profile.DisplayMode.Actor"}}</option>
+        </select>
       </div>
-      <p class="bb5e-field-error" data-error-for="size" role="alert" hidden></p>
+      <p class="hint">{{localize "BB5E.Profile.DisplayMode.Hint"}}</p>
+    </div>
+    <div data-kind-group="boss" {{#if isElite}}hidden{{/if}}>
+      <div class="form-group">
+        <label for="{{partId}}-title">{{localize "BB5E.Profile.TitleField.Label"}}</label>
+        <div class="form-fields">
+          <input type="text" id="{{partId}}-title" name="title" value="{{values.title}}" maxlength="{{limits.text}}">
+        </div>
+        <p class="bb5e-field-error" data-error-for="title" role="alert" hidden></p>
+      </div>
+      <div class="form-group">
+        <label for="{{partId}}-size">{{localize "BB5E.Profile.Size.Label"}}</label>
+        <div class="form-fields">
+          <range-picker id="{{partId}}-size" name="size" min="{{limits.sizeMin}}" max="{{limits.sizeMax}}" step="5" value="{{values.size}}"></range-picker>
+        </div>
+        <p class="bb5e-field-error" data-error-for="size" role="alert" hidden></p>
+      </div>
+    </div>
+    <div data-kind-group="elite" {{#unless isElite}}hidden{{/unless}}>
+      <div class="form-group">
+        <label for="{{partId}}-rank">{{localize "BB5E.Profile.Rank.Label"}}</label>
+        <div class="form-fields">
+          <select id="{{partId}}-rank" name="rank">
+            {{#each ranks}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}
+          </select>
+        </div>
+        <p class="hint">{{localize "BB5E.Profile.Rank.Hint"}}</p>
+        <p class="bb5e-field-error" data-error-for="rank" role="alert" hidden></p>
+      </div>
+      <div class="bb5e-preview" aria-label="{{localize "BB5E.Profile.Preview"}}"></div>
     </div>
   </div>
 </section>

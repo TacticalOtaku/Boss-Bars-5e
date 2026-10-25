@@ -1,11 +1,15 @@
-import { DATA_VERSION, isRecord, versionStatus, type ReadResult } from "./schema";
+import type { DisplayMode, ProfileKind } from "./profile";
+import { isRecord, migrate, type ReadResult } from "./schema";
 
-/** One shown boss bar, stored in the scene's flags. */
+export const INSTANCES_VERSION = 2;
+
+/** One shown boss bar or elite card, stored in the scene's flags; bound to one token or to an actor. */
 export interface Instance {
   id: string;
-  kind: "boss";
-  tokenId: string;
-  /** Show order: the stack follows it. */
+  kind: ProfileKind;
+  tokenId?: string;
+  actorId?: string;
+  /** Show order: the stack and each rank of the column follow it. */
   order: number;
 }
 
@@ -14,28 +18,43 @@ export interface InstanceState {
   items: Instance[];
 }
 
+export type InstanceTarget = { tokenId: string } | { actorId: string };
+
 const isInstance = (item: unknown): item is Instance =>
   isRecord(item) &&
   typeof item.id === "string" &&
-  item.kind === "boss" &&
-  typeof item.tokenId === "string" &&
+  (item.kind === "boss" || item.kind === "elite") &&
+  (typeof item.tokenId === "string") !== (typeof item.actorId === "string") &&
   Number.isFinite(item.order);
+
+// v2 added elites and actor-bound instances; v1 items are valid v2 items.
+const STEPS = { 1: (raw: Record<string, unknown>) => raw };
 
 /** Missing flag = nothing shown. Malformed items are skipped; unknown keys are kept for the next write. */
 export function readInstances(raw: unknown): ReadResult<InstanceState> {
-  if (raw === undefined || raw === null)
-    return { status: "ok", value: { dataVersion: DATA_VERSION, items: [] } };
+  if (raw === undefined || raw === null) {
+    return { status: "ok", value: { dataVersion: INSTANCES_VERSION, items: [] } };
+  }
   if (!isRecord(raw) || !Array.isArray(raw.items)) return { status: "invalid" };
-  const version = versionStatus(raw);
-  if (version !== "ok") return { status: version };
-  return { status: "ok", value: { ...raw, dataVersion: DATA_VERSION, items: raw.items.filter(isInstance) } };
+  const migrated = migrate(raw, INSTANCES_VERSION, STEPS);
+  if (migrated.status !== "ok") return migrated;
+  const items = (migrated.value.items as unknown[]).filter(isInstance);
+  return { status: "ok", value: { ...migrated.value, dataVersion: INSTANCES_VERSION, items } };
 }
 
-/** Shows the token's bar; a token that is already shown keeps its bar (same state returned). */
-export function showInstance(state: InstanceState, tokenId: string, id: string): InstanceState {
-  if (state.items.some((item) => item.tokenId === tokenId)) return state;
+const sameTarget = (item: Instance, target: InstanceTarget) =>
+  "tokenId" in target ? item.tokenId === target.tokenId : item.actorId === target.actorId;
+
+/** Shows a bar or card; a target that is already shown keeps it (same state returned). */
+export function showInstance(
+  state: InstanceState,
+  kind: ProfileKind,
+  target: InstanceTarget,
+  id: string,
+): InstanceState {
+  if (state.items.some((item) => sameTarget(item, target))) return state;
   const order = Math.max(0, ...state.items.map((item) => item.order)) + 1;
-  return { ...state, items: [...state.items, { id, kind: "boss", tokenId, order }] };
+  return { ...state, items: [...state.items, { id, kind, ...target, order }] };
 }
 
 export function hideInstance(state: InstanceState, id: string): InstanceState {
@@ -50,4 +69,51 @@ export function hideAll(state: InstanceState): InstanceState {
 export function pruneInstances(state: InstanceState, keep: (item: Instance) => boolean): InstanceState {
   const items = state.items.filter(keep);
   return items.length === state.items.length ? state : { ...state, items };
+}
+
+/** What the profile behind an instance says now; null — leave the instance alone. */
+export type BindingInfo = (
+  item: Instance,
+) => { actorId: string; mode: DisplayMode; kind: ProfileKind } | null;
+
+/**
+ * After a profile changed its display mode or kind, rebinds shown instances to match: per-token items of an actor
+ * merge into one per-actor item, a per-actor item splits into one item per token. Shown stays shown, in its place.
+ * Returns the same state when nothing changes.
+ */
+export function rebindInstances(
+  state: InstanceState,
+  info: BindingInfo,
+  tokensOf: (actorId: string) => string[],
+  newId: () => string,
+): InstanceState {
+  const items: Instance[] = [];
+  let changed = false;
+  for (const item of state.items) {
+    const now = info(item);
+    if (!now) {
+      items.push(item);
+      continue;
+    }
+    const kind = now.kind;
+    if (now.mode === "actor" && item.tokenId) {
+      changed = true;
+      if (items.some((each) => each.actorId === now.actorId)) continue;
+      const merged: Instance = { ...item, kind, actorId: now.actorId };
+      delete merged.tokenId;
+      items.push(merged);
+    } else if (now.mode === "token" && item.actorId) {
+      changed = true;
+      tokensOf(now.actorId).forEach((tokenId, index) => {
+        if (items.some((each) => each.tokenId === tokenId)) return;
+        const split: Instance = { ...item, id: index ? newId() : item.id, kind, tokenId };
+        delete split.actorId;
+        items.push(split);
+      });
+    } else {
+      if (item.kind !== kind) changed = true;
+      items.push(item.kind === kind ? item : { ...item, kind });
+    }
+  }
+  return changed ? { ...state, items } : state;
 }

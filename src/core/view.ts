@@ -1,16 +1,19 @@
+import { aggregate, type TokenState } from "./aggregate";
 import { hpFraction, type HpData } from "./hp";
 import type { Instance } from "./instances";
-import type { BossProfile } from "./profile";
+import { numberLabels } from "./labels";
+import type { Profile } from "./profile";
+import { rankOf, type Rank } from "./ranks";
 
-export interface BossViewInput {
+/** One shown instance with everything the store read for it. */
+export interface SubjectInput {
   instance: Instance;
-  profile: BossProfile;
-  tokenName: string;
-  tokenHidden: boolean;
+  profile: Profile;
+  /** Fallback label: the token's name (one per token) or the actor's name (one per actor). */
+  name: string;
   actorImg: string;
-  hp: HpData | null;
-  dead: boolean;
-  combatantDefeated: boolean;
+  /** The bound token, or all the actor's tokens on the scene. */
+  tokens: TokenState[];
 }
 
 export interface Viewer {
@@ -19,43 +22,108 @@ export interface Viewer {
   mayCollapse: boolean;
 }
 
-/** Everything a bar shows. A player's view never carries HP numbers. */
-export interface BossBarView {
+interface CommonView {
   id: string;
   label: string;
-  title: string;
   portrait: { src: string; video: boolean };
-  size: number;
   fraction: number | null;
   defeated: boolean;
   muted: boolean;
-  collapsed: boolean;
-  canCollapse: boolean;
+  /** ×N, only in the one-per-actor mode. */
+  count?: number;
+  /** GM only: a player's view never carries HP numbers. */
   numbers?: { value: number; max: number; temp: number };
 }
 
-const VIDEO = /\.(webm|mp4|m4v|ogv)(\?|#|$)/i;
+export interface BossBarView extends CommonView {
+  title: string;
+  size: number;
+  collapsed: boolean;
+  canCollapse: boolean;
+}
 
-/** null — this viewer must not see the bar (a player and a hidden token). */
-export function buildBossView(input: BossViewInput, viewer: Viewer): BossBarView | null {
-  if (input.tokenHidden && !viewer.isGM) return null;
-  const { instance, profile, hp } = input;
-  const fraction = hp ? hpFraction(hp) : null;
-  const src = profile.portrait ?? input.actorImg;
-  const canCollapse = !viewer.isGM && viewer.mayCollapse;
-  const view: BossBarView = {
-    id: instance.id,
-    label: profile.playerName || input.tokenName,
-    title: profile.title,
-    portrait: { src, video: VIDEO.test(src) },
-    size: profile.size,
-    fraction,
-    defeated: fraction === 0 || input.dead || input.combatantDefeated,
-    muted: input.tokenHidden,
-    collapsed: canCollapse && viewer.collapsed.has(instance.id),
-    canCollapse,
+export interface EliteCardView extends CommonView {
+  rank: { name: string; color: string; size: number };
+  parts: { name: boolean; fill: boolean };
+}
+
+export interface HudViews {
+  bosses: BossBarView[];
+  elites: EliteCardView[];
+  /** Cards beyond the visible limit ("+N"). */
+  eliteOverflow: number;
+}
+
+const VIDEO = /\.(webm|mp4|m4v|ogv)(\?|#|$)/i;
+export const isVideoPath = (src: string) => VIDEO.test(src);
+
+const numbersOf = (hp: HpData | null, isGM: boolean) =>
+  isGM && hp && hpFraction(hp) !== null
+    ? { numbers: { value: hp.value, max: hp.effectiveMax, temp: hp.temp } }
+    : {};
+
+/**
+ * Bars and cards for one viewer: hidden tokens left out for players, equal names numbered the same way for
+ * everyone, elites sorted by rank then show order and cut at `eliteLimit`.
+ */
+export function buildViews(
+  subjects: SubjectInput[],
+  ranks: Rank[],
+  viewer: Viewer,
+  eliteLimit: number,
+): HudViews {
+  const baseLabel = (subject: SubjectInput) => subject.profile.playerName || subject.name;
+  const labels = numberLabels(
+    subjects.map((subject) => ({
+      id: subject.instance.id,
+      label: baseLabel(subject),
+      hidden: subject.tokens.every((token) => token.hidden),
+      order: subject.instance.order,
+    })),
+  );
+  const bosses: BossBarView[] = [];
+  const elites: { view: EliteCardView; rank: number; order: number }[] = [];
+  for (const subject of [...subjects].sort((a, b) => a.instance.order - b.instance.order)) {
+    const total = aggregate(subject.tokens, viewer.isGM);
+    if (!total) continue;
+    const { instance, profile } = subject;
+    const src = profile.portrait ?? subject.actorImg;
+    const common: CommonView = {
+      id: instance.id,
+      label: labels.get(instance.id) ?? baseLabel(subject),
+      portrait: { src, video: VIDEO.test(src) },
+      fraction: total.hp ? hpFraction(total.hp) : null,
+      defeated: total.defeated,
+      muted: total.hidden,
+      ...(profile.displayMode === "actor" && instance.actorId ? { count: total.count } : {}),
+      ...numbersOf(total.hp, viewer.isGM),
+    };
+    if (profile.kind === "boss") {
+      const canCollapse = !viewer.isGM && viewer.mayCollapse;
+      bosses.push({
+        ...common,
+        title: profile.title,
+        size: profile.size,
+        collapsed: canCollapse && viewer.collapsed.has(instance.id),
+        canCollapse,
+      });
+    } else {
+      const { rank, index } = rankOf(ranks, profile.rank);
+      elites.push({
+        view: {
+          ...common,
+          rank: { name: rank.name, color: rank.color, size: rank.size },
+          parts: { name: rank.parts.name, fill: rank.parts.fill },
+        },
+        rank: index,
+        order: instance.order,
+      });
+    }
+  }
+  elites.sort((a, b) => a.rank - b.rank || a.order - b.order);
+  return {
+    bosses,
+    elites: elites.slice(0, eliteLimit).map((entry) => entry.view),
+    eliteOverflow: Math.max(0, elites.length - eliteLimit),
   };
-  if (viewer.isGM && hp && fraction !== null)
-    view.numbers = { value: hp.value, max: hp.effectiveMax, temp: hp.temp };
-  return view;
 }

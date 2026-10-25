@@ -1,0 +1,144 @@
+// Elite column and card, layout A rows in the "Classic RPG" look (mock-up prototype/hud-variants, variant A).
+// Until the layout mode (stage 3): left, vertically centred, right after the scene controls column.
+
+.bb5e-column {
+  position: absolute;
+  top: 50%;
+  left: calc(104px * var(--bb5e-ui-scale, 1));
+  translate: 0 -50%;
+  width: 14.375em;
+  font-size: calc(16px * var(--bb5e-ui-scale, 1));
+}
+
+.bb5e-column__cards {
+  display: grid;
+  gap: 0.375em;
+  justify-items: start;
+}
+
+.bb5e-column__more {
+  margin-top: 0.375em;
+  padding: 0.125em 0.5em;
+  width: max-content;
+  border-radius: 0.1875em;
+  background: rgb(0 0 0 / 60%);
+  color: var(--bb5e-ink);
+  font-size: 0.75em;
+}
+
+.bb5e-elite {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+  width: 100%;
+  padding: 0.25em 0.5em 0.25em 0.25em;
+  border-left: 0.1875em solid var(--bb5e-rank-color, var(--bb5e-gold));
+  border-radius: 0.1875em;
+  background: linear-gradient(90deg, rgb(0 0 0 / 80%), rgb(0 0 0 / 40%));
+  color: var(--bb5e-ink);
+  transition: opacity 0.3s ease;
+
+  &--icon-only {
+    width: auto;
+    padding: 0.1875em;
+  }
+
+  // GM only: an icon-only card takes the pointer so Foundry's tooltip can show the numbers.
+  &--hint {
+    pointer-events: auto;
+  }
+
+  &--muted {
+    opacity: 0.5;
+  }
+
+  &--defeated {
+    filter: grayscale(0.85) brightness(0.7);
+  }
+}
+
+.bb5e-elite__icon {
+  flex: none;
+  width: calc(var(--bb5e-icon, 2.125) * 1em);
+  height: calc(var(--bb5e-icon, 2.125) * 1em);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 0.25em;
+  background: var(--bb5e-empty);
+
+  img,
+  video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    object-fit: cover;
+  }
+}
+
+.bb5e-elite__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bb5e-elite__head {
+  display: flex;
+  gap: 0.375em;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 0.75em;
+}
+
+.bb5e-elite__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb5e-elite__count,
+.bb5e-boss__count {
+  flex: none;
+  color: var(--bb5e-gold);
+  font-weight: 600;
+}
+
+.bb5e-elite__numbers {
+  flex: none;
+  margin-left: auto;
+  font-family: monospace;
+  opacity: 0.85;
+}
+
+.bb5e-elite__meter {
+  position: relative;
+  height: 0.3125em;
+  margin-top: 0.1875em;
+  overflow: hidden;
+  background: #000;
+}
+
+.bb5e-elite__fill {
+  position: absolute;
+  inset: 0;
+  background: #c23b33;
+  transform-origin: left center;
+  transition: transform 0.25s ease-out;
+}
+
+.bb5e-elite__rank {
+  margin-top: 0.125em;
+  color: var(--bb5e-rank-color, var(--bb5e-gold));
+  font-size: 0.625em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb5e-elite__fill {
+    transition: none;
+  }
+}
+
+.performance-low .bb5e-elite__fill {
+  transition: none;
+}

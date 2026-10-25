@@ -1,7 +1,8 @@
 import { MODULE_ID } from "../constants";
+import { defaultRanks, readRanks, type Rank } from "../core/ranks";
 
-/** onChange refreshes the HUD. */
-export function registerSettings(onChange: () => void): void {
+/** onChange refreshes the HUD; openRanks opens the (lazily loaded) rank editor. */
+export function registerSettings(onChange: () => void, openRanks: () => void): void {
   // Per scene: ids of the bars this player collapsed (spec §2, client-side, never written to the world).
   game.settings.register(MODULE_ID, "collapsed", {
     scope: "client",
@@ -20,6 +21,46 @@ export function registerSettings(onChange: () => void): void {
     default: true,
     onChange,
   });
+  // Empty until the GM saves: the translated default ranks apply meanwhile.
+  game.settings.register(MODULE_ID, "ranks", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {},
+    onChange,
+  });
+
+  // registerMenu needs an ApplicationV2 class at init; this stand-in opens the real window on demand.
+  class RanksMenu extends foundry.applications.api.ApplicationV2 {
+    override render() {
+      openRanks();
+      return Promise.resolve(this);
+    }
+  }
+  game.settings.registerMenu(MODULE_ID, "ranksMenu", {
+    name: "BB5E.Ranks.Title",
+    label: "BB5E.Ranks.Open",
+    hint: "BB5E.Ranks.Hint",
+    icon: "fa-solid fa-ranking-star",
+    type: RanksMenu,
+    restricted: true,
+  });
+}
+
+export function defaultRankList(): Rank[] {
+  const name = (key: string) => game.i18n.localize(key);
+  return defaultRanks([
+    name("BB5E.Ranks.Default.Captain"),
+    name("BB5E.Ranks.Default.Veteran"),
+    name("BB5E.Ranks.Default.Fighter"),
+    name("BB5E.Ranks.Default.Guard"),
+  ]);
+}
+
+/** Saved ranks, or the defaults (also when the saved list was written by a newer version and cannot be read). */
+export function currentRanks(): Rank[] {
+  const read = readRanks(game.settings.get(MODULE_ID, "ranks"), defaultRankList());
+  return read.status === "ok" ? read.value.items : defaultRankList();
 }
 
 export function playersMayCollapse(): boolean {

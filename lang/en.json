@@ -6,20 +6,32 @@
       "Expand": "Expand the boss bar"
     },
     "Hud": {
-      "Setup": "Set up a boss profile",
-      "Show": "Show the boss bar",
-      "Hide": "Hide the boss bar",
-      "RightClick": "Right-click: boss profile"
+      "Setup": "Set up a Boss Bars profile",
+      "ShowBoss": "Show the boss bar",
+      "HideBoss": "Hide the boss bar",
+      "ShowElite": "Show the elite card",
+      "HideElite": "Hide the elite card",
+      "RightClick": "Right-click: profile"
+    },
+    "Unsaved": {
+      "Badge": "Unsaved",
+      "Title": "Unsaved changes",
+      "Body": "Close the window and discard the changes?"
     },
     "Profile": {
-      "Open": "Boss profile",
-      "Title": "Boss profile",
+      "Open": "Boss Bars profile",
+      "Title": "Boss Bars profile",
       "Tab": {
         "Main": "Main"
       },
+      "Kind": {
+        "Label": "Kind",
+        "Boss": "Boss",
+        "Elite": "Elite"
+      },
       "PlayerName": {
         "Label": "Name for players",
-        "Hint": "Leave empty to show the token's name. Change it to reveal the boss."
+        "Hint": "Leave empty to show the token's name (or the actor's, one per actor). Change it to reveal the enemy."
       },
       "TitleField": {
         "Label": "Title"
@@ -28,27 +40,62 @@
         "Label": "Portrait",
         "Hint": "Image, GIF, WebP or a webm video. Empty: the actor's image."
       },
+      "DisplayMode": {
+        "Label": "Display",
+        "Token": "One per token",
+        "Actor": "One per actor (×N)",
+        "Hint": "One per actor sums the HP of all its tokens on the scene and shows their number."
+      },
       "Size": {
         "Label": "Size, %"
       },
-      "Save": "Save",
-      "Unsaved": {
-        "Badge": "Unsaved",
-        "Title": "Unsaved changes",
-        "Body": "Close the profile and discard the changes?"
+      "Rank": {
+        "Label": "Rank",
+        "Hint": "The rank decides which parts the card shows and where it stands in the column."
       },
+      "Preview": "Card preview",
+      "Save": "Save",
       "Remove": {
         "Button": "Remove profile",
-        "Title": "Remove the boss profile",
-        "Body": "The actor stops being a boss and its bars are hidden on every scene. Remove the profile?"
+        "Title": "Remove the profile",
+        "Body": "The actor stops being a boss or elite, and its bars and cards are hidden on every scene. Remove the profile?"
       }
+    },
+    "Ranks": {
+      "Title": "Elite ranks",
+      "Open": "Edit ranks",
+      "Hint": "Strongest first. A rank sets which parts an elite card shows, its colour and icon size.",
+      "Default": {
+        "Captain": "Captain",
+        "Veteran": "Veteran",
+        "Fighter": "Fighter",
+        "Guard": "Guard"
+      },
+      "Sample": "Orc",
+      "NewName": "New rank",
+      "MoveUp": "Move up (stronger)",
+      "MoveDown": "Move down (weaker)",
+      "Color": "Colour",
+      "Name": "Rank name",
+      "Size": "Icon, px",
+      "Part": {
+        "Icon": "Icon",
+        "Name": "Name",
+        "Fill": "Fill",
+        "Statuses": "Statuses"
+      },
+      "Add": "Add rank",
+      "Remove": "Remove rank",
+      "RemoveBody": "{count} actor(s) have this rank. They will get the rank \"{fallback}\". Remove the rank?"
     },
     "Panel": {
       "Title": "Active bosses",
+      "Bosses": "Bosses",
+      "Elites": "Elites",
       "Show": "Show",
       "Hide": "Hide",
       "HideAll": "Hide all",
-      "Empty": "No tokens with a boss profile on this scene.",
+      "Empty": "No tokens with a Boss Bars profile on this scene.",
       "NoScene": "No scene is being viewed."
     },
     "Setting": {
@@ -60,12 +107,17 @@
     "Error": {
       "TooLong": "Too long.",
       "SizeRange": "Size must be between 50 and 200%.",
+      "NoRank": "Choose a rank.",
+      "NoRanks": "There must be at least one rank.",
+      "TooManyRanks": "There can be at most 20 ranks.",
+      "RankName": "A rank needs a name of at most 40 characters.",
+      "RankSize": "The icon size must be between 24 and 64 px.",
       "NotGM": "Only a GM can change the boss bars.",
       "NoGM": "No GM is online: showing and hiding wait for a GM.",
       "NotActiveGM": "This GM is not the active GM.",
       "Invalid": "The request or the stored data is invalid.",
       "NewerData": "This data was saved by a newer Boss Bars 5e version and is left unchanged.",
-      "NoProfile": "This token's actor has no boss profile.",
+      "NoProfile": "This token's actor has no Boss Bars profile.",
       "WriteFailed": "The boss bars could not be changed. See the console.",
       "WindowFailed": "The Boss Bars 5e window could not be loaded. See the console."
     }

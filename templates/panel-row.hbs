@@ -1,0 +1,7 @@
+<li class="bb5e-panel__row{{#if instanceId}} bb5e-panel__row--shown{{/if}}" data-token-id="{{tokenId}}" {{#if instanceId}}data-instance-id="{{instanceId}}"{{/if}}>
+  <img src="{{img}}" alt="">
+  <span class="bb5e-panel__name">{{name}}{{#if many}} ×{{count}}{{/if}}</span>
+  <button type="button" data-action="toggle" aria-pressed="{{#if instanceId}}true{{else}}false{{/if}}">
+    {{#if instanceId}}{{localize "BB5E.Panel.Hide"}}{{else}}{{localize "BB5E.Panel.Show"}}{{/if}}
+  </button>
+</li>
