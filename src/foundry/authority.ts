@@ -1,6 +1,13 @@
 import { MODULE_ID } from "../constants";
 import { parseAction, type WriteAction } from "../core/actions";
-import { hideAll, hideInstance, pruneInstances, readInstances, showInstance } from "../core/instances";
+import {
+  hideAll,
+  hideInstance,
+  pruneInstances,
+  readInstances,
+  rebindInstances,
+  showInstance,
+} from "../core/instances";
 import { readProfile } from "../core/profile";
 import { logger } from "../logger";
 
@@ -68,8 +75,17 @@ async function apply(action: WriteAction): Promise<void> {
   let next = read.value;
   if (action.type === "show") {
     const token = scene.tokens.get(action.tokenId);
-    if (!token || profileStatus(token.baseActor) !== "ok") throw new WriteError("BB5E.Error.NoProfile");
-    next = showInstance(next, token.id, foundry.utils.randomID());
+    const profile = readProfile(token?.baseActor?.flags[MODULE_ID]?.profile);
+    if (!token || profile.status !== "ok") throw new WriteError("BB5E.Error.NoProfile");
+    const byActor = profile.value.displayMode === "actor" && token.actorId;
+    // After a display mode change, the bar bound the other way is replaced rather than doubled.
+    next = pruneInstances(next, (item) =>
+      byActor
+        ? !(item.tokenId && scene.tokens.get(item.tokenId)?.actorId === token.actorId)
+        : !(item.actorId && item.actorId === token.actorId),
+    );
+    const target = byActor ? { actorId: byActor } : { tokenId: token.id };
+    next = showInstance(next, profile.value.kind, target, foundry.utils.randomID());
   } else if (action.type === "hide") {
     next = hideInstance(next, action.instanceId);
   } else {
@@ -79,7 +95,8 @@ async function apply(action: WriteAction): Promise<void> {
 }
 
 /**
- * Automatic clean-up, active GM only: bars of deleted tokens and of actors whose profile was removed go away.
+ * Automatic clean-up, active GM only: bars and cards of deleted tokens, of actors without tokens left on the scene
+ * and of actors whose profile was removed go away.
  * Scenes holding newer or unreadable data are left alone.
  */
 export function pruneScenes(scenes: Iterable<SceneDocument>): void {
@@ -88,10 +105,29 @@ export function pruneScenes(scenes: Iterable<SceneDocument>): void {
     void enqueue(async () => {
       const read = sceneInstances(scene);
       if (read.status !== "ok") return;
-      const next = pruneInstances(read.value, (item) => {
-        const token = scene.tokens.get(item.tokenId);
-        return Boolean(token) && profileStatus(token?.baseActor) !== "none";
+      const pruned = pruneInstances(read.value, (item) => {
+        if (item.tokenId) {
+          const token = scene.tokens.get(item.tokenId);
+          return Boolean(token) && profileStatus(token?.baseActor) !== "none";
+        }
+        // Bound to an actor: kept while the actor has a token on the scene.
+        const actor = game.actors.get(item.actorId ?? "");
+        return (
+          scene.tokens.some((token) => token.actorId === item.actorId) && profileStatus(actor) !== "none"
+        );
       });
+      // A profile whose display mode or kind changed gets its shown items rebound to match.
+      const next = rebindInstances(
+        pruned,
+        (item) => {
+          const actorId = item.actorId ?? scene.tokens.get(item.tokenId ?? "")?.actorId;
+          const profile = readProfile(game.actors.get(actorId ?? "")?.flags[MODULE_ID]?.profile);
+          if (!actorId || profile.status !== "ok") return null;
+          return { actorId, mode: profile.value.displayMode, kind: profile.value.kind };
+        },
+        (actorId) => scene.tokens.filter((token) => token.actorId === actorId).map((token) => token.id),
+        () => foundry.utils.randomID(),
+      );
       if (next !== read.value) await scene.setFlag(MODULE_ID, "instances", next);
     }).catch((error) => logger.error("Clean-up failed", scene.id, error));
   }

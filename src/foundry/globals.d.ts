@@ -30,6 +30,8 @@ declare global {
     id: string;
     name: string;
     hidden: boolean;
+    actorId: string | null;
+    actorLink: boolean;
     actor: ActorDocument | null;
     baseActor: ActorDocument | null;
     parent: SceneDocument | null;
@@ -75,9 +77,11 @@ declare global {
     user: UserDocument;
     users: FoundryCollection<UserDocument> & { activeGM: UserDocument | null };
     scenes: FoundryCollection<SceneDocument>;
+    actors: FoundryCollection<ActorDocument>;
     combats: FoundryCollection<CombatDocument>;
     settings: {
       register(namespace: string, key: string, config: Record<string, unknown>): void;
+      registerMenu(namespace: string, key: string, config: Record<string, unknown>): void;
       get(namespace: string, key: string): unknown;
       set(namespace: string, key: string, value: unknown): Promise<unknown>;
     };
@@ -99,7 +103,11 @@ declare global {
   };
 
   const foundry: {
-    utils: { randomID(): string; hasProperty(object: object, key: string): boolean };
+    utils: {
+      randomID(): string;
+      hasProperty(object: object, key: string): boolean;
+      escapeHTML(value: string): string;
+    };
     applications: {
       instances: Map<string, ApplicationV2Instance>;
       api: {

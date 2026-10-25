@@ -1,16 +1,21 @@
 @use "boss-bar";
+@use "elite";
 @use "apps";
 
-// The overlay covers the whole #interface (not #ui-middle) and only its blocks take pointer events.
-// Theme tokens live on this root, never on :root. The HUD keeps its own look whatever the Foundry theme.
-#boss-bars-5e {
+// Theme tokens live on the HUD root (and on editor previews drawn by the same renderer), never on :root.
+// The HUD keeps its own look whatever the Foundry theme.
+#boss-bars-5e,
+.bb5e-preview {
   --bb5e-ink: #e8e2d6;
   --bb5e-gold: #c9a45c;
   --bb5e-fill: linear-gradient(#e0473f, #8e1414);
   --bb5e-trail: #f3e3b0;
   --bb5e-empty: #1a0d0d;
   --bb5e-font-display: georgia, "Times New Roman", serif;
+}
 
+// The overlay covers the whole #interface (not #ui-middle) and only its blocks take pointer events.
+#boss-bars-5e {
   position: absolute;
   inset: 0;
   z-index: var(--z-index-app);

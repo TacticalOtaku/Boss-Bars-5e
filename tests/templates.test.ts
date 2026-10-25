@@ -14,17 +14,40 @@ function files(dir: string, pattern: RegExp): string[] {
 const templates = files("templates", /\.hbs$/);
 const handlebars = Handlebars.create();
 handlebars.registerHelper("localize", (key: string) => key);
+// Foundry registers preloaded templates as partials under their module path.
+for (const file of templates) {
+  const name = file.replaceAll("\\", "/").split("/").at(-1);
+  handlebars.registerPartial(`modules/boss-bars-5e/templates/${name}`, readFileSync(file, "utf8"));
+}
 
-/** A context that switches every optional branch on. */
+const panelRow = { tokenId: "t", instanceId: "i", name: "<b>Boss</b>", img: "a.webp", many: true, count: 3 };
+/** A context that switches every optional branch on, with markup in every user-written text. */
 const context = {
   partId: "app-main",
   tabs: { main: { cssClass: "active" } },
-  profile: { playerName: '"><img src=x>', title: "", portrait: null, size: 100 },
-  limits: { text: 80, sizeMin: 50, sizeMax: 200 },
+  values: { playerName: '"><img src=x>', title: "<b>T</b>", portrait: null, size: 100, rank: "r" },
+  isElite: true,
+  byActor: true,
+  ranks: [{ id: "r", name: "<b>R</b>", selected: true }],
+  limits: { text: 80, sizeMin: 50, sizeMax: 200, name: 40 },
   hasProfile: true,
   hasScene: true,
+  anyRows: true,
   anyShown: true,
-  rows: [{ tokenId: "t", instanceId: "i", name: "<b>Boss</b>", img: "a.webp" }],
+  bosses: [panelRow],
+  elites: [panelRow],
+  rows: [
+    {
+      index: 0,
+      first: true,
+      last: false,
+      id: "r",
+      name: '"><b>R</b>',
+      color: "#ffffff",
+      size: 30,
+      parts: { name: true, fill: true, statuses: true },
+    },
+  ],
 };
 
 describe("templates", () => {

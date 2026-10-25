@@ -6,6 +6,7 @@ import { registerSettings, setCollapsed } from "./foundry/settings";
 import { startStore, type BossHud } from "./foundry/store";
 import { logger } from "./logger";
 import { createBossStack } from "./ui/boss-stack";
+import { createEliteColumn } from "./ui/elite-column";
 import { mountOverlay } from "./ui/overlay";
 
 let hud: BossHud | null = null;
@@ -16,8 +17,11 @@ function loadFailed(error: unknown): void {
   ui.notifications.error("BB5E.Error.WindowFailed", { localize: true });
 }
 
+const openRanks = () =>
+  void import("./apps/ranks-editor").then(({ openRanksEditor }) => openRanksEditor(), loadFailed);
+
 Hooks.once("init", () => {
-  registerSettings(() => hud?.refresh());
+  registerSettings(() => hud?.refresh(), openRanks);
   registerAuthority();
   registerEntryPoints({
     openProfile: (actor) =>
@@ -27,7 +31,7 @@ Hooks.once("init", () => {
       ),
     openPanel: () =>
       void import("./apps/active-bosses").then(
-        ({ openActiveBosses }) => hud && openActiveBosses(hud),
+        ({ openActiveBosses }) => hud && openActiveBosses(hud, openRanks),
         loadFailed,
       ),
   });
@@ -40,8 +44,12 @@ Hooks.once("ready", () => {
     logger.error("#interface not found; overlay not mounted");
     return;
   }
+  const reducedMotion = () =>
+    matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    document.body.classList.contains("performance-low");
   let shownIds: string[] = [];
-  const stack = createBossStack(mountOverlay(host), {
+  const overlay = mountOverlay(host);
+  const stack = createBossStack(overlay, {
     labels: {
       collapse: game.i18n.localize("BB5E.Bar.Collapse"),
       expand: game.i18n.localize("BB5E.Bar.Expand"),
@@ -50,21 +58,22 @@ Hooks.once("ready", () => {
       const scene = canvas?.scene;
       if (scene) void setCollapsed(scene.id, id, collapsed, shownIds);
     },
-    reducedMotion: () =>
-      matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      document.body.classList.contains("performance-low"),
+    reducedMotion,
   });
+  const column = createEliteColumn(overlay, reducedMotion);
   hud = startStore((views, uiScale) => {
-    shownIds = views.map((view) => view.id);
-    stack.update(views, uiScale);
+    shownIds = views.bosses.map((view) => view.id);
+    stack.update(views.bosses, uiScale);
+    column.update(views.elites, views.eliteOverflow, uiScale);
   });
   hud.refresh();
 
-  // Automatic clean-up, active GM only: deleted tokens and removed profiles take their bars along.
+  // Automatic clean-up, active GM only: deleted tokens and removed profiles take their bars and cards along.
   pruneScenes(game.scenes.contents);
   Hooks.on("deleteToken", (token: TokenDocument) => token.parent && pruneScenes([token.parent]));
   Hooks.on("updateActor", (actor: ActorDocument, changes: object) => {
-    if (!actor.isToken && foundry.utils.hasProperty(changes, `flags.${MODULE_ID}`))
+    if (!actor.isToken && foundry.utils.hasProperty(changes, `flags.${MODULE_ID}`)) {
       pruneScenes(game.scenes.contents);
+    }
   });
 });

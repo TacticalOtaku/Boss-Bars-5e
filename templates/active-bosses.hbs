@@ -1,25 +1,30 @@
 <section class="bb5e-panel">
   {{#if hasScene}}
-  {{#if rows.length}}
+  {{#if anyRows}}
+  {{#if bosses.length}}
+  <h3 class="bb5e-panel__heading">{{localize "BB5E.Panel.Bosses"}}</h3>
   <ul class="bb5e-panel__list">
-    {{#each rows}}
-    <li class="bb5e-panel__row{{#if instanceId}} bb5e-panel__row--shown{{/if}}" data-token-id="{{tokenId}}"
-      {{#if instanceId}}data-instance-id="{{instanceId}}"{{/if}}>
-      <img src="{{img}}" alt="">
-      <span class="bb5e-panel__name">{{name}}</span>
-      <button type="button" data-action="toggle" aria-pressed="{{#if instanceId}}true{{else}}false{{/if}}">
-        {{#if instanceId}}{{localize "BB5E.Panel.Hide"}}{{else}}{{localize "BB5E.Panel.Show"}}{{/if}}
-      </button>
-    </li>
-    {{/each}}
+    {{#each bosses}}{{> "modules/boss-bars-5e/templates/panel-row.hbs"}}{{/each}}
   </ul>
-  <button type="button" data-action="hideAll" {{#unless anyShown}}disabled{{/unless}}>
-    <i class="fa-solid fa-eye-slash" inert></i> {{localize "BB5E.Panel.HideAll"}}
-  </button>
+  {{/if}}
+  {{#if elites.length}}
+  <h3 class="bb5e-panel__heading">{{localize "BB5E.Panel.Elites"}}</h3>
+  <ul class="bb5e-panel__list">
+    {{#each elites}}{{> "modules/boss-bars-5e/templates/panel-row.hbs"}}{{/each}}
+  </ul>
+  {{/if}}
   {{else}}
   <p class="bb5e-panel__empty">{{localize "BB5E.Panel.Empty"}}</p>
   {{/if}}
   {{else}}
   <p class="bb5e-panel__empty">{{localize "BB5E.Panel.NoScene"}}</p>
   {{/if}}
+  <div class="bb5e-panel__actions">
+    <button type="button" data-action="hideAll" {{#unless anyShown}}disabled{{/unless}}>
+      <i class="fa-solid fa-eye-slash" inert></i> {{localize "BB5E.Panel.HideAll"}}
+    </button>
+    <button type="button" data-action="openRanks">
+      <i class="fa-solid fa-ranking-star" inert></i> {{localize "BB5E.Ranks.Title"}}
+    </button>
+  </div>
 </section>

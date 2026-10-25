@@ -5,20 +5,24 @@ import {
   profileErrors,
   readProfile,
   type ProfileInput,
+  type ProfileKind,
 } from "../core/profile";
+import { rankOf } from "../core/ranks";
+import { currentRanks } from "../foundry/settings";
+import { confirmDiscard, previewCard } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
 
 type FormData = { object: Record<string, unknown> };
 
-/** Boss profile editor; stage 1 has the "Main" tab. It always edits the world actor. */
+/** Boss or elite profile; the "Main" tab of stages 1–2. It always edits the world actor. */
 class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     classes: ["bb5e-app"],
     tag: "form",
     window: { title: "BB5E.Profile.Title", icon: "fa-solid fa-skull", contentClasses: ["standard-form"] },
-    position: { width: 480 },
+    position: { width: 520 },
     form: { handler: ProfileEditor.#onSubmit, closeOnSubmit: false, submitOnChange: false },
     actions: { removeProfile: ProfileEditor.#onRemove },
   };
@@ -26,7 +30,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static PARTS = {
     tabs: { template: "templates/generic/tab-navigation.hbs" },
     main: { template: `${TEMPLATES}/profile-main.hbs` },
-    footer: { template: `${TEMPLATES}/profile-footer.hbs` },
+    footer: { template: `${TEMPLATES}/editor-footer.hbs` },
   };
 
   static TABS = {
@@ -51,9 +55,19 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   override async _prepareContext(options: Record<string, unknown>) {
     const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
+    const ranks = currentRanks();
+    // Both kinds' fields: the stored profile keeps the other kind's values as extra keys.
+    const values: Record<string, unknown> = {
+      ...defaultProfile("boss"),
+      rank: ranks[Math.min(1, ranks.length - 1)]?.id ?? "",
+      ...(read.status === "ok" ? read.value : {}),
+    };
     return {
       ...(await super._prepareContext(options)),
-      profile: read.status === "ok" ? read.value : defaultProfile(),
+      values,
+      isElite: values.kind === "elite",
+      byActor: values.displayMode === "actor",
+      ranks: ranks.map((rank) => ({ id: rank.id, name: rank.name, selected: rank.id === values.rank })),
       hasProfile: read.status === "ok",
       limits: PROFILE_LIMITS,
     };
@@ -62,8 +76,45 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
     await super._onRender(context, options);
     this.#setDirty(this.#dirty);
+    this.#syncKind();
     // Re-rendering replaces the parts, so listening on the form root survives every render.
-    if (options.isFirstRender) this.element.addEventListener("input", () => this.#setDirty(true));
+    if (options.isFirstRender) {
+      this.element.addEventListener("input", () => this.#setDirty(true));
+      this.element.addEventListener("change", (event) => {
+        this.#setDirty(true);
+        if ((event.target as HTMLInputElement).name === "kind") this.#syncKind();
+        else this.#updatePreview();
+      });
+    }
+  }
+
+  #field(name: string): string {
+    return this.element.querySelector<HTMLInputElement>(`[name="${name}"]`)?.value ?? "";
+  }
+
+  #kind(): ProfileKind {
+    return this.element.querySelector<HTMLInputElement>('[name="kind"]:checked')?.value === "elite"
+      ? "elite"
+      : "boss";
+  }
+
+  /** Shows the fields of the chosen kind only. */
+  #syncKind() {
+    const kind = this.#kind();
+    for (const group of this.element.querySelectorAll<HTMLElement>("[data-kind-group]")) {
+      group.hidden = group.dataset.kindGroup !== kind;
+    }
+    this.#updatePreview();
+  }
+
+  #updatePreview() {
+    const host = this.element.querySelector<HTMLElement>(".bb5e-preview");
+    if (!host || this.#kind() !== "elite") return;
+    previewCard(host, {
+      label: this.#field("playerName").trim() || this.actor.name,
+      img: this.#field("portrait").trim() || this.actor.img,
+      rank: rankOf(currentRanks(), this.#field("rank")).rank,
+    });
   }
 
   #setDirty(dirty: boolean) {
@@ -77,10 +128,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     if (this.#dirty && !options.force) {
       if (this.#confirming) return this;
       this.#confirming = true;
-      const discard = await DialogV2.confirm({
-        window: { title: game.i18n.localize("BB5E.Profile.Unsaved.Title") },
-        content: `<p>${game.i18n.localize("BB5E.Profile.Unsaved.Body")}</p>`,
-      });
+      const discard = await confirmDiscard();
       this.#confirming = false;
       if (!discard) return this;
     }
@@ -90,10 +138,12 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onSubmit(this: ProfileEditor, _event: Event, form: HTMLFormElement, formData: FormData) {
     const data = formData.object;
     const input: ProfileInput = {
+      kind: data.kind === "elite" ? "elite" : "boss",
       playerName: String(data.playerName ?? ""),
       title: String(data.title ?? ""),
       portrait: String(data.portrait ?? ""),
       size: Number(data.size),
+      rank: String(data.rank ?? ""),
     };
     const errors = profileErrors(input);
     for (const field of form.querySelectorAll<HTMLElement>("[data-error-for]")) {
@@ -105,18 +155,22 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     if (Object.keys(errors).length) return;
     const current = readProfile(this.actor.flags[MODULE_ID]?.profile);
     if (current.status === "newer") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
+    // Only the chosen kind's fields are written; the other kind's stay in the flag for a switch back.
+    const kindFields =
+      input.kind === "boss" ? { title: input.title.trim(), size: input.size } : { rank: input.rank };
     await this.actor.setFlag(MODULE_ID, "profile", {
-      ...(current.status === "ok" ? current.value : defaultProfile()),
+      ...(current.status === "ok" ? current.value : defaultProfile(input.kind)),
+      kind: input.kind,
       playerName: input.playerName.trim(),
-      title: input.title.trim(),
       portrait: input.portrait.trim() || null,
-      size: input.size,
+      displayMode: data.displayMode === "actor" ? "actor" : "token",
+      ...kindFields,
     });
     this.#setDirty(false);
     await this.render();
   }
 
-  /** Removing the profile hides this actor's bars on every scene (the active GM prunes them). */
+  /** Removing the profile hides this actor's bars and cards on every scene (the active GM prunes them). */
   static async #onRemove(this: ProfileEditor) {
     const confirmed = await DialogV2.confirm({
       window: { title: game.i18n.localize("BB5E.Profile.Remove.Title") },

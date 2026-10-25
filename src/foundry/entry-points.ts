@@ -3,6 +3,12 @@ import { readInstances } from "../core/instances";
 import { readProfile } from "../core/profile";
 import { baseActorOf, hasHp } from "../integrations/dnd5e/actor";
 import { writeOrNotify } from "./authority";
+import { instanceFor } from "./store";
+
+const HUD_LABELS = {
+  boss: { show: "BB5E.Hud.ShowBoss", hide: "BB5E.Hud.HideBoss" },
+  elite: { show: "BB5E.Hud.ShowElite", hide: "BB5E.Hud.HideElite" },
+};
 
 export interface EntryPoints {
   openProfile(actor: ActorDocument): void;
@@ -20,17 +26,18 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
       const actor = token.baseActor;
       const scene = token.parent;
       if (!actor || !scene || !hasHp(actor)) return;
-      const hasProfile = readProfile(actor.flags[MODULE_ID]?.profile).status === "ok";
+      const profile = readProfile(actor.flags[MODULE_ID]?.profile);
+      const hasProfile = profile.status === "ok";
       const read = readInstances(scene.flags[MODULE_ID]?.instances);
-      const instance =
-        read.status === "ok" ? read.value.items.find((item) => item.tokenId === token.id) : undefined;
+      const instance = read.status === "ok" ? instanceFor(read.value.items, token) : undefined;
 
       const button = document.createElement("button");
       button.type = "button"; // the HUD root is a <form> that submits on change
       button.className = "control-icon bb5e-hud-button";
       button.classList.toggle("active", Boolean(instance));
       button.dataset.tooltip = "";
-      const label = !hasProfile ? "BB5E.Hud.Setup" : instance ? "BB5E.Hud.Hide" : "BB5E.Hud.Show";
+      const labels = hasProfile && profile.value.kind === "elite" ? HUD_LABELS.elite : HUD_LABELS.boss;
+      const label = !hasProfile ? "BB5E.Hud.Setup" : instance ? labels.hide : labels.show;
       button.setAttribute(
         "aria-label",
         hasProfile

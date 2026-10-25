@@ -1,67 +1,97 @@
 import { MODULE_ID } from "../constants";
 import { readInstances } from "../core/instances";
-import { readProfile } from "../core/profile";
+import { readProfile, type ProfileKind } from "../core/profile";
 import { writeOrNotify } from "../foundry/authority";
-import type { BossHud } from "../foundry/store";
+import { instanceFor, type BossHud } from "../foundry/store";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 interface Row {
+  kind: ProfileKind;
+  /** Any of the subject's tokens: "show" picks the binding from the profile's display mode. */
   tokenId: string;
   instanceId: string | null;
   name: string;
+  count: number;
   img: string;
   order: number;
 }
 
-/** Tokens of the viewed scene whose actor has a boss profile; shown ones first, in stack order. */
+/**
+ * Tokens of the viewed scene whose actor has a profile: one row per token, or one per actor (×N) in that mode.
+ * Shown ones first, in show order.
+ */
 function sceneRows(scene: SceneDocument): Row[] {
   const read = readInstances(scene.flags[MODULE_ID]?.instances);
   const items = read.status === "ok" ? read.value.items : [];
-  const rows: Row[] = [];
+  const rows = new Map<string, Row>();
   for (const token of scene.tokens.values()) {
     const actor = token.baseActor;
     const profile = readProfile(actor?.flags[MODULE_ID]?.profile);
     if (!actor || profile.status !== "ok") continue;
-    const instance = items.find((item) => item.tokenId === token.id);
-    rows.push({
+    const byActor = profile.value.displayMode === "actor";
+    const key = byActor ? `actor:${actor.id}` : token.id;
+    const existing = rows.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    const instance = instanceFor(items, token);
+    const name = byActor ? actor.name : token.name;
+    rows.set(key, {
+      kind: profile.value.kind,
       tokenId: token.id,
       instanceId: instance?.id ?? null,
-      name: profile.value.playerName ? `${token.name} (${profile.value.playerName})` : token.name,
+      name: profile.value.playerName ? `${name} (${profile.value.playerName})` : name,
+      count: 1,
       img: profile.value.portrait ?? actor.img,
       order: instance?.order ?? Number.POSITIVE_INFINITY,
     });
   }
-  return rows.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  return [...rows.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
 }
 
-/** "Active bosses": show or hide each boss of the viewed scene, or all of them. */
+/** "Active bosses": show or hide each boss and elite of the viewed scene, or all of them. */
 class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "bb5e-active-bosses",
     classes: ["bb5e-app"],
     window: { title: "BB5E.Panel.Title", icon: "fa-solid fa-skull-crossbones", resizable: true },
     position: { width: 400, height: "auto" },
-    actions: { toggle: ActiveBosses.#onToggle, hideAll: ActiveBosses.#onHideAll },
+    actions: {
+      toggle: ActiveBosses.#onToggle,
+      hideAll: ActiveBosses.#onHideAll,
+      openRanks: ActiveBosses.#onOpenRanks,
+    },
   };
 
-  static PARTS = { main: { template: `modules/${MODULE_ID}/templates/active-bosses.hbs` } };
+  static PARTS = {
+    main: {
+      template: `modules/${MODULE_ID}/templates/active-bosses.hbs`,
+      // Partials must be preloaded to be usable by name.
+      templates: [`modules/${MODULE_ID}/templates/panel-row.hbs`],
+    },
+  };
 
   readonly #hud: BossHud;
+  readonly #openRanks: () => void;
   #unsubscribe: (() => void) | null = null;
 
-  constructor(hud: BossHud) {
+  constructor(hud: BossHud, openRanks: () => void) {
     super();
     this.#hud = hud;
+    this.#openRanks = openRanks;
   }
 
   override async _prepareContext(options: Record<string, unknown>) {
     const scene = canvas?.scene ?? null;
-    const rows = scene ? sceneRows(scene) : [];
+    const rows = (scene ? sceneRows(scene) : []).map((row) => ({ ...row, many: row.count > 1 }));
     return {
       ...(await super._prepareContext(options)),
       hasScene: Boolean(scene),
-      rows,
+      bosses: rows.filter((row) => row.kind === "boss"),
+      elites: rows.filter((row) => row.kind === "elite"),
+      anyRows: rows.length > 0,
       anyShown: rows.some((row) => row.instanceId),
     };
   }
@@ -93,9 +123,13 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
     const scene = canvas?.scene;
     if (scene) await writeOrNotify({ type: "hideAll", sceneId: scene.id });
   }
+
+  static async #onOpenRanks(this: ActiveBosses) {
+    this.#openRanks();
+  }
 }
 
-export function openActiveBosses(hud: BossHud): void {
+export function openActiveBosses(hud: BossHud, openRanks: () => void): void {
   const existing = foundry.applications.instances.get("bb5e-active-bosses");
-  void (existing ?? new ActiveBosses(hud)).render({ force: true });
+  void (existing ?? new ActiveBosses(hud, openRanks)).render({ force: true });
 }

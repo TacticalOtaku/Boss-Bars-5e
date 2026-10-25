@@ -34,6 +34,15 @@ beforeEach(() => {
 });
 
 describe("createBossStack", () => {
+  it("shows ×N only for a bar bound to an actor", () => {
+    const stack = make();
+    stack.update([view("a", { count: 3 })], 1);
+    const count = overlay.querySelector<HTMLElement>(".bb5e-boss__count")!;
+    expect([count.hidden, count.textContent]).toEqual([false, "×3"]);
+    stack.update([view("a")], 1);
+    expect(count.hidden).toBe(true);
+  });
+
   it("renders texts as text and keeps HP numbers out of a player's bar", () => {
     make().update([view("a", { label: "<img src=x onerror=alert(1)>", title: "Пожиратель" })], 1);
     const bar = bars()[0]!;

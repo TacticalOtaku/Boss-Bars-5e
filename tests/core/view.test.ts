@@ -1,66 +1,150 @@
 import { describe, expect, it } from "vitest";
-import { buildBossView, type BossViewInput } from "../../src/core/view";
+import type { TokenState } from "../../src/core/aggregate";
+import type { BossProfile, EliteProfile } from "../../src/core/profile";
+import { defaultRanks } from "../../src/core/ranks";
+import { buildViews, type SubjectInput, type Viewer } from "../../src/core/view";
 
-const input: BossViewInput = {
-  instance: { id: "i1", kind: "boss", tokenId: "t1", order: 1 },
-  profile: { dataVersion: 1, kind: "boss", playerName: "", title: "Пожиратель", portrait: null, size: 110 },
-  tokenName: "Ксар’Тун",
-  tokenHidden: false,
-  actorImg: "actor.webp",
+const ranks = defaultRanks(["Captain", "Veteran", "Fighter", "Guard"]);
+const token = (id: string, extra: Partial<TokenState> = {}): TokenState => ({
+  tokenId: id,
+  hidden: false,
+  linked: false,
   hp: { value: 30, effectiveMax: 120, temp: 5 },
-  dead: false,
-  combatantDefeated: false,
+  defeated: false,
+  ...extra,
+});
+const bossProfile: BossProfile = {
+  dataVersion: 2,
+  kind: "boss",
+  playerName: "",
+  title: "Пожиратель",
+  portrait: null,
+  displayMode: "token",
+  size: 110,
 };
-const gm = { isGM: true, collapsed: new Set<string>(), mayCollapse: true };
-const player = { isGM: false, collapsed: new Set<string>(), mayCollapse: true };
+const eliteProfile = (rank: string, extra: Partial<EliteProfile> = {}): EliteProfile => ({
+  dataVersion: 2,
+  kind: "elite",
+  playerName: "",
+  portrait: null,
+  displayMode: "token",
+  rank,
+  ...extra,
+});
+let order = 0;
+const subject = (
+  name: string,
+  profile: BossProfile | EliteProfile,
+  tokens = [token(name)],
+): SubjectInput => ({
+  instance: { id: `i-${name}-${++order}`, kind: profile.kind, tokenId: tokens[0]?.tokenId ?? "x", order },
+  profile,
+  name,
+  actorImg: "actor.webp",
+  tokens,
+});
+const gm: Viewer = { isGM: true, collapsed: new Set(), mayCollapse: true };
+const player: Viewer = { isGM: false, collapsed: new Set(), mayCollapse: true };
 
-describe("buildBossView", () => {
+describe("buildViews — boss bars", () => {
+  const boss = subject("Ксар’Тун", bossProfile);
+
   it("gives the GM numbers and the player only the fill", () => {
-    expect(buildBossView(input, gm)?.numbers).toEqual({ value: 30, max: 120, temp: 5 });
-    const view = buildBossView(input, player)!;
+    expect(buildViews([boss], ranks, gm, 12).bosses[0]?.numbers).toEqual({ value: 30, max: 120, temp: 5 });
+    const view = buildViews([boss], ranks, player, 12).bosses[0]!;
     expect(view).not.toHaveProperty("numbers");
     expect(JSON.stringify(view)).not.toMatch(/\b30\b|\b120\b|"temp"/);
     expect(view.fraction).toBe(0.25);
   });
 
-  it("labels from the profile, else the token; portrait falls back to the actor", () => {
-    expect(buildBossView(input, player)?.label).toBe("Ксар’Тун");
-    expect(buildBossView({ ...input, profile: { ...input.profile, playerName: "???" } }, player)?.label).toBe(
-      "???",
-    );
-    expect(buildBossView(input, player)?.portrait).toEqual({ src: "actor.webp", video: false });
-    const video = { ...input, profile: { ...input.profile, portrait: "boss.WEBM?v=2" } };
-    expect(buildBossView(video, player)?.portrait).toEqual({ src: "boss.WEBM?v=2", video: true });
+  it("labels from the profile, else the given name; portrait falls back to the actor", () => {
+    expect(buildViews([boss], ranks, player, 12).bosses[0]?.label).toBe("Ксар’Тун");
+    const named = { ...boss, profile: { ...bossProfile, playerName: "???" } };
+    expect(buildViews([named], ranks, player, 12).bosses[0]?.label).toBe("???");
+    expect(buildViews([boss], ranks, player, 12).bosses[0]?.portrait).toEqual({
+      src: "actor.webp",
+      video: false,
+    });
+    const video = { ...boss, profile: { ...bossProfile, portrait: "boss.WEBM?v=2" } };
+    expect(buildViews([video], ranks, player, 12).bosses[0]?.portrait).toEqual({
+      src: "boss.WEBM?v=2",
+      video: true,
+    });
   });
 
   it("hides a hidden token from players and mutes it for the GM", () => {
-    const hidden = { ...input, tokenHidden: true };
-    expect(buildBossView(hidden, player)).toBeNull();
-    expect(buildBossView(hidden, gm)?.muted).toBe(true);
-    expect(buildBossView(input, gm)?.muted).toBe(false);
+    const hidden = { ...boss, tokens: [token("h", { hidden: true })] };
+    expect(buildViews([hidden], ranks, player, 12).bosses).toEqual([]);
+    expect(buildViews([hidden], ranks, gm, 12).bosses[0]?.muted).toBe(true);
   });
 
-  it("is defeated at 0 HP, with the dead status or a defeated combatant", () => {
-    expect(buildBossView(input, player)?.defeated).toBe(false);
-    expect(buildBossView({ ...input, hp: { value: 0, effectiveMax: 120, temp: 0 } }, player)?.defeated).toBe(
-      true,
-    );
-    expect(buildBossView({ ...input, dead: true }, player)?.defeated).toBe(true);
-    expect(buildBossView({ ...input, combatantDefeated: true }, player)?.defeated).toBe(true);
+  it("shows ×N and summed HP for one bar per actor", () => {
+    const tokens = [token("a"), token("b"), token("c")];
+    const base = subject("Орда", { ...bossProfile, displayMode: "actor" }, tokens);
+    const horde = { ...base, instance: { id: "horde", kind: "boss" as const, actorId: "x", order: 99 } };
+    const view = buildViews([horde], ranks, gm, 12).bosses[0]!;
+    expect(view.count).toBe(3);
+    expect(view.numbers).toEqual({ value: 90, max: 360, temp: 15 });
+    expect(buildViews([boss], ranks, gm, 12).bosses[0]).not.toHaveProperty("count");
   });
 
   it("lets only players collapse, when allowed", () => {
-    expect(buildBossView(input, gm)?.canCollapse).toBe(false);
-    expect(buildBossView(input, player)?.canCollapse).toBe(true);
-    expect(buildBossView(input, { ...player, mayCollapse: false })?.canCollapse).toBe(false);
-    expect(buildBossView(input, { ...player, collapsed: new Set(["i1"]) })?.collapsed).toBe(true);
-    expect(
-      buildBossView(input, { ...player, collapsed: new Set(["i1"]), mayCollapse: false })?.collapsed,
-    ).toBe(false);
+    const id = boss.instance.id;
+    expect(buildViews([boss], ranks, gm, 12).bosses[0]?.canCollapse).toBe(false);
+    expect(buildViews([boss], ranks, player, 12).bosses[0]?.canCollapse).toBe(true);
+    expect(buildViews([boss], ranks, { ...player, collapsed: new Set([id]) }, 12).bosses[0]?.collapsed).toBe(
+      true,
+    );
+    const locked = { ...player, collapsed: new Set([id]), mayCollapse: false };
+    expect(buildViews([boss], ranks, locked, 12).bosses[0]).toMatchObject({
+      collapsed: false,
+      canCollapse: false,
+    });
+  });
+});
+
+describe("buildViews — elite column", () => {
+  it("sorts by rank, then show order, and shows only the parts of the rank", () => {
+    const subjects = [
+      subject("Волк", eliteProfile("guard")),
+      subject("Шаман", eliteProfile("fighter")),
+      subject("Вожак", eliteProfile("captain")),
+      subject("Берсерк", eliteProfile("veteran")),
+      subject("Сирота", eliteProfile("deleted-rank")),
+    ];
+    const { elites } = buildViews(subjects, ranks, player, 12);
+    expect(elites.map((e) => [e.label, e.rank.name, e.parts.name, e.parts.fill])).toEqual([
+      ["Вожак", "Captain", true, true],
+      ["Берсерк", "Veteran", true, true],
+      ["Шаман", "Fighter", true, false],
+      ["Волк", "Guard", false, false],
+      ["Сирота", "Guard", false, false],
+    ]);
+    expect(elites[0]?.rank).toEqual({ name: "Captain", color: "#e5c06a", size: 40 });
   });
 
-  it("survives missing HP data", () => {
-    expect(buildBossView({ ...input, hp: null }, gm)).toMatchObject({ fraction: null, defeated: false });
-    expect(buildBossView({ ...input, hp: null }, gm)).not.toHaveProperty("numbers");
+  it("numbers equal names across bosses and elites, hidden ones last", () => {
+    const subjects = [
+      subject("Орк", eliteProfile("veteran"), [token("h", { hidden: true })]),
+      subject("Орк", eliteProfile("veteran")),
+      subject("Орк", bossProfile),
+    ];
+    const asGM = buildViews(subjects, ranks, gm, 12);
+    expect(asGM.bosses.map((b) => b.label)).toEqual(["Орк 2"]);
+    expect(asGM.elites.map((e) => e.label)).toEqual(["Орк 3", "Орк"]);
+    expect(buildViews(subjects, ranks, player, 12).elites.map((e) => e.label)).toEqual(["Орк"]);
+  });
+
+  it("keeps the first cards within the limit and counts the rest", () => {
+    const subjects = Array.from({ length: 5 }, (_, i) => subject(`E${i}`, eliteProfile("veteran")));
+    const result = buildViews(subjects, ranks, player, 3);
+    expect(result.elites.map((e) => e.label)).toEqual(["E0", "E1", "E2"]);
+    expect(result.eliteOverflow).toBe(2);
+  });
+
+  it("gives the GM numbers on cards, never the player", () => {
+    const subjects = [subject("Орк", eliteProfile("guard"))];
+    expect(buildViews(subjects, ranks, gm, 12).elites[0]?.numbers).toEqual({ value: 30, max: 120, temp: 5 });
+    expect(buildViews(subjects, ranks, player, 12).elites[0]).not.toHaveProperty("numbers");
   });
 });

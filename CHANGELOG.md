@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+- Elite profile: the profile window switches between boss and elite; an elite picks a rank and shows a live card.
+- Elite column (layout A rows) on the left, sorted by rank, then show order; each card shows only the parts its rank
+  allows (icon always; name, fill). 12 cards are shown, the rest as "+N". GM sees HP numbers (tooltip on icon-only
+  cards).
+- "Elite ranks" editor (module settings and the panel): order with ↑↓, colour, name, parts, icon size, live card;
+  four default ranks; removing a rank in use asks first, its elites take the weakest rank.
+- One bar or card per actor (×N) for bosses and elites: unlinked tokens' HP are summed, a linked actor's counted once;
+  players count only tokens they can see.
+- Equal names on a scene are numbered ("Orc", "Orc 2"); hidden enemies are numbered last.
+- "Active bosses" panel lists bosses and elites.
+- Profiles and scene instances move to data version 2 (migrated on read); 0.2.0 leaves 0.3.0 data untouched.
+
 ## 0.2.0
 
 - Boss profile on the world actor (name for players, title, portrait incl. GIF/WebP/webm, size), opened from the

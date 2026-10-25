@@ -3,14 +3,32 @@ import { pruneScenes, registerAuthority, requestWrite } from "../src/foundry/aut
 
 const SCENE = "Scene00000000001";
 const TOKEN = "Token00000000001";
+const TOKEN2 = "Token00000000003";
 const GONE = "Token00000000002";
-const profile = { dataVersion: 1, kind: "boss", playerName: "", title: "", portrait: null, size: 100 };
+const ACTOR = "Actor00000000001";
+const flags = (displayMode: string) => ({
+  "boss-bars-5e": {
+    profile: { dataVersion: 2, kind: "elite", playerName: "", portrait: null, displayMode, rank: "veteran" },
+  },
+});
 
-function makeScene(instances: unknown) {
+/** Map plus the Collection helpers the code uses. */
+function collection<T>(entries: [string, T][]) {
+  const map = new Map(entries);
+  return Object.assign(map, {
+    some: (fn: (value: T) => boolean) => [...map.values()].some(fn),
+    filter: (fn: (value: T) => boolean) => [...map.values()].filter(fn),
+  });
+}
+
+function makeScene(instances: unknown, displayMode = "token") {
+  const actor = { id: ACTOR, flags: flags(displayMode) };
+  const token = (id: string) => [id, { id, actorId: ACTOR, baseActor: actor }] as [string, object];
   const scene = {
     id: SCENE,
     flags: { "boss-bars-5e": { instances } } as FlagBag,
-    tokens: new Map([[TOKEN, { id: TOKEN, baseActor: { flags: { "boss-bars-5e": { profile } } } }]]),
+    tokens: collection([token(TOKEN), token(TOKEN2)]),
+    actor,
     setFlag: vi.fn(async (_scope: string, _key: string, value: unknown) => {
       scene.flags["boss-bars-5e"] = { instances: value };
     }),
@@ -21,14 +39,21 @@ function makeScene(instances: unknown) {
 let scene: ReturnType<typeof makeScene>;
 const queries: Record<string, (data: unknown, context: { user: { isGM: boolean } }) => Promise<unknown>> = {};
 const activeGM = { isGM: true, query: vi.fn() };
+let nextId = 0;
 
 function stubWorld(user: { isGM: boolean; isActiveGM: boolean }, gm: object | null = activeGM) {
-  vi.stubGlobal("game", { user, users: { activeGM: gm }, scenes: new Map([[SCENE, scene]]) });
+  vi.stubGlobal("game", {
+    user,
+    users: { activeGM: gm },
+    scenes: new Map([[SCENE, scene]]),
+    actors: new Map([[ACTOR, scene.actor]]),
+  });
   vi.stubGlobal("CONFIG", { queries });
-  vi.stubGlobal("foundry", { utils: { randomID: () => "Inst000000000001" } });
+  vi.stubGlobal("foundry", { utils: { randomID: () => `Inst00000000000${++nextId}` } });
 }
 
-const items = () => (scene.flags["boss-bars-5e"]?.instances as { items: { tokenId: string }[] }).items;
+type Item = { kind: string; tokenId?: string; actorId?: string };
+const items = () => (scene.flags["boss-bars-5e"]?.instances as { items: Item[] }).items;
 
 beforeEach(() => {
   scene = makeScene(undefined);
@@ -38,11 +63,23 @@ beforeEach(() => {
 });
 
 describe("requestWrite", () => {
-  it("lets the active GM write directly", async () => {
+  it("lets the active GM write directly, with the profile's kind", async () => {
     stubWorld({ isGM: true, isActiveGM: true });
     await requestWrite({ type: "show", sceneId: SCENE, tokenId: TOKEN });
-    expect(items().map((i) => i.tokenId)).toEqual([TOKEN]);
+    expect(items()).toMatchObject([{ kind: "elite", tokenId: TOKEN }]);
     expect(activeGM.query).not.toHaveBeenCalled();
+  });
+
+  it("binds to the actor in the one-per-actor mode and replaces a bar bound the other way", async () => {
+    scene = makeScene(
+      { dataVersion: 2, items: [{ id: "old", kind: "elite", tokenId: TOKEN2, order: 1 }] },
+      "actor",
+    );
+    stubWorld({ isGM: true, isActiveGM: true });
+    await requestWrite({ type: "show", sceneId: SCENE, tokenId: TOKEN });
+    expect(items()).toEqual([expect.objectContaining({ kind: "elite", actorId: ACTOR })]);
+    await requestWrite({ type: "show", sceneId: SCENE, tokenId: TOKEN2 });
+    expect(items()).toHaveLength(1);
   });
 
   it("sends another GM's action to the active GM", async () => {
@@ -94,12 +131,14 @@ describe("query handler", () => {
 });
 
 describe("pruneScenes", () => {
-  it("drops bars of deleted tokens, only on the active GM", async () => {
+  it("drops bars of deleted tokens and actors without tokens, rebinds to the profile, only on the active GM", async () => {
     scene = makeScene({
       dataVersion: 1,
       items: [
         { id: "a", kind: "boss", tokenId: TOKEN, order: 1 },
         { id: "b", kind: "boss", tokenId: GONE, order: 2 },
+        { id: "c", kind: "elite", actorId: ACTOR, order: 3 },
+        { id: "d", kind: "elite", actorId: "Actor00000000009", order: 4 },
       ],
     });
     stubWorld({ isGM: true, isActiveGM: false });
@@ -107,6 +146,6 @@ describe("pruneScenes", () => {
     await vi.waitFor(() => expect(scene.setFlag).not.toHaveBeenCalled());
     stubWorld({ isGM: true, isActiveGM: true });
     pruneScenes([scene as unknown as SceneDocument]);
-    await vi.waitFor(() => expect(items().map((i) => i.tokenId)).toEqual([TOKEN]));
+    await vi.waitFor(() => expect(items().map((i) => i.tokenId ?? i.actorId)).toEqual([TOKEN, TOKEN2]));
   });
 });

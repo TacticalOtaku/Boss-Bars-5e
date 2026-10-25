@@ -1,4 +1,6 @@
 import type { BossBarView } from "../core/view";
+import { formatNumbers, part, setPortrait } from "./dom";
+import { createKeyedList, type KeyedItem } from "./keyed-list";
 
 export interface StackOptions {
   labels: { collapse: string; expand: string };
@@ -7,10 +9,10 @@ export interface StackOptions {
   reducedMotion(): boolean;
 }
 
-interface Bar {
-  el: HTMLElement;
+interface Bar extends KeyedItem {
   portrait: HTMLElement;
   name: HTMLElement;
+  count: HTMLElement;
   title: HTMLElement;
   collapse: HTMLButtonElement;
   meter: HTMLElement;
@@ -19,23 +21,11 @@ interface Bar {
   numbers: HTMLElement;
   view: BossBarView | null;
   shown: number | null;
-  leaving: Animation | null;
 }
 
-const ENTER_MS = 300;
-const LEAVE_MS = 250;
-
-function part(tag: string, className: string, parent?: HTMLElement): HTMLElement {
-  const el = document.createElement(tag);
-  el.className = className;
-  parent?.append(el);
-  return el;
-}
-
-/** The boss stack: one keyed DOM bar per view, no framework. All texts go in as text, never as HTML. */
+/** The boss stack: one DOM bar per view. All texts go in as text, never as HTML. */
 export function createBossStack(overlay: HTMLElement, options: StackOptions) {
   const stack = part("div", "bb5e-stack", overlay);
-  const bars = new Map<string, Bar>();
 
   function createBar(): Bar {
     const el = part("section", "bb5e-boss");
@@ -43,6 +33,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     const body = part("div", "bb5e-boss__body", el);
     const head = part("div", "bb5e-boss__head", body);
     const name = part("span", "bb5e-boss__name", head);
+    const count = part("span", "bb5e-boss__count", head);
     const title = part("span", "bb5e-boss__title", head);
     const collapse = part("button", "bb5e-boss__collapse", head) as HTMLButtonElement;
     collapse.type = "button";
@@ -58,6 +49,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       el,
       portrait,
       name,
+      count,
       title,
       collapse,
       meter,
@@ -72,17 +64,6 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       if (bar.view) options.onCollapse(bar.view.id, !bar.view.collapsed);
     });
     return bar;
-  }
-
-  function setPortrait(bar: Bar, { src, video }: BossBarView["portrait"]) {
-    const current = bar.portrait.firstElementChild as HTMLImageElement | HTMLVideoElement | null;
-    if (current && current.getAttribute("src") === src && (current.tagName === "VIDEO") === video) return;
-    const media = document.createElement(video ? "video" : "img");
-    if (media instanceof HTMLVideoElement)
-      Object.assign(media, { muted: true, loop: true, autoplay: true, playsInline: true });
-    else media.alt = "";
-    media.setAttribute("src", src);
-    bar.portrait.replaceChildren(media);
   }
 
   /** The fill follows at once; the trail lingers on damage and catches up (CSS delay), on healing it jumps. */
@@ -105,14 +86,15 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
   function updateBar(bar: Bar, view: BossBarView) {
     bar.view = view;
     const { el } = bar;
-    el.dataset.instanceId = view.id;
     el.classList.toggle("bb5e-boss--collapsed", view.collapsed);
     el.classList.toggle("bb5e-boss--defeated", view.defeated);
     el.classList.toggle("bb5e-boss--muted", view.muted);
     el.classList.toggle("bb5e-boss--unknown", view.fraction === null);
     el.style.setProperty("--bb5e-size", String(view.size / 100));
-    setPortrait(bar, view.portrait);
+    setPortrait(bar.portrait, view.portrait);
     bar.name.textContent = view.label;
+    bar.count.textContent = view.count ? `×${view.count}` : "";
+    bar.count.hidden = !view.count;
     bar.title.textContent = view.title;
     bar.title.hidden = !view.title;
     bar.collapse.hidden = !view.canCollapse;
@@ -123,66 +105,15 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     else
       bar.meter.setAttribute("aria-valuenow", String(Math.round((view.defeated ? 0 : view.fraction) * 100)));
     setFill(bar, view.defeated ? 0 : (view.fraction ?? 0));
-    const numbers = view.numbers;
-    bar.numbers.hidden = !numbers;
-    bar.numbers.textContent = numbers
-      ? `${numbers.value} / ${numbers.max}${numbers.temp ? ` +${numbers.temp}` : ""}`
-      : "";
+    bar.numbers.hidden = !view.numbers;
+    bar.numbers.textContent = view.numbers ? formatNumbers(view.numbers) : "";
   }
 
-  function motion(from: Keyframe, to: Keyframe): Keyframe[] {
-    return options.reducedMotion() ? [{ opacity: from.opacity }, { opacity: to.opacity }] : [from, to];
-  }
-
-  function leave(id: string, bar: Bar) {
-    const animation = bar.el.animate?.(
-      motion({ opacity: 1 }, { opacity: 0, transform: "translateY(-0.5em)" }),
-      {
-        duration: LEAVE_MS,
-        easing: "ease-in",
-        fill: "forwards",
-      },
-    );
-    if (!animation) {
-      bar.el.remove();
-      bars.delete(id);
-      return;
-    }
-    bar.leaving = animation;
-    // cancel() on re-show rejects `finished`; that is expected, not an error.
-    animation.finished?.catch(() => undefined);
-    animation.onfinish = () => {
-      if (bar.leaving !== animation) return;
-      bar.el.remove();
-      bars.delete(id);
-    };
-  }
-
+  const list = createKeyedList(stack, createBar, updateBar, options.reducedMotion);
   return {
     update(views: BossBarView[], uiScale: number) {
       stack.style.setProperty("--bb5e-ui-scale", String(uiScale));
-      const ids = new Set(views.map((view) => view.id));
-      for (const [id, bar] of bars) if (!ids.has(id) && !bar.leaving) leave(id, bar);
-      let previous: HTMLElement | null = null;
-      for (const view of views) {
-        let bar = bars.get(view.id);
-        if (!bar) {
-          bar = createBar();
-          bars.set(view.id, bar);
-          bar.el.animate?.(motion({ opacity: 0, transform: "translateY(-0.5em)" }, { opacity: 1 }), {
-            duration: ENTER_MS,
-            easing: "ease-out",
-          });
-        } else if (bar.leaving) {
-          // Shown again while leaving: drop the exit so it does not stay half transparent.
-          bar.leaving.cancel();
-          bar.leaving = null;
-        }
-        updateBar(bar, view);
-        const next: ChildNode | null = previous ? previous.nextSibling : stack.firstChild;
-        if (next !== bar.el) stack.insertBefore(bar.el, next);
-        previous = bar.el;
-      }
+      list.update(views);
     },
   };
 }
