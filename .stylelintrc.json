@@ -2,12 +2,12 @@
   "extends": ["stylelint-config-standard-scss"],
   "rules": {
     "selector-class-pattern": [
-      "^(bb5e[a-z0-9-]*(__[a-z0-9-]+)?(--[a-z0-9-]+)?|theme-(light|dark)|themed)$",
+      "^(bb5e[a-z0-9-]*(__[a-z0-9-]+)?(--[a-z0-9-]+)?|theme-(light|dark)|themed|performance-low|window-(header|title|content)|tabs|active|hint)$",
       {
-        "message": "Classes must be in the bb5e namespace (BEM-style) or known Foundry theme classes"
+        "message": "Classes must be in the bb5e namespace (BEM-style) or known Foundry classes"
       }
     ],
-    "custom-property-pattern": ["^(bb5e-[a-z0-9-]+|z-index-[a-z]+|ui-scale)$"],
+    "custom-property-pattern": ["^(bb5e-[a-z0-9-]+|z-index-[a-z]+|ui-scale|font-size-[0-9]+)$"],
     "no-descending-specificity": null,
     "declaration-no-important": true
   }

@@ -80,3 +80,19 @@ body {
   outline: 2px solid #e0a43a;
   outline-offset: -2px;
 }
+
+.stand-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.stand-controls button {
+  padding: 2px 8px;
+  border: 1px solid #555c6b;
+  border-radius: 4px;
+  background: #2b2f38;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

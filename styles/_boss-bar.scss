@@ -1,0 +1,188 @@
+// Boss stack and bar, layout A in the "Classic RPG" look (mock-up prototype/hud-variants, variant A).
+// Every size is in em: font-size = 16px × profile size × uiScale scales the whole bar at once.
+
+.bb5e-stack {
+  position: absolute;
+  top: calc(16px * var(--bb5e-ui-scale, 1));
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(8px * var(--bb5e-ui-scale, 1));
+}
+
+.bb5e-boss {
+  display: flex;
+  align-items: center;
+  width: 38.75em;
+  font-size: calc(16px * var(--bb5e-ui-scale, 1) * var(--bb5e-size, 1));
+  color: var(--bb5e-ink);
+  transition: opacity 0.3s ease;
+
+  &--muted {
+    opacity: 0.5;
+  }
+
+  &--defeated {
+    filter: grayscale(0.85) brightness(0.7);
+  }
+}
+
+.bb5e-boss__portrait {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 4.75em;
+  height: 4.75em;
+  overflow: hidden;
+  border: 0.1875em solid var(--bb5e-gold);
+  border-radius: 50%;
+  background: var(--bb5e-empty);
+  box-shadow:
+    0 0 0 0.125em #000,
+    0 0.375em 1em rgb(0 0 0 / 67%);
+
+  img,
+  video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.bb5e-boss__body {
+  flex: 1;
+  min-width: 0;
+  margin-left: -0.875em;
+  padding-left: 1.375em;
+}
+
+.bb5e-boss__head {
+  display: flex;
+  gap: 0.625em;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.bb5e-boss__name {
+  overflow: hidden;
+  font: 600 1.25em / 1.2 var(--bb5e-font-display);
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-shadow: 0 0.1em 0.2em #000;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bb5e-boss__title {
+  overflow: hidden;
+  color: var(--bb5e-gold);
+  font: italic 0.8125em / 1.2 var(--bb5e-font-display);
+  text-overflow: ellipsis;
+  text-shadow: 0 0.1em 0.2em #000;
+  white-space: nowrap;
+}
+
+.bb5e-boss__collapse {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid rgb(201 164 92 / 60%);
+  border-radius: 0.25em;
+  background: rgb(0 0 0 / 55%);
+  color: var(--bb5e-gold);
+  font-size: 0.75em;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+
+  &[aria-expanded="false"] {
+    rotate: -90deg;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--bb5e-gold);
+    outline-offset: 1px;
+  }
+}
+
+.bb5e-boss__meter {
+  position: relative;
+  height: 1.125em;
+  margin-top: 0.1875em;
+  overflow: hidden;
+  border: 0.125em solid var(--bb5e-gold);
+  background: var(--bb5e-empty);
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 0.125em 0.375em #000;
+}
+
+.bb5e-boss__fill,
+.bb5e-boss__trail {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+}
+
+.bb5e-boss__trail {
+  background: var(--bb5e-trail);
+  transition: transform 0.6s ease 0.55s;
+}
+
+.bb5e-boss__fill {
+  background: var(--bb5e-fill);
+  transition: transform 0.18s ease-out;
+}
+
+.bb5e-boss__numbers {
+  position: absolute;
+  top: 50%;
+  right: 0.375em;
+  translate: 0 -50%;
+  color: #fff;
+  font: 0.6875em / 1 monospace;
+  text-shadow: 0 0 0.2em #000;
+}
+
+// Collapsed: the name and a thin fill.
+.bb5e-boss--collapsed {
+  .bb5e-boss__portrait,
+  .bb5e-boss__title {
+    display: none;
+  }
+
+  .bb5e-boss__body {
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  .bb5e-boss__name {
+    font-size: 0.875em;
+  }
+
+  .bb5e-boss__meter {
+    height: 0.4375em;
+  }
+
+  .bb5e-boss__numbers {
+    display: none;
+  }
+}
+
+// Reduced motion: no fill or trail animation, opacity changes stay (spec §12).
+@media (prefers-reduced-motion: reduce) {
+  .bb5e-boss__fill,
+  .bb5e-boss__trail {
+    transition: none;
+  }
+}
+
+.performance-low .bb5e-boss__fill,
+.performance-low .bb5e-boss__trail {
+  transition: none;
+}

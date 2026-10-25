@@ -1,0 +1,58 @@
+<section class="tab {{tabs.main.cssClass}}" data-tab="main" data-group="sheet">
+  <div class="bb5e-card">
+    <div class="form-group">
+      <label for="{{partId}}-playerName">{{localize "BB5E.Profile.PlayerName.Label"}}</label>
+      <div class="form-fields">
+        <input
+          type="text"
+          id="{{partId}}-playerName"
+          name="playerName"
+          value="{{profile.playerName}}"
+          maxlength="{{limits.text}}"
+        />
+      </div>
+      <p class="hint">{{localize "BB5E.Profile.PlayerName.Hint"}}</p>
+      <p class="bb5e-field-error" data-error-for="playerName" role="alert" hidden></p>
+    </div>
+    <div class="form-group">
+      <label for="{{partId}}-title">{{localize "BB5E.Profile.TitleField.Label"}}</label>
+      <div class="form-fields">
+        <input
+          type="text"
+          id="{{partId}}-title"
+          name="title"
+          value="{{profile.title}}"
+          maxlength="{{limits.text}}"
+        />
+      </div>
+      <p class="bb5e-field-error" data-error-for="title" role="alert" hidden></p>
+    </div>
+    <div class="form-group">
+      <label for="{{partId}}-portrait">{{localize "BB5E.Profile.Portrait.Label"}}</label>
+      <div class="form-fields">
+        <file-picker
+          id="{{partId}}-portrait"
+          name="portrait"
+          type="imagevideo"
+          value="{{profile.portrait}}"
+        ></file-picker>
+      </div>
+      <p class="hint">{{localize "BB5E.Profile.Portrait.Hint"}}</p>
+      <p class="bb5e-field-error" data-error-for="portrait" role="alert" hidden></p>
+    </div>
+    <div class="form-group">
+      <label for="{{partId}}-size">{{localize "BB5E.Profile.Size.Label"}}</label>
+      <div class="form-fields">
+        <range-picker
+          id="{{partId}}-size"
+          name="size"
+          min="{{limits.sizeMin}}"
+          max="{{limits.sizeMax}}"
+          step="5"
+          value="{{profile.size}}"
+        ></range-picker>
+      </div>
+      <p class="bb5e-field-error" data-error-for="size" role="alert" hidden></p>
+    </div>
+  </div>
+</section>

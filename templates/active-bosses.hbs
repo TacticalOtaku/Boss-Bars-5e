@@ -1,0 +1,25 @@
+<section class="bb5e-panel">
+  {{#if hasScene}}
+  {{#if rows.length}}
+  <ul class="bb5e-panel__list">
+    {{#each rows}}
+    <li class="bb5e-panel__row{{#if instanceId}} bb5e-panel__row--shown{{/if}}" data-token-id="{{tokenId}}"
+      {{#if instanceId}}data-instance-id="{{instanceId}}"{{/if}}>
+      <img src="{{img}}" alt="">
+      <span class="bb5e-panel__name">{{name}}</span>
+      <button type="button" data-action="toggle" aria-pressed="{{#if instanceId}}true{{else}}false{{/if}}">
+        {{#if instanceId}}{{localize "BB5E.Panel.Hide"}}{{else}}{{localize "BB5E.Panel.Show"}}{{/if}}
+      </button>
+    </li>
+    {{/each}}
+  </ul>
+  <button type="button" data-action="hideAll" {{#unless anyShown}}disabled{{/unless}}>
+    <i class="fa-solid fa-eye-slash" inert></i> {{localize "BB5E.Panel.HideAll"}}
+  </button>
+  {{else}}
+  <p class="bb5e-panel__empty">{{localize "BB5E.Panel.Empty"}}</p>
+  {{/if}}
+  {{else}}
+  <p class="bb5e-panel__empty">{{localize "BB5E.Panel.NoScene"}}</p>
+  {{/if}}
+</section>
