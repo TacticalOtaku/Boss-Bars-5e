@@ -1,0 +1,322 @@
+<!doctype html>
+<!--
+  PROTOTYPE — выбросить после решения тикета «Как выглядят полоса босса и карточка элиты» (#7).
+  Три структурно разных варианта полосы босса и колонки элиты поверх схемы интерфейса Foundry 14.367 (1440×900),
+  переключаются ?variant=A|B|C, стрелками внизу или клавишами ← →.
+  Только вид: ни Foundry, ни данных, ни сохранения.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boss HUD prototype</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b0b0e; font-family: "Segoe UI", system-ui, sans-serif; color: #e8e2d6; overflow: hidden; height: 100vh; }
+
+  /* ---------- схема Foundry ---------- */
+  #stage { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0;
+    background:
+      radial-gradient(ellipse at 55% 45%, #3b4a37 0%, #26301f 45%, #141a11 100%);
+    overflow: hidden; }
+  #stage::before { content: ""; position: absolute; inset: 0;
+    background-image: linear-gradient(#0003 1px, transparent 1px), linear-gradient(90deg, #0003 1px, transparent 1px);
+    background-size: 64px 64px; }
+  .fv { position: absolute; background: #1b1a20e6; border: 1px solid #44404d; border-radius: 6px; color: #9b96a6; font-size: 11px; }
+  #f-controls { left: 16px; top: 16px; width: 72px; display: grid; grid-template-columns: 32px 32px; gap: 4px; padding: 0; background: none; border: 0; }
+  #f-controls i { width: 32px; height: 32px; background: #1b1a20e6; border: 1px solid #44404d; border-radius: 4px; }
+  #f-nav { left: 104px; top: 16px; width: 200px; padding: 6px; display: grid; gap: 4px; }
+  #f-nav b { display: block; height: 22px; background: #2a2833; border-radius: 3px; font-weight: 400; padding: 4px 8px; }
+  #f-players { left: 16px; bottom: 16px; width: 200px; height: 74px; padding: 8px; }
+  #f-hotbar { left: 50%; bottom: 12px; transform: translateX(-50%); width: 560px; height: 52px; display: flex; gap: 4px; padding: 4px; }
+  #f-hotbar i { flex: 1; background: #2a2833; border-radius: 3px; }
+  #f-sidebar { right: 0; top: 0; bottom: 0; width: 312px; border-radius: 0; border-width: 0 0 0 1px; padding: 8px; }
+  #f-sidebar .tabs { display: flex; gap: 6px; margin-bottom: 8px; } #f-sidebar .tabs i { width: 28px; height: 28px; background: #2a2833; border-radius: 4px; }
+  #f-sidebar .msg { height: 64px; background: #24222b; border-radius: 4px; margin-bottom: 6px; }
+  #f-uimiddle { position: absolute; left: 20%; width: 60%; top: 0; bottom: 0; outline: 1px dashed #ffffff40; pointer-events: none; display: none; }
+  #f-uimiddle span { position: absolute; top: 4px; left: 6px; font: 10px monospace; color: #fff8; }
+  body.zones #f-uimiddle { display: block; }
+  .token { position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 2px solid #0008; box-shadow: 0 4px 10px #0008; }
+
+  /* ---------- общее для вариантов ---------- */
+  .fill, .trail { position: absolute; left: 0; top: 0; bottom: 0; }
+  .trail { background: #f3e3b0; transition: width .6s ease .55s; }
+  .fill { transition: width .18s ease-out; }
+  .num { display: none; } body.gm .num { display: inline; }
+  .st { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; background: #000a; border: 1px solid #fff3; font-size: 12px; }
+  .portrait { background: radial-gradient(circle at 50% 35%, #e2b48a 0 18%, transparent 19%), radial-gradient(ellipse at 50% 95%, #7a2f2f 0 45%, transparent 46%), linear-gradient(160deg, #3d1414, #120606); }
+  .portrait.p2 { background: radial-gradient(circle at 50% 35%, #a8c4a0 0 18%, transparent 19%), radial-gradient(ellipse at 50% 95%, #2f5a3a 0 45%, transparent 46%), linear-gradient(160deg, #142d1b, #06120a); }
+  .portrait.e { background: radial-gradient(circle at 50% 38%, #c9b79c 0 20%, transparent 21%), radial-gradient(ellipse at 50% 100%, #555 0 50%, transparent 51%), #23202a; }
+  .quote { position: absolute; font-style: italic; color: #f5e9d0; text-shadow: 0 1px 3px #000; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  body.quote-on .quote { opacity: 1; }
+  .minor { display: none; } body.two .minor { display: block; }
+  .rank-tag { font: 9px monospace; color: #fff6; text-transform: uppercase; letter-spacing: .08em; }
+
+  /* ---------- A: классическая RPG-полоса сверху, карточки-строки слева ---------- */
+  .A .boss { position: absolute; left: 50%; transform: translateX(-50%); width: 620px; }
+  .A .boss.main { top: 22px; } .A .boss.minor { top: 118px; width: 440px; }
+  .A .boss .row { display: flex; align-items: center; gap: 0; }
+  .A .boss .portrait { width: 76px; height: 76px; border-radius: 50%; border: 3px solid #c9a45c; box-shadow: 0 0 0 2px #000, 0 6px 16px #000a; flex: none; z-index: 2; }
+  .A .boss.minor .portrait { width: 52px; height: 52px; }
+  .A .boss .body { flex: 1; margin-left: -14px; padding-left: 22px; }
+  .A .boss .name { font: 600 20px Georgia, serif; letter-spacing: .06em; text-transform: uppercase; text-shadow: 0 2px 4px #000; display: flex; gap: 10px; align-items: baseline; }
+  .A .boss.minor .name { font-size: 15px; }
+  .A .boss .title { font: italic 13px Georgia, serif; color: #c9a45c; text-transform: none; letter-spacing: 0; }
+  .A .bar { position: relative; height: 18px; background: #1a0d0d; border: 2px solid #c9a45c; box-shadow: 0 0 0 1px #000, inset 0 2px 6px #000; margin-top: 3px; overflow: hidden; }
+  .A .boss.minor .bar { height: 12px; }
+  .A .bar .fill { background: linear-gradient(#e0473f, #8e1414); }
+  .A .bar .notch { position: absolute; top: 0; bottom: 0; width: 2px; background: #000c; }
+  .A .bar .num { position: absolute; right: 6px; top: 0; font: 11px/14px monospace; color: #fff; text-shadow: 0 0 3px #000; }
+  .A .sub { display: flex; justify-content: space-between; margin-top: 4px; }
+  .A .minis { display: flex; gap: 8px; align-items: center; font-size: 10px; color: #c9c0b0; }
+  .A .mini { width: 90px; height: 5px; background: #000a; border: 1px solid #fff3; position: relative; }
+  .A .mini > div { position: absolute; inset: 0 auto 0 0; background: #6fa8dc; }
+  .A .pips { letter-spacing: 2px; color: #e5c06a; font-size: 11px; }
+  .A .sts { display: flex; gap: 3px; }
+  .A .quote { top: -20px; left: 96px; font-size: 14px; }
+  .A .elites { position: absolute; left: 104px; top: 214px; width: 230px; display: grid; gap: 6px; }
+  .A .ec { display: flex; align-items: center; gap: 8px; background: linear-gradient(90deg, #000c, #0006); border-left: 3px solid var(--rc); padding: 4px 8px 4px 4px; border-radius: 3px; }
+  .A .ec .portrait { width: var(--sz); height: var(--sz); border-radius: 4px; flex: none; border: 1px solid #fff3; }
+  .A .ec .info { flex: 1; min-width: 0; }
+  .A .ec .nm { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .A .ec .hb { position: relative; height: 5px; background: #000; margin-top: 3px; overflow: hidden; }
+  .A .ec .hb .fill { background: #c23b33; }
+  .A .ec .sts { margin-top: 3px; } .A .ec .st { width: 16px; height: 16px; font-size: 10px; }
+  .A .ec.icon-only { width: 44px; padding: 3px; }
+
+  /* ---------- B: «рамка цели» — портрет с кольцом ХП, внизу над хотбаром; колонка-док иконок ---------- */
+  .B .boss { position: absolute; display: flex; align-items: center; gap: 14px; }
+  .B .boss.main { left: 360px; bottom: 82px; } .B .boss.minor { left: 820px; bottom: 82px; transform: scale(.78); transform-origin: left bottom; }
+  .B .ring { position: relative; width: 120px; height: 120px; flex: none; }
+  .B .ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .B .ring .portrait { position: absolute; inset: 12px; border-radius: 50%; }
+  .B .ring .pct { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #000; border: 1px solid #7a6; border-radius: 8px; padding: 0 6px; font: 11px monospace; }
+  .B .ring circle { fill: none; stroke-width: 9; }
+  .B .ring .t { stroke: #000a; } .B .ring .tr { stroke: #f3e3b0; transition: stroke-dashoffset .6s ease .55s; } .B .ring .f { stroke: #d33c34; transition: stroke-dashoffset .18s; stroke-linecap: butt; }
+  .B .side { display: grid; gap: 5px; }
+  .B .name { font: 700 22px "Trebuchet MS", sans-serif; text-shadow: 0 2px 4px #000; }
+  .B .title { font-size: 12px; color: #9fd0a0; margin-top: -4px; }
+  .B .minis { display: grid; gap: 3px; }
+  .B .mini { display: grid; grid-template-columns: 70px 140px; align-items: center; font-size: 10px; color: #bbb; }
+  .B .mini .m { height: 6px; background: #000a; border-radius: 3px; overflow: hidden; } .B .mini .m > div { height: 100%; background: #e5c06a; }
+  .B .sts { display: flex; gap: 3px; }
+  .B .quote { left: 130px; top: -30px; width: 320px; background: #000c; border: 1px solid #fff2; border-radius: 10px 10px 10px 0; padding: 6px 10px; font-size: 13px; }
+  .B .elites { position: absolute; left: 104px; top: 214px; display: grid; gap: 8px; }
+  .B .ec { position: relative; display: flex; align-items: center; gap: 8px; }
+  .B .ec .r { position: relative; width: var(--sz); height: var(--sz); flex: none; }
+  .B .ec .r svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .B .ec .r circle { fill: none; stroke-width: 4; } .B .ec .r .t { stroke: #000a; } .B .ec .r .f { stroke: var(--rc); transition: stroke-dashoffset .18s; }
+  .B .ec .r .portrait { position: absolute; inset: 5px; border-radius: 50%; }
+  .B .ec .nm { font-size: 12px; background: #000a; padding: 2px 6px; border-radius: 3px; }
+  .B .ec .badge { position: absolute; top: -2px; right: -2px; display: flex; gap: 1px; } .B .ec .badge .st { width: 14px; height: 14px; font-size: 9px; border-radius: 50%; }
+
+  /* ---------- C: кинематографичный баннер во всю ширину сверху; плитки-портреты слева ---------- */
+  .C .boss { position: absolute; left: 304px; right: 328px; }
+  .C .boss.main { top: 0; height: 104px; background: linear-gradient(180deg, #000e 0%, #000a 70%, transparent); }
+  .C .boss.minor { top: 108px; height: 46px; background: linear-gradient(90deg, transparent, #000a 20%, #000a 80%, transparent); }
+  .C .boss .portrait { position: absolute; left: 0; top: 0; width: 150px; height: 128px; clip-path: polygon(0 0, 100% 0, 78% 100%, 0 100%); -webkit-mask-image: linear-gradient(90deg, #000 60%, transparent); }
+  .C .boss.minor .portrait { display: none; }
+  .C .boss .head { position: absolute; left: 150px; right: 20px; top: 12px; text-align: center; }
+  .C .boss.minor .head { left: 20px; top: 4px; }
+  .C .name { font: 400 30px "Palatino Linotype", Georgia, serif; letter-spacing: .18em; text-transform: uppercase; color: #f1e5c8; text-shadow: 0 0 12px #b78a3a88, 0 2px 2px #000; }
+  .C .boss.minor .name { font-size: 15px; letter-spacing: .12em; }
+  .C .title { font-size: 11px; letter-spacing: .3em; color: #b9a27a; text-transform: uppercase; }
+  .C .bar { position: relative; height: 10px; margin: 6px auto 0; width: 100%; background: #0008; border-top: 1px solid #b78a3a; border-bottom: 1px solid #b78a3a; overflow: hidden; }
+  .C .boss.minor .bar { height: 5px; }
+  .C .bar .fill { background: linear-gradient(90deg, #6b0f0f, #e2342a 60%, #ff8a5c); }
+  .C .bar .seg { position: absolute; top: 0; bottom: 0; width: 3px; background: #000; transform: skewX(-20deg); }
+  .C .bar .num { position: absolute; left: 50%; transform: translateX(-50%); top: -1px; font: 9px monospace; color: #fff; }
+  .C .under { display: flex; justify-content: center; gap: 18px; margin-top: 5px; align-items: center; }
+  .C .pipsrow { font-size: 10px; color: #b9a27a; letter-spacing: .1em; } .C .pipsrow b { color: #e5c06a; letter-spacing: 3px; font-weight: 400; }
+  .C .sts { display: flex; gap: 4px; } .C .st { border-radius: 50%; border-color: #b78a3a; }
+  .C .phase { position: absolute; right: 24px; top: 14px; font: 10px monospace; color: #b9a27a; border: 1px solid #b78a3a; padding: 2px 6px; }
+  .C .quote { top: 108px; left: 0; right: 0; text-align: center; font-size: 16px; }
+  body.two .C .quote { top: 158px; }
+  .C .elites { position: absolute; left: 104px; top: 214px; width: 200px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .C .ec { position: relative; height: var(--h); border: 1px solid var(--rc); background: #000; overflow: hidden; }
+  .C .ec.wide { grid-column: span 2; }
+  .C .ec .portrait { position: absolute; inset: 0; opacity: .85; }
+  .C .ec .vb { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; background: #000; } .C .ec .vb .fill { top: auto; left: 0; right: 0; width: auto !important; background: var(--rc); transition: height .18s; }
+  .C .ec .nm { position: absolute; left: 0; right: 5px; bottom: 0; padding: 10px 5px 3px; font-size: 11px; background: linear-gradient(transparent, #000e); }
+  .C .ec .sts { position: absolute; left: 3px; top: 3px; gap: 2px; } .C .ec .st { width: 15px; height: 15px; font-size: 9px; }
+
+  /* ---------- панель прототипа (не часть дизайна) ---------- */
+  #proto { position: fixed; top: 10px; right: 10px; z-index: 50; width: 230px; background: #fff; color: #111; font: 12px system-ui; border-radius: 8px; padding: 10px; box-shadow: 0 6px 24px #0009; }
+  #proto h4 { margin: 0 0 6px; font-size: 12px; } #proto button { margin: 2px 2px 2px 0; font: 12px system-ui; padding: 3px 7px; cursor: pointer; }
+  #proto label { display: block; margin: 3px 0; } #proto pre { margin: 6px 0 0; background: #f2f2f2; padding: 6px; font-size: 11px; white-space: pre-wrap; border-radius: 4px; }
+  #switcher { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; background: #ff3d7f; color: #fff; font: 600 13px system-ui; padding: 6px 10px; border-radius: 999px; box-shadow: 0 6px 20px #000a; }
+  #switcher button { background: #fff3; color: #fff; border: 0; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 15px; }
+</style>
+</head>
+<body class="two">
+<div id="stage">
+  <!-- схема Foundry 14.367 -->
+  <div class="token portrait" style="left:700px;top:430px;width:128px;height:128px"></div>
+  <div class="token portrait p2" style="left:880px;top:520px"></div>
+  <div class="token portrait e" style="left:560px;top:360px"></div><div class="token portrait e" style="left:520px;top:470px"></div><div class="token portrait e" style="left:600px;top:560px"></div>
+  <div id="f-controls" class="fv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="f-nav" class="fv"><b>▸ Логово дракона</b><b>Тронный зал</b><b>Пещеры</b></div>
+  <div id="f-players" class="fv">Игроки<br>● Claude (ГМ)<br>● Claude 2</div>
+  <div id="f-hotbar" class="fv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="f-sidebar" class="fv"><div class="tabs"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="msg"></div><div class="msg"></div><div class="msg"></div></div>
+  <div id="f-uimiddle"><span>#ui-middle (60%)</span></div>
+  <div id="hud"></div>
+</div>
+
+<div id="proto">
+  <h4>Пульт прототипа</h4>
+  <button data-act="dmg15">Урон 15%</button><button data-act="dmg40">Урон 40%</button><button data-act="heal">Лечение</button><button data-act="reset">Сброс</button><br>
+  <button data-act="elite">Урон элите</button>
+  <label><input type="checkbox" id="gm"> Вид ГМа (числа ХП)</label>
+  <label><input type="checkbox" id="two" checked> Второй босс</label>
+  <label><input type="checkbox" id="quote"> Фраза босса</label>
+  <label><input type="checkbox" id="zones"> Зоны Foundry</label>
+  <pre id="state"></pre>
+</div>
+<div id="switcher"><button id="prev" aria-label="Предыдущий вариант">←</button><span id="vlabel"></span><button id="next" aria-label="Следующий вариант">→</button></div>
+
+<script>
+const VARIANTS = { A: "Классика RPG: полоса сверху, строки слева", B: "Рамка цели: кольцо ХП, внизу; док иконок", C: "Кинобаннер: во всю ширину; плитки-портреты" };
+// Ранги элиты: упорядоченный список ГМа, у каждого свой набор отображения
+const RANKS = [
+  { id: "captain", name: "Капитан", color: "#e5c06a", show: ["icon", "name", "fill", "statuses"], size: 40 },
+  { id: "veteran", name: "Ветеран", color: "#b0b8c8", show: ["icon", "name", "fill"], size: 34 },
+  { id: "fighter", name: "Боец", color: "#9a7b5c", show: ["icon", "name"], size: 30 },
+  { id: "guard", name: "Страж", color: "#6a6a7a", show: ["icon"], size: 30 },
+];
+const S = {
+  bosses: [
+    { name: "Ксар’Тун", title: "Пожиратель пепла", hp: 312, max: 420, trail: 312, cls: "", phases: [0.66, 0.33], legact: [2, 3], legres: [1, 3], temp: [24, 40],
+      statuses: ["🔥", "🛡", "⚡"] },
+    { name: "Морвен", title: "Тень у трона", hp: 88, max: 130, trail: 88, cls: "p2", phases: [], legact: null, legres: null, temp: null, statuses: ["❄"] },
+  ],
+  elites: [
+    { name: "Орк-вожак Гром", rank: "captain", hp: 60, max: 75, statuses: ["😡", "🛡"] },
+    { name: "Орк-берсерк", rank: "veteran", hp: 30, max: 45, statuses: [] },
+    { name: "Орк-берсерк", rank: "veteran", hp: 45, max: 45, statuses: [] },
+    { name: "Шаман", rank: "fighter", hp: 18, max: 27, statuses: [] },
+    { name: "Волк", rank: "guard", hp: 11, max: 11, statuses: [] },
+    { name: "Волк", rank: "guard", hp: 5, max: 11, statuses: [] },
+  ],
+};
+const rank = id => RANKS.find(r => r.id === id);
+const pct = (a, b) => Math.max(0, Math.min(100, a / b * 100));
+const pips = ([v, m]) => "◆".repeat(v) + "◇".repeat(m - v);
+const sts = list => `<span class="sts">${list.map(s => `<span class="st">${s}</span>`).join("")}</span>`;
+const ring = (r, p, cls, sw) => { const c = 2 * Math.PI * r; return `<circle class="${cls}" cx="50%" cy="50%" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p / 100)}"${sw ? ` stroke-width="${sw}"` : ""}/>`; };
+const sortedElites = () => [...S.elites].sort((a, b) => RANKS.findIndex(r => r.id === a.rank) - RANKS.findIndex(r => r.id === b.rank));
+
+function bossA(b, i) {
+  const notches = b.phases.map(p => `<i class="notch" style="left:${p * 100}%"></i>`).join("");
+  return `<div class="boss ${i ? "minor" : "main"}">
+    ${i ? "" : `<div class="quote">«Пепел помнит ваши имена…»</div>`}
+    <div class="row"><div class="portrait ${b.cls}"></div><div class="body">
+      <div class="name">${b.name}<span class="title">${b.title}</span></div>
+      <div class="bar"><div class="trail" style="width:${pct(b.trail, b.max)}%"></div><div class="fill" style="width:${pct(b.hp, b.max)}%"></div>${notches}<span class="num">${b.hp} / ${b.max}</span></div>
+      <div class="sub"><div class="minis">
+        ${b.temp ? `<span>Щит</span><span class="mini"><div style="width:${pct(...b.temp)}%"></div></span>` : ""}
+        ${b.legact ? `<span>Лег. действия <span class="pips">${pips(b.legact)}</span></span>` : ""}
+        ${b.legres ? `<span>Сопр. <span class="pips">${pips(b.legres)}</span></span>` : ""}
+      </div>${sts(b.statuses)}</div>
+    </div></div></div>`;
+}
+function eliteA(e) {
+  const r = rank(e.rank), has = k => r.show.includes(k);
+  if (r.show.length === 1) return `<div class="ec icon-only" style="--rc:${r.color};--sz:${r.size}px" title="${e.name}"><div class="portrait e"></div></div>`;
+  return `<div class="ec" style="--rc:${r.color};--sz:${r.size}px"><div class="portrait e"></div><div class="info">
+    <div class="nm">${e.name} <span class="num">${e.hp}/${e.max}</span></div>
+    ${has("fill") ? `<div class="hb"><div class="fill" style="width:${pct(e.hp, e.max)}%"></div></div>` : ""}
+    ${has("statuses") && e.statuses.length ? sts(e.statuses) : ""}
+    <div class="rank-tag">${r.name}</div></div></div>`;
+}
+function bossB(b, i) {
+  return `<div class="boss ${i ? "minor" : "main"}">
+    ${i ? "" : `<div class="quote">«Пепел помнит ваши имена…»</div>`}
+    <div class="ring"><svg viewBox="0 0 120 120">${ring(55, 100, "t")}${ring(55, pct(b.trail, b.max), "tr")}${ring(55, pct(b.hp, b.max), "f")}</svg>
+      <div class="portrait ${b.cls}"></div><span class="pct num">${b.hp}/${b.max}</span></div>
+    <div class="side"><div class="name">${b.name}</div><div class="title">${b.title}</div>
+      <div class="minis">
+        ${b.temp ? `<div class="mini"><span>Щит</span><div class="m"><div style="width:${pct(...b.temp)}%;background:#6fa8dc"></div></div></div>` : ""}
+        ${b.legact ? `<div class="mini"><span>Лег. действия</span><div class="m"><div style="width:${pct(...b.legact)}%"></div></div></div>` : ""}
+        ${b.legres ? `<div class="mini"><span>Сопротивл.</span><div class="m"><div style="width:${pct(...b.legres)}%;background:#c58be0"></div></div></div>` : ""}
+      </div>${sts(b.statuses)}</div></div>`;
+}
+function eliteB(e) {
+  const r = rank(e.rank), has = k => r.show.includes(k), p = has("fill") ? pct(e.hp, e.max) : 100;
+  const R = r.size + 10;
+  return `<div class="ec" style="--rc:${has("fill") ? "#d33c34" : r.color};--sz:${R}px" title="${e.name} · ${r.name}">
+    <div class="r"><svg viewBox="0 0 ${R} ${R}">${ring(R / 2 - 3, 100, "t")}${ring(R / 2 - 3, p, "f")}</svg><div class="portrait e"></div>
+      ${has("statuses") && e.statuses.length ? `<span class="badge">${e.statuses.map(s => `<span class="st">${s}</span>`).join("")}</span>` : ""}</div>
+    ${has("name") ? `<span class="nm" style="border-left:2px solid ${r.color}">${e.name} <span class="num">${e.hp}/${e.max}</span></span>` : ""}</div>`;
+}
+function bossC(b, i) {
+  const segs = b.phases.map(p => `<i class="seg" style="left:${p * 100}%"></i>`).join("");
+  return `<div class="boss ${i ? "minor" : "main"}">
+    <div class="portrait ${b.cls}"></div>
+    ${i ? "" : `<div class="phase">ФАЗА I</div>`}
+    <div class="head"><div class="name">${b.name}</div>${i ? "" : `<div class="title">${b.title}</div>`}
+      <div class="bar"><div class="trail" style="width:${pct(b.trail, b.max)}%"></div><div class="fill" style="width:${pct(b.hp, b.max)}%"></div>${segs}<span class="num">${b.hp} / ${b.max}</span></div>
+      ${i ? "" : `<div class="under">
+        ${b.legact ? `<span class="pipsrow">ДЕЙСТВИЯ <b>${pips(b.legact)}</b></span>` : ""}
+        ${b.legres ? `<span class="pipsrow">СОПРОТИВЛЕНИЯ <b>${pips(b.legres)}</b></span>` : ""}
+        ${b.temp ? `<span class="pipsrow">ЩИТ <b>${b.temp[0]}</b></span>` : ""}
+        ${sts(b.statuses)}</div>`}
+    </div></div>`;
+}
+function eliteC(e) {
+  const r = rank(e.rank), has = k => r.show.includes(k);
+  const h = { captain: 110, veteran: 80, fighter: 64, guard: 48 }[r.id];
+  return `<div class="ec ${r.id === "captain" ? "wide" : ""}" style="--rc:${r.color};--h:${h}px" title="${e.name} · ${r.name}">
+    <div class="portrait e"></div>
+    ${has("fill") ? `<div class="vb"><div class="fill" style="height:${pct(e.hp, e.max)}%"></div></div>` : ""}
+    ${has("statuses") && e.statuses.length ? sts(e.statuses) : ""}
+    ${has("name") ? `<div class="nm">${e.name} <span class="num">${e.hp}/${e.max}</span></div>` : ""}</div>`;
+}
+
+const R = { A: [bossA, eliteA], B: [bossB, eliteB], C: [bossC, eliteC] };
+let variant = new URLSearchParams(location.search).get("variant");
+if (!R[variant]) variant = "A";
+
+function render() {
+  const [boss, elite] = R[variant];
+  document.getElementById("hud").className = variant;
+  document.getElementById("hud").innerHTML = S.bosses.map(boss).join("") +
+    (variant === "C" ? `<div class="quote">«Пепел помнит ваши имена…»</div>` : "") +
+    `<div class="elites">${sortedElites().map(elite).join("")}</div>`;
+  document.getElementById("vlabel").textContent = `${variant} (${VARIANTS[variant]})`;
+  document.getElementById("state").textContent = JSON.stringify({
+    variant, view: document.body.classList.contains("gm") ? "ГМ" : "игрок",
+    bosses: S.bosses.map(b => `${b.name}: ${b.hp}/${b.max}`),
+    elites: sortedElites().map(e => `${rank(e.rank).name} · ${e.name}: ${e.hp}/${e.max} [${rank(e.rank).show.join("+")}]`),
+  }, null, 1);
+}
+function setVariant(v) { variant = v; try { history.replaceState(null, "", `?variant=${v}`); } catch {} render(); }
+const keys = Object.keys(R);
+const step = d => setVariant(keys[(keys.indexOf(variant) + d + keys.length) % keys.length]);
+document.getElementById("prev").onclick = () => step(-1);
+document.getElementById("next").onclick = () => step(1);
+addEventListener("keydown", e => { if (e.target.closest("input,textarea,[contenteditable]")) return; if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); });
+
+// урон сразу двигает заливку, след догоняет с задержкой (через два кадра, чтобы сработал transition)
+function hit(frac) {
+  const b = S.bosses[0];
+  b.hp = Math.max(0, Math.min(b.max, Math.round(b.hp - b.max * frac)));
+  render();
+  requestAnimationFrame(() => requestAnimationFrame(() => { b.trail = b.hp; render(); }));
+}
+document.getElementById("proto").addEventListener("click", e => {
+  const a = e.target.dataset.act; if (!a) return;
+  if (a === "dmg15") hit(0.15); if (a === "dmg40") hit(0.4); if (a === "heal") hit(-0.2);
+  if (a === "reset") { S.bosses[0].hp = S.bosses[0].trail = 312; render(); }
+  if (a === "elite") { const e = S.elites[Math.floor(Math.random() * S.elites.length)]; e.hp = Math.max(0, e.hp - Math.ceil(e.max * 0.25)); render(); }
+});
+for (const [id, cls] of [["gm", "gm"], ["two", "two"], ["quote", "quote-on"], ["zones", "zones"]])
+  document.getElementById(id).onchange = e => { document.body.classList.toggle(cls, e.target.checked); render(); };
+
+// вписать сцену 1440×900 в окно
+function fit() { const s = Math.min(innerWidth / 1440, innerHeight / 900); document.getElementById("stage").style.transform = `scale(${s})`; }
+addEventListener("resize", fit); fit(); render();
+</script>
+</body>
+</html>
