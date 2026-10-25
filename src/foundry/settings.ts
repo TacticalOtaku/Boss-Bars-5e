@@ -1,8 +1,9 @@
 import { MODULE_ID } from "../constants";
 import { defaultRanks, readRanks, type Rank } from "../core/ranks";
+import { clearLookCache } from "./library";
 
-/** onChange refreshes the HUD; openRanks opens the (lazily loaded) rank editor. */
-export function registerSettings(onChange: () => void, openRanks: () => void): void {
+/** onChange refreshes the HUD; openRanks and openLibrary open the (lazily loaded) GM windows. */
+export function registerSettings(onChange: () => void, openRanks: () => void, openLibrary: () => void): void {
   // Per scene: ids of the bars this player collapsed (spec §2, client-side, never written to the world).
   game.settings.register(MODULE_ID, "collapsed", {
     scope: "client",
@@ -27,6 +28,17 @@ export function registerSettings(onChange: () => void, openRanks: () => void): v
     default: {},
     onChange,
   });
+  // The GM's own looks and presets (spec §9); built-ins live in code and are never written here.
+  game.settings.register(MODULE_ID, "library", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {},
+    onChange: () => {
+      clearLookCache();
+      onChange();
+    },
+  });
   // Empty until the GM saves: the translated default ranks apply meanwhile.
   game.settings.register(MODULE_ID, "ranks", {
     scope: "world",
@@ -49,6 +61,20 @@ export function registerSettings(onChange: () => void, openRanks: () => void): v
     hint: "BB5E.Ranks.Hint",
     icon: "fa-solid fa-ranking-star",
     type: RanksMenu,
+    restricted: true,
+  });
+  class LibraryMenu extends foundry.applications.api.ApplicationV2 {
+    override render() {
+      openLibrary();
+      return Promise.resolve(this);
+    }
+  }
+  game.settings.registerMenu(MODULE_ID, "libraryMenu", {
+    name: "BB5E.Library.Title",
+    label: "BB5E.Library.Open",
+    hint: "BB5E.Library.Hint",
+    icon: "fa-solid fa-palette",
+    type: LibraryMenu,
     restricted: true,
   });
 }

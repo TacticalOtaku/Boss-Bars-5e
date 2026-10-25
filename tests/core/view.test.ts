@@ -16,6 +16,8 @@ const token = (id: string, extra: Partial<TokenState> = {}): TokenState => ({
 const stage4 = { autoShow: DEFAULT_AUTO_SHOW, statuses: { hidden: [], custom: [] }, miniBars: [] };
 const bossProfile: BossProfile = {
   ...stage4,
+  look: null,
+  overrides: {},
   dataVersion: 2,
   kind: "boss",
   playerName: "",
@@ -56,7 +58,8 @@ describe("buildViews — boss bars", () => {
     expect(buildViews([boss], ranks, gm, 12).bosses[0]?.numbers).toEqual({ value: 30, max: 120, temp: 5 });
     const view = buildViews([boss], ranks, player, 12).bosses[0]!;
     expect(view).not.toHaveProperty("numbers");
-    expect(JSON.stringify(view)).not.toMatch(/\b30\b|\b120\b|"temp"/);
+    // The look is styling shared by everyone (its numbers are sizes); HP must not leak anywhere else.
+    expect(JSON.stringify({ ...view, look: undefined })).not.toMatch(/\b30\b|\b120\b|"temp"/);
     expect(view.fraction).toBe(0.25);
   });
 
@@ -232,5 +235,31 @@ describe("buildViews — statuses, mini-bars and shield", () => {
     expect([c?.statuses.length, c?.statusOverflow, c?.miniBars.length]).toEqual([4, 8, 2]);
     expect(c?.statuses.some((status) => status.name === "Rage")).toBe(false);
     expect([f?.statuses.length, f?.miniBars.length]).toEqual([0, 0]);
+  });
+});
+
+describe("buildViews — look", () => {
+  it("takes status limits and the shield switch from the subject's look", async () => {
+    const { BUILTIN_SOURCES, CLASSIC } = await import("../../src/core/look/builtin");
+    const { resolveLook } = await import("../../src/core/look/resolve");
+    const neon = resolveLook("neon", {}, BUILTIN_SOURCES, CLASSIC);
+    const effect = (name: string) => ({
+      id: name,
+      name,
+      img: "",
+      description: "",
+      statuses: [],
+      showIcon: 2,
+      temporary: false,
+      autoCreated: false,
+      stacks: 0,
+      duration: "",
+    });
+    const tokens = [token("n", { effects: Array.from({ length: 14 }, (_, i) => effect(`E${i}`)) })];
+    const boss = { ...subject("Neon", bossProfile, tokens), look: neon };
+    const view = buildViews([boss], ranks, gm, 12).bosses[0]!;
+    expect([view.statuses.length, view.statusOverflow, view.look.attrs.bar]).toEqual([12, 2, "thin"]);
+    const noShield = { ...neon, fill: { ...neon.fill, params: { ...neon.fill.params, shield: false } } };
+    expect(buildViews([{ ...boss, look: noShield }], ranks, gm, 12).bosses[0]?.shield).toBe(0);
   });
 });

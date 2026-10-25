@@ -1,9 +1,12 @@
+import { hpChange, isLow } from "../core/look/effects";
 import type { Block } from "../core/layout";
 import type { EliteCardView, HudViews } from "../core/view";
 import { positionBlock } from "./blocks";
 import { formatNumbers, part, setPortrait } from "./dom";
+import { enterFrames, leaveDuration, leaveFrames, playHpChange } from "./effects";
 import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
+import { applyHpColor, applyLook } from "./look";
 
 interface Card extends KeyedItem {
   icon: HTMLElement;
@@ -14,9 +17,13 @@ interface Card extends KeyedItem {
   meter: HTMLElement;
   fill: HTMLElement;
   shield: HTMLElement;
+  flash: HTMLElement;
+  crack: HTMLElement;
+  wave: HTMLElement;
   rank: HTMLElement;
   miniBars: HTMLElement;
   statuses: HTMLElement;
+  shown: number | null;
 }
 
 export interface ColumnOptions {
@@ -28,7 +35,10 @@ export interface ColumnOptions {
   };
 }
 
-/** The elite column (layout A rows): icon always, name and thin fill as the rank allows, "+N" for the rest. */
+/**
+ * The elite column: each card drawn in its rank's look (icon always; name, fill and statuses as the rank allows),
+ * "+N" for the rest.
+ */
 export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
   const column = part("div", "bb5e-column", host);
   const toggle = part("button", "bb5e-column__toggle", column) as HTMLButtonElement;
@@ -42,7 +52,10 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
 
   function createCard(): Card {
     const el = part("div", "bb5e-elite");
-    const icon = part("div", "bb5e-elite__icon", el);
+    // The avatar holds the icon and, in the ring layout, the HP ring around it.
+    const avatar = part("div", "bb5e-elite__avatar", el);
+    part("div", "bb5e-elite__ring", avatar);
+    const icon = part("div", "bb5e-elite__icon bb5e-face", avatar);
     const info = part("div", "bb5e-elite__info", el);
     const head = part("div", "bb5e-elite__head", info);
     const name = part("span", "bb5e-elite__name", head);
@@ -54,6 +67,9 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     meter.setAttribute("aria-valuemax", "100");
     const fill = part("div", "bb5e-elite__fill", meter);
     const shield = part("div", "bb5e-elite__shield", meter);
+    const flash = part("div", "bb5e-fx bb5e-fx--flash", meter);
+    const crack = part("div", "bb5e-fx bb5e-fx--crack", meter);
+    const wave = part("div", "bb5e-fx bb5e-fx--wave", meter);
     const miniBars = part("div", "bb5e-minibars bb5e-elite__minibars", info);
     const statuses = createStatusRow("bb5e-elite__statuses", info);
     const rank = part("div", "bb5e-elite__rank", info);
@@ -67,16 +83,22 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
       meter,
       fill,
       shield,
+      flash,
+      crack,
+      wave,
       rank,
       miniBars,
       statuses,
+      shown: null,
       leaving: null,
     };
   }
 
   function updateCard(card: Card, view: EliteCardView) {
     const { el } = card;
-    const { parts } = view;
+    const { parts, look } = view;
+    applyLook(el, look);
+    el.classList.toggle("bb5e-elite--fill", parts.fill);
     const iconOnly = !parts.name && !parts.fill && !view.statuses.length;
     el.classList.toggle("bb5e-elite--icon-only", iconOnly);
     el.classList.toggle("bb5e-elite--defeated", view.defeated);
@@ -102,7 +124,30 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     const shown = view.defeated ? 0 : (view.fraction ?? 0);
     if (view.fraction === null) card.meter.removeAttribute("aria-valuenow");
     else card.meter.setAttribute("aria-valuenow", String(Math.round(shown * 100)));
-    card.fill.style.transform = `scaleX(${shown})`;
+    // A vertical fill (layout C tiles) grows upwards; the ring reads --bb5e-f.
+    card.fill.style.transform = look.attrs.cfill === "vertical" ? `scaleY(${shown})` : `scaleX(${shown})`;
+    el.style.setProperty("--bb5e-f", String(shown));
+    applyHpColor(card.fill, look, shown);
+    if (card.shown !== shown) {
+      playHpChange(
+        hpChange(card.shown, shown, look.effects.bigThreshold),
+        look,
+        {
+          root: el,
+          portrait: card.icon,
+          flash: card.flash,
+          crack: card.crack,
+          wave: card.wave,
+          name: card.name,
+        },
+        options.reducedMotion(),
+      );
+      card.shown = shown;
+    }
+    const lowMode = look.effects.lowFlicker ? "flicker" : look.effects.lowPulse ? "pulse" : "";
+    if (parts.fill && lowMode && !view.defeated && isLow(shown, look.effects.lowThreshold))
+      el.dataset.low = lowMode;
+    else delete el.dataset.low;
     card.shield.hidden = !view.shield || view.defeated;
     card.shield.style.setProperty("--bb5e-at", String(shown));
     card.shield.style.setProperty("--bb5e-shield", String(view.shield));
@@ -111,7 +156,17 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     card.rank.textContent = view.rank.name;
   }
 
-  const list = createKeyedList(cards, createCard, updateCard, options.reducedMotion);
+  // Cards have no room for the defeat banner: a banner look fades them instead.
+  const list = createKeyedList(cards, createCard, updateCard, options.reducedMotion, {
+    enter: (view, reduced) => ({
+      frames: enterFrames(view.look, reduced),
+      duration: view.look.motion.duration,
+    }),
+    leave: (view, reduced) => ({
+      frames: leaveFrames(view.look, view.defeated, reduced),
+      duration: leaveDuration(view.look, view.defeated),
+    }),
+  });
   return {
     element: column,
     update(

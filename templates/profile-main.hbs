@@ -46,6 +46,16 @@
         </div>
         <p class="bb5e-field-error" data-error-for="size" role="alert" hidden></p>
       </div>
+      <div class="form-group">
+        <label>{{localize "BB5E.Workshop.Look"}}</label>
+        <div class="form-fields">
+          <span class="bb5e-look-name">{{lookName}}</span>
+          <button type="button" data-action="openWorkshop" {{#unless hasProfile}}disabled{{/unless}}>
+            <i class="fa-solid fa-wand-magic-sparkles" inert></i> {{localize "BB5E.Workshop.Open"}}
+          </button>
+        </div>
+        <p class="hint">{{localize "BB5E.Workshop.Hint"}}</p>
+      </div>
     </div>
     <div data-kind-group="elite" {{#unless isElite}}hidden{{/unless}}>
       <div class="form-group">

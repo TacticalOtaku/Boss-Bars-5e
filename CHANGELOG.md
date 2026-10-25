@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.6.0
+
+- Look engine: a look is one preset per category — layout (bar and card), font, frame, fill and colour, HP change
+  effect, appearance and exit, portrait, mini-bar and status style. Bosses pick a look and may override single
+  categories; elites wear their rank's look. The default is "Classic RPG".
+- Built-in looks "Classic RPG", "Permafrost" and "Neon" with the bar and card layouts A (classic), B (HP ring around
+  the portrait, icon cards with a ring) and C (cinematic banner, portrait tiles). The other themes come with 1.0.
+- Rendered in CSS: portrait placement and shape, bar shape (thick, thin, segmented, ring), name and extras placement,
+  frames (classic, double, inset, own 9-slice image) and corner ornaments, solid, gradient and texture fills, colour
+  by % HP, segments, gloss and edge glow, two-colour names, outline and glow. Live fills show their palette with a
+  moving sheen until the WebGL fills arrive.
+- Effects: shake and flash scaled by damage, crack on heavy damage, rise and wave on healing, pulse or flicker at low
+  HP, a configurable damage trail, entries (slide, open from the centre, fade, typed name) and exits (dissolve or a
+  "Defeated" banner). Reduced motion keeps only opacity changes.
+- "Looks and presets" library (module settings and the panel): search, built-in / own filter, copy, edit own presets
+  with live previews, delete, JSON import and export (256 KB limit), preview sheet per category.
+- "Look workshop" (boss profile, Main tab): pick the look and overrides with a live bar and a test console, copy the
+  look, apply to the profile. Ranks get a look picker.
+- Fonts Cormorant, Philosopher and Russo One (OFL 1.1, latin and cyrillic) load only when shown. GM fonts (woff2),
+  frame images and fill textures through the FilePicker.
+- Status limits and the temp HP shield moved into the look (Classic RPG keeps 10 / 4 and the shield). Ranks move to
+  data version 2 (0.5.0 leaves 0.6.0 ranks untouched).
+
 ## 0.5.0
 
 - Auto-show (profile tab "Auto-show"): the active GM shows enemies when combat reaches round 1 and hides them after a

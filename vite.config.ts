@@ -4,7 +4,16 @@ import { resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
 /** Static module files that Foundry loads directly from the package root. */
-const STATIC_ENTRIES = ["module.json", "lang", "templates", "assets", "LICENSE", "README.md", "CHANGELOG.md"];
+const STATIC_ENTRIES = [
+  "module.json",
+  "lang",
+  "templates",
+  "assets",
+  "fonts",
+  "LICENSE",
+  "README.md",
+  "CHANGELOG.md",
+];
 
 function copyStaticFiles(outDir: string): Plugin {
   return {

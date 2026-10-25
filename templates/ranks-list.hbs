@@ -15,6 +15,11 @@
             <input type="number" data-field="size" min="{{@root.limits.sizeMin}}" max="{{@root.limits.sizeMax}}" step="1" value="{{size}}">
           </label>
         </div>
+        <label class="bb5e-ranks__look">{{localize "BB5E.Ranks.Look"}}
+          <select data-field="look">
+            {{#each looks}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}
+          </select>
+        </label>
         <div class="bb5e-ranks__parts">
           <label><input type="checkbox" checked disabled> {{localize "BB5E.Ranks.Part.Icon"}}</label>
           <label><input type="checkbox" data-part="name" {{#if parts.name}}checked{{/if}}> {{localize "BB5E.Ranks.Part.Name"}}</label>

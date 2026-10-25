@@ -2,6 +2,9 @@ import { aggregate, type TokenState } from "./aggregate";
 import { hpFraction, type HpData } from "./hp";
 import type { Instance } from "./instances";
 import { numberLabels } from "./labels";
+import { CLASSIC_RESOLVED } from "./look/builtin";
+import type { ResolvedLook } from "./look/resolve";
+import { lookStyle, type LookStyle } from "./look/style";
 import { buildMiniBars, type MiniBarView } from "./minibars";
 import type { Profile } from "./profile";
 import { rankOf, type Rank } from "./ranks";
@@ -14,6 +17,8 @@ export interface SubjectInput {
   /** Fallback label: the token's name (one per token) or the actor's name (one per actor). */
   name: string;
   actorImg: string;
+  /** The boss profile's or the elite rank's look; missing — "Classic RPG". */
+  look?: ResolvedLook;
   /** The bound token, or all the actor's tokens on the scene. */
   tokens: TokenState[];
 }
@@ -40,16 +45,25 @@ interface CommonView {
   count?: number;
   /** GM only: a player's view never carries HP numbers. */
   numbers?: { value: number; max: number; temp: number };
-  /** Temp HP shield after the fill: temp / effectiveMax, 0 when there is none. */
+  /** Temp HP shield after the fill: temp / effectiveMax, 0 when there is none or the fill preset turns it off. */
   shield: number;
+  look: LookStyle;
   statuses: StatusView[];
   /** Status icons beyond the limit ("+N"). */
   statusOverflow: number;
   miniBars: MiniBarView[];
 }
 
-/** Visible status icons per bar and per card (spec §4; style presets come in stage 5). */
-export const STATUS_LIMITS = { boss: 10, elite: 4 } as const;
+/** One style per resolved look object: subjects sharing a look share the style (and its key). */
+const styles = new WeakMap<ResolvedLook, LookStyle>();
+function styleOf(look: ResolvedLook): LookStyle {
+  let style = styles.get(look);
+  if (!style) {
+    style = lookStyle(look);
+    styles.set(look, style);
+  }
+  return style;
+}
 
 export interface BossBarView extends CommonView {
   title: string;
@@ -112,17 +126,20 @@ export function buildViews(
     const { instance, profile } = subject;
     const src = profile.portrait ?? subject.actorImg;
     const isBoss = profile.kind === "boss";
+    const look = styleOf(subject.look ?? CLASSIC_RESOLVED);
+    const statusLimit = isBoss ? look.statuses.max : look.statuses.maxCard;
     const rank = isBoss ? null : rankOf(ranks, profile.rank);
     const custom = isBoss
       ? profile.statuses.custom.filter((status) => instance.customStatuses?.includes(status.id))
       : [];
     const { statuses, overflow } =
-      isBoss || rank?.rank.parts.statuses
+      (isBoss || rank?.rank.parts.statuses) && statusLimit > 0
         ? buildStatuses(
             total.tokens.map((token) => token.effects ?? []),
             profile.statuses.hidden,
             custom,
-            isBoss ? STATUS_LIMITS.boss : STATUS_LIMITS.elite,
+            statusLimit,
+            look.statuses.tip,
           )
         : { statuses: [], overflow: 0 };
     const miniBars =
@@ -138,7 +155,8 @@ export function buildViews(
       muted: total.hidden,
       ...(profile.displayMode === "actor" && instance.actorId ? { count: total.count } : {}),
       ...numbersOf(total.hp, viewer.isGM),
-      shield: shieldOf(total.hp),
+      shield: look.shield ? shieldOf(total.hp) : 0,
+      look,
       statuses,
       statusOverflow: overflow,
       miniBars,

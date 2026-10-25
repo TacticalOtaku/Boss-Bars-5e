@@ -1,0 +1,94 @@
+<section class="bb5e-library">
+  <nav class="bb5e-library__nav" aria-label="{{localize "BB5E.Library.Sections"}}">
+    {{#each sections}}
+    <button type="button" data-action="section" data-section="{{id}}" aria-pressed="{{#if active}}true{{else}}false{{/if}}">{{label}}</button>
+    {{/each}}
+  </nav>
+  <div class="bb5e-library__main">
+    <div class="bb5e-library__bar">
+      <input type="search" name="search" value="{{search}}" placeholder="{{localize "BB5E.Library.Search"}}" aria-label="{{localize "BB5E.Library.Search"}}">
+      <span class="bb5e-library__filters">
+        {{#each filters}}<button type="button" data-action="filter" data-filter="{{id}}" aria-pressed="{{#if active}}true{{else}}false{{/if}}">{{label}}</button>{{/each}}
+      </span>
+      <button type="button" data-action="importFile"><i class="fa-solid fa-file-import" inert></i> {{localize "BB5E.Library.Import"}}</button>
+      <button type="button" data-action="exportAll"><i class="fa-solid fa-file-export" inert></i> {{localize "BB5E.Library.ExportAll"}}</button>
+    </div>
+    <div class="bb5e-library__body">
+      <ul class="bb5e-library__list">
+        {{#each items}}
+        <li><button type="button" data-action="select" data-id="{{id}}" aria-pressed="{{#if selected}}true{{else}}false{{/if}}">
+          {{name}}{{#if builtIn}} <span class="bb5e-library__badge">{{localize "BB5E.Library.BuiltInBadge"}}</span>{{/if}}
+        </button></li>
+        {{else}}
+        <li class="hint">{{localize "BB5E.Library.Nothing"}}</li>
+        {{/each}}
+      </ul>
+      {{#if sheet}}
+      <div class="bb5e-library__sheet">
+        {{#each sheetItems}}
+        <figure><div class="bb5e-preview bb5e-library__tile" data-sheet-id="{{id}}"></div><figcaption>{{name}}</figcaption></figure>
+        {{/each}}
+      </div>
+      {{else}}
+      {{#if detail}}
+      <div class="bb5e-library__detail">
+        <div class="bb5e-preview bb5e-library__boss"></div>
+        <div class="bb5e-preview bb5e-library__card"></div>
+        <div class="bb5e-library__actions">
+          <button type="button" data-action="copy"><i class="fa-solid fa-copy" inert></i> {{localize "BB5E.Library.Copy"}}</button>
+          {{#if detail.own}}
+          <button type="button" data-action="exportItem"><i class="fa-solid fa-file-export" inert></i> {{localize "BB5E.Library.ExportItem"}}</button>
+          <button type="button" class="bb5e-footer__remove" data-action="remove"><i class="fa-solid fa-trash" inert></i> {{localize "BB5E.Library.Remove"}}</button>
+          {{/if}}
+          <button type="button" data-action="sheet"><i class="fa-solid fa-table-cells" inert></i> {{localize "BB5E.Library.Sheet"}}</button>
+        </div>
+        {{#if detail.own}}
+        <div class="form-group">
+          <label for="{{partId}}-itemName">{{localize "BB5E.Library.Name"}}</label>
+          <div class="form-fields"><input type="text" id="{{partId}}-itemName" name="itemName" value="{{detail.name}}" maxlength="80"></div>
+        </div>
+        {{else}}
+        <p class="hint">{{localize "BB5E.Library.ReadOnly"}}</p>
+        {{/if}}
+        {{#if detail.isLook}}
+        <div class="bb5e-library__fields">
+          {{#each detail.rows}}
+          <div class="form-group">
+            <label>{{label}}</label>
+            <div class="form-fields">
+              {{#if ../detail.own}}
+              <select name="presets.{{category}}" aria-label="{{label}}">
+                {{#each options}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}
+              </select>
+              {{else}}
+              <span>{{current}}</span>
+              {{/if}}
+            </div>
+          </div>
+          {{/each}}
+        </div>
+        {{/if}}
+        {{#if detail.fields}}
+        <div class="bb5e-library__fields">
+          {{#each detail.fields}}
+          <div class="form-group">
+            <label>{{label}}</label>
+            <div class="form-fields">
+              {{#if isEnum}}<select name="{{name}}" aria-label="{{label}}">{{#each options}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>{{/if}}
+              {{#if isNumber}}<input type="number" name="{{name}}" value="{{value}}" min="{{min}}" max="{{max}}" step="{{step}}" aria-label="{{label}}">{{/if}}
+              {{#if isBool}}<input type="checkbox" name="{{name}}" {{#if checked}}checked{{/if}} aria-label="{{label}}">{{/if}}
+              {{#if isColor}}<color-picker name="{{name}}" value="{{value}}" aria-label="{{label}}"></color-picker>{{/if}}
+              {{#if isText}}<input type="text" name="{{name}}" value="{{value}}" aria-label="{{label}}" {{#if max}}maxlength="{{max}}"{{/if}}>{{/if}}
+              {{#if isPath}}<file-picker name="{{name}}" type="{{pickType}}" value="{{value}}" aria-label="{{label}}"></file-picker>{{/if}}
+            </div>
+            {{#if hint}}<p class="hint">{{hint}}</p>{{/if}}
+          </div>
+          {{/each}}
+        </div>
+        {{/if}}
+      </div>
+      {{/if}}
+      {{/if}}
+    </div>
+  </div>
+</section>

@@ -1,8 +1,12 @@
 import "../styles/boss-bars-5e.scss";
 import { PLAYER_SCREENS } from "../src/core/screens";
 import { DEFAULT_LAYOUT, type Direction } from "../src/core/layout";
+import { BUILTIN_LOOKS, BUILTIN_SOURCES, CLASSIC } from "../src/core/look/builtin";
+import { resolveLook } from "../src/core/look/resolve";
 import { buildViews, ELITE_COLUMN_ID, type SubjectInput } from "../src/core/view";
+import { FONT_FACES } from "../src/core/look/fonts";
 import { createBossStack } from "../src/ui/boss-stack";
+import { registerFonts } from "../src/ui/look";
 import { createEliteColumn } from "../src/ui/elite-column";
 import { mountOverlay } from "../src/ui/overlay";
 import { FIXTURE_BOSSES, FIXTURE_ELITES, FIXTURE_RANKS } from "./fixtures";
@@ -41,12 +45,24 @@ const state = {
   collapsed: new Set<string>(),
   ...fresh(),
 };
+// The dev server serves the fonts folder by URL imports (the module resolves them from its script URL).
+const fontUrls = import.meta.glob<string>("../fonts/*.woff2", {
+  query: "?url",
+  import: "default",
+  eager: true,
+});
+registerFonts(FONT_FACES, (file) => fontUrls[`../fonts/${file}`] ?? "");
 const peaks = new Map<string, number>();
-const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+// One resolved object per look, as the store keeps them: equal looks share one style.
+const looks = BUILTIN_LOOKS.map((look) => resolveLook(look.id, {}, BUILTIN_SOURCES, CLASSIC));
+let lookIndex = 0;
+const reducedMotion = () =>
+  matchMedia("(prefers-reduced-motion: reduce)").matches ||
+  document.body.classList.contains("performance-low");
 
 const overlay = mountOverlay(host);
 const stack = createBossStack(overlay, {
-  labels: { collapse: "Свернуть", expand: "Развернуть" },
+  labels: { collapse: "Свернуть", expand: "Развернуть", defeated: "Повержен" },
   onCollapse(id, collapsed) {
     if (collapsed) state.collapsed.add(id);
     else state.collapsed.delete(id);
@@ -68,7 +84,9 @@ const column = createEliteColumn(overlay, {
 
 function render(): void {
   const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true, mayCollapseElites: true };
-  const views = buildViews([...state.bosses, ...state.elites], FIXTURE_RANKS, viewer, state.limit, peaks);
+  const look = looks[lookIndex];
+  const subjects = [...state.bosses, ...state.elites].map((subject) => ({ ...subject, look }));
+  const views = buildViews(subjects, FIXTURE_RANKS, viewer, state.limit, peaks);
   stack.update(views.bosses, { ...DEFAULT_LAYOUT.bosses, dir: state.bossDir }, state.uiScale);
   column.update(views.elites, views, DEFAULT_LAYOUT.elites, state.uiScale);
 }
@@ -122,6 +140,8 @@ const ACTIONS: Record<string, () => void> = {
   "ГМ / игрок": () => (state.gm = !state.gm),
   "Боссы: вниз / в ряд": () => (state.bossDir = state.bossDir === "down" ? "row" : "down"),
   "uiScale 0.8 / 1": () => (state.uiScale = state.uiScale === 1 ? 0.8 : 1),
+  "Облик →": () => (lookIndex = (lookIndex + 1) % looks.length),
+  "Меньше движения": () => document.body.classList.toggle("performance-low"),
   Сброс: () => {
     Object.assign(state, fresh());
     state.collapsed.clear();

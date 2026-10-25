@@ -2,11 +2,13 @@ import { MODULE_ID } from "../constants";
 import { isDefeated, type TokenState } from "../core/aggregate";
 import { readInstances, type Instance } from "../core/instances";
 import { readProfile, type Profile } from "../core/profile";
+import { rankOf } from "../core/ranks";
 import { buildViews, type HudViews, type SubjectInput } from "../core/view";
 import { hasDefeatedStatus, readBar, readEffects, readHp } from "../integrations/dnd5e/actor";
 import { logger } from "../logger";
 import type { Layout } from "../core/layout";
 import { currentLayout } from "./layout";
+import { lookFor } from "./library";
 import { collapsedIds, currentRanks } from "./settings";
 
 /**
@@ -143,10 +145,18 @@ function collectViews(warned: Set<string>, layout: Layout): HudViews {
   const read = readInstances(scene.flags[MODULE_ID]?.instances);
   if (read.status !== "ok") return empty;
   const subjects: SubjectInput[] = [];
+  const ranks = currentRanks();
   for (const instance of read.value.items) {
     try {
       const subject = subjectOf(scene, instance);
-      if (subject) subjects.push(subject);
+      if (!subject) continue;
+      // Bosses wear their profile's look and overrides, elites their rank's look.
+      const { profile } = subject;
+      subject.look =
+        profile.kind === "boss"
+          ? lookFor(profile.look, profile.overrides)
+          : lookFor(rankOf(ranks, profile.rank).rank.look);
+      subjects.push(subject);
     } catch (error) {
       if (warned.has(instance.id)) continue;
       warned.add(instance.id);
@@ -159,5 +169,5 @@ function collectViews(warned: Set<string>, layout: Layout): HudViews {
     mayCollapse: layout.bosses.collapse,
     mayCollapseElites: layout.elites.collapse,
   };
-  return buildViews(subjects, currentRanks(), viewer, layout.elites.max, peaks);
+  return buildViews(subjects, ranks, viewer, layout.elites.max, peaks);
 }

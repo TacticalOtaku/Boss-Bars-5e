@@ -22,9 +22,9 @@ describe("ranks", () => {
   it("uses the defaults until the GM saves ranks", () => {
     expect(readRanks(undefined, defaults)).toEqual({
       status: "ok",
-      value: { dataVersion: 1, items: defaults },
+      value: { dataVersion: 2, items: defaults },
     });
-    expect(readRanks({}, defaults)).toEqual({ status: "ok", value: { dataVersion: 1, items: defaults } });
+    expect(readRanks({}, defaults)).toEqual({ status: "ok", value: { dataVersion: 2, items: defaults } });
   });
 
   it("normalises stored ranks and never lets a colour or id inject CSS", () => {
@@ -51,10 +51,27 @@ describe("ranks", () => {
         color: "#6a6a7a",
         parts: { name: false, fill: true, statuses: false },
         size: 64,
+        look: null,
       },
     ]);
     expect(readRanks({ dataVersion: 1, items: [] }, defaults).status).toBe("ok");
     expect(readRanks({ dataVersion: 4, items: [] }, defaults).status).toBe("newer");
+  });
+
+  it("reads the rank's look (v2) and migrates v1 ranks", () => {
+    const read = readRanks(
+      {
+        dataVersion: 2,
+        items: [
+          { id: "a", name: "A", look: "neon" },
+          { id: "b", name: "B", look: "x y" },
+        ],
+      },
+      defaults,
+    );
+    expect(read.status === "ok" && read.value.items.map((rank) => rank.look)).toEqual(["neon", null]);
+    const v1 = readRanks({ dataVersion: 1, items: [{ id: "a", name: "A" }] }, defaults);
+    expect(v1.status === "ok" && v1.value.dataVersion).toBe(2);
   });
 
   it("falls back to the weakest rank for an unknown id", () => {

@@ -15,7 +15,9 @@ import {
 import { isRecord } from "../core/schema";
 import { rankOf } from "../core/ranks";
 import { currentRanks } from "../foundry/settings";
-import { confirmDiscard, previewCard } from "./shared";
+import { BUILTIN_LOOKS } from "../core/look/builtin";
+import { currentLibrary, lookFor } from "../foundry/library";
+import { confirmDiscard, displayName, previewCard } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
@@ -118,6 +120,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     form: { handler: ProfileEditor.#onSubmit, closeOnSubmit: false, submitOnChange: false },
     actions: {
       removeProfile: ProfileEditor.#onRemove,
+      openWorkshop: ProfileEditor.#onWorkshop,
       addBar: ProfileEditor.#edit((input) =>
         input.miniBars.push({
           id: foundry.utils.randomID(),
@@ -212,6 +215,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       byActor: values.displayMode === "actor",
       ranks: ranks.map((rank) => ({ id: rank.id, name: rank.name, selected: rank.id === values.rank })),
       hasProfile: read.status === "ok",
+      lookName: this.#lookName(read.status === "ok" && read.value.kind === "boss" ? read.value.look : null),
       limits: PROFILE_LIMITS,
       miniBars: values.miniBars.map((bar, index) => {
         const { source } = bar;
@@ -370,6 +374,22 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Removing the profile hides this actor's bars and cards on every scene (the active GM prunes them). */
+  /** The look the boss wears now (overrides aside), as the workshop button shows it. */
+  #lookName(id: string | null): string {
+    const look = [...BUILTIN_LOOKS, ...(currentLibrary()?.looks ?? [])].find(
+      (each) => each.id === lookFor(id).id,
+    );
+    return look ? displayName(look) : "";
+  }
+
+  /** Looks are chosen in their own window (decision C of ticket #16), which writes only look and overrides. */
+  static async #onWorkshop(this: ProfileEditor) {
+    void import("./workshop").then(
+      ({ openWorkshop }) => openWorkshop(this.actor),
+      () => ui.notifications.error("BB5E.Error.WindowFailed", { localize: true }),
+    );
+  }
+
   static async #onRemove(this: ProfileEditor) {
     const confirmed = await DialogV2.confirm({
       window: { title: game.i18n.localize("BB5E.Profile.Remove.Title") },

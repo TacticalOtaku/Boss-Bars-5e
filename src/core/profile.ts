@@ -1,3 +1,4 @@
+import { LOOK_ID, readOverrides, type Category } from "./look/schema";
 import { isDocumentId, isRecord, migrate, text, type ReadResult } from "./schema";
 
 export const PROFILE_VERSION = 2;
@@ -59,6 +60,10 @@ interface ProfileBase {
 /** Stored in the world actor's flags; one kind per actor. Fields of later stages are added with their stages. */
 export interface BossProfile extends ProfileBase {
   kind: "boss";
+  /** Look id; null — "Classic RPG". Elites take their rank's look instead. */
+  look: string | null;
+  /** Category presets that replace the look's own. */
+  overrides: Partial<Record<Category, string>>;
   title: string;
   /** Size in percent. */
   size: number;
@@ -125,7 +130,7 @@ export function defaultProfile(kind: ProfileKind = "boss"): Profile {
   } as const;
   const stage4 = { autoShow: { ...DEFAULT_AUTO_SHOW }, statuses: { hidden: [], custom: [] }, miniBars: [] };
   return kind === "boss"
-    ? { ...base, ...stage4, kind, title: "", size: 100 }
+    ? { ...base, ...stage4, kind, look: null, overrides: {}, title: "", size: 100 }
     : { ...base, ...stage4, kind, rank: "" };
 }
 
@@ -242,6 +247,8 @@ export function readProfile(raw: unknown): ReadResult<Profile> {
     value: {
       ...base,
       kind: "boss",
+      look: typeof value.look === "string" && LOOK_ID.test(value.look) ? value.look : null,
+      overrides: readOverrides(value.overrides),
       title: text(value.title, PROFILE_LIMITS.text),
       size: clamp(value.size, PROFILE_LIMITS.sizeMin, PROFILE_LIMITS.sizeMax, 100),
     },

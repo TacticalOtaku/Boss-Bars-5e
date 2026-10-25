@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_LAYOUT } from "../src/core/layout";
+import { CLASSIC_STYLE } from "../src/core/look/builtin";
 import type { EliteCardView } from "../src/core/view";
 import { createEliteColumn } from "../src/ui/elite-column";
 
@@ -17,6 +18,7 @@ const card = (id: string, extra: Partial<EliteCardView> = {}): EliteCardView => 
   statuses: [],
   statusOverflow: 0,
   miniBars: [],
+  look: CLASSIC_STYLE,
   ...extra,
 });
 
