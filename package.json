@@ -1,0 +1,48 @@
+{
+  "name": "boss-bars-5e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RPG boss bars and elite cards for important D&D 5e enemies in Foundry VTT.",
+  "author": "TacticalOtaku",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TacticalOtaku/Boss-Bars-5e.git"
+  },
+  "homepage": "https://github.com/TacticalOtaku/Boss-Bars-5e",
+  "bugs": {
+    "url": "https://github.com/TacticalOtaku/Boss-Bars-5e/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "stand": "vite",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/core",
+    "lint": "eslint . && stylelint \"styles/**/*.scss\" && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "deploy": "node tools/deploy.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "package": "node tools/package.mjs",
+    "release": "npm run check && npm run package"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "happy-dom": "^20.14.6",
+    "prettier": "^3.9.10",
+    "sass": "^1.106.1",
+    "stylelint": "^17.16.0",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

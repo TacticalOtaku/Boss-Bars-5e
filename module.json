@@ -1,0 +1,46 @@
+{
+  "id": "boss-bars-5e",
+  "title": "Boss Bars 5e",
+  "description": "RPG boss bars and elite cards for important D&D 5e enemies.",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "TacticalOtaku"
+    }
+  ],
+  "url": "https://github.com/TacticalOtaku/Boss-Bars-5e",
+  "manifest": "https://raw.githubusercontent.com/TacticalOtaku/Boss-Bars-5e/main/module.json",
+  "download": "https://github.com/TacticalOtaku/Boss-Bars-5e/releases/download/v0.1.0/boss-bars-5e-v0.1.0.zip",
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14.367",
+    "maximum": "14"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "dnd5e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "5.3.3",
+          "verified": "5.3.3"
+        }
+      }
+    ]
+  },
+  "esmodules": ["scripts/boss-bars-5e.js"],
+  "styles": ["styles/boss-bars-5e.css"],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    }
+  ],
+  "socket": true
+}
