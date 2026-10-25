@@ -1,3 +1,4 @@
+import { DEFAULT_LAYOUT } from "../core/layout";
 import type { Rank } from "../core/ranks";
 import { isVideoPath, type EliteCardView } from "../core/view";
 import { createEliteColumn } from "../ui/elite-column";
@@ -11,6 +12,7 @@ export async function confirmDiscard(): Promise<boolean> {
   return discard === true;
 }
 
+const PREVIEW_COLUMN = { canCollapse: false, collapsed: false, total: 1 };
 const previews = new WeakMap<HTMLElement, ReturnType<typeof createEliteColumn>>();
 
 /**
@@ -21,7 +23,7 @@ export function previewCard(host: HTMLElement, card: { label: string; img: strin
   let column = previews.get(host);
   if (!column) {
     host.replaceChildren();
-    column = createEliteColumn(host, () => true);
+    column = createEliteColumn(host, { reducedMotion: () => true });
     previews.set(host, column);
   }
   const view: EliteCardView = {
@@ -34,5 +36,5 @@ export function previewCard(host: HTMLElement, card: { label: string; img: strin
     rank: { name: card.rank.name, color: card.rank.color, size: card.rank.size },
     parts: { name: card.rank.parts.name, fill: card.rank.parts.fill },
   };
-  column.update([view], 0, 1);
+  column.update([view], { eliteOverflow: 0, column: PREVIEW_COLUMN }, DEFAULT_LAYOUT.elites, 1);
 }

@@ -98,12 +98,6 @@
       "Empty": "No tokens with a Boss Bars profile on this scene.",
       "NoScene": "No scene is being viewed."
     },
-    "Setting": {
-      "PlayersMayCollapse": {
-        "Name": "Players may collapse boss bars",
-        "Hint": "Each player can collapse a boss bar to its name and a thin bar on their own screen."
-      }
-    },
     "Error": {
       "TooLong": "Too long.",
       "SizeRange": "Size must be between 50 and 200%.",
@@ -120,6 +114,52 @@
       "NoProfile": "This token's actor has no Boss Bars profile.",
       "WriteFailed": "The boss bars could not be changed. See the console.",
       "WindowFailed": "The Boss Bars 5e window could not be loaded. See the console."
+    },
+    "Column": {
+      "Title": "Elites",
+      "Collapse": "Collapse the elite column",
+      "Expand": "Expand the elite column"
+    },
+    "Layout": {
+      "Title": "Layout",
+      "Open": "Layout mode",
+      "Hint": "Drag the blocks on your screen: they stick to the centre and edges and anchor to the nearest of 9 points. Arrows move the selected block by 1 px (Shift: 10 px), Escape leaves. Players see the changes after you save.",
+      "Layer": {
+        "Label": "Layer",
+        "World": "World",
+        "Scene": "This scene"
+      },
+      "Overridden": "overridden on this scene",
+      "Anchor": "Anchor",
+      "Direction": "Direction",
+      "Max": "Visible cards",
+      "Collapse": "Players may collapse",
+      "Reset": "Reset to world",
+      "Preview": "Screen",
+      "MyScreen": "My screen",
+      "Covers": "covers",
+      "Offscreen": "goes past the screen edge",
+      "Cancel": "Cancel",
+      "Save": "Save",
+      "Block": {
+        "Bosses": "Boss stack",
+        "Elites": "Elite column"
+      },
+      "Zone": {
+        "Controls": "Scene controls",
+        "Navigation": "Scene navigation",
+        "Players": "Players",
+        "Hotbar": "Hotbar",
+        "Sidebar": "Sidebar",
+        "Notifications": "Notifications",
+        "Calendar": "dnd5e calendar",
+        "Carousel": "Carousel Combat Tracker"
+      },
+      "Dir": {
+        "Down": "Down",
+        "Up": "Up",
+        "Row": "In a row"
+      }
     }
   }
 }

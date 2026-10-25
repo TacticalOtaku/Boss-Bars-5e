@@ -1,6 +1,7 @@
 @use "boss-bar";
 @use "elite";
 @use "apps";
+@use "layout";
 
 // Theme tokens live on the HUD root (and on editor previews drawn by the same renderer), never on :root.
 // The HUD keeps its own look whatever the Foundry theme.
@@ -12,6 +13,16 @@
   --bb5e-trail: #f3e3b0;
   --bb5e-empty: #1a0d0d;
   --bb5e-font-display: georgia, "Times New Roman", serif;
+}
+
+// Layout blocks: anchor share + offset × uiScale, aligned by the same point of themselves (spec §10).
+// positionBlock (src/ui/blocks.ts) sets the variables; no measuring is needed when the screen changes.
+#boss-bars-5e .bb5e-stack,
+#boss-bars-5e .bb5e-column {
+  position: absolute;
+  top: calc(var(--bb5e-fy, 0) * 100% + var(--bb5e-dy, 0) * var(--bb5e-ui-scale, 1) * 1px);
+  left: calc(var(--bb5e-fx, 0) * 100% + var(--bb5e-dx, 0) * var(--bb5e-ui-scale, 1) * 1px);
+  translate: calc(var(--bb5e-fx, 0) * -100%) calc(var(--bb5e-fy, 0) * -100%);
 }
 
 // The overlay covers the whole #interface (not #ui-middle) and only its blocks take pointer events.

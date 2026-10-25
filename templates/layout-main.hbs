@@ -1,0 +1,31 @@
+<section class="bb5e-layout">
+  <div class="bb5e-layout__layers" role="radiogroup" aria-label="{{localize "BB5E.Layout.Layer.Label"}}">
+    <label><input type="radio" name="layer" value="world" {{#if worldLayer}}checked{{/if}}> {{localize "BB5E.Layout.Layer.World"}}</label>
+    <label><input type="radio" name="layer" value="scene" {{#unless worldLayer}}checked{{/unless}} {{#unless hasScene}}disabled{{/unless}}> {{localize "BB5E.Layout.Layer.Scene"}}</label>
+  </div>
+  {{#each blocks}}
+  <fieldset class="bb5e-layout__block{{#if selected}} bb5e-layout__block--selected{{/if}}" data-block="{{key}}">
+    <legend>{{label}}{{#if overridden}} · {{localize "BB5E.Layout.Overridden"}}{{/if}}</legend>
+    <div class="bb5e-layout__row">
+      <span class="bb5e-layout__anchor" data-anchor title="{{localize "BB5E.Layout.Anchor"}}">{{anchorLabel}}</span>
+      <label>X <input type="number" data-field="dx" step="1" min="-{{@root.limits.offset}}" max="{{@root.limits.offset}}" value="{{dx}}"></label>
+      <label>Y <input type="number" data-field="dy" step="1" min="-{{@root.limits.offset}}" max="{{@root.limits.offset}}" value="{{dy}}"></label>
+    </div>
+    <div class="bb5e-layout__row">
+      <label>{{localize "BB5E.Layout.Direction"}}
+        <select data-field="dir">{{#each dirs}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>
+      </label>
+      {{#if isElites}}
+      <label>{{localize "BB5E.Layout.Max"}} <input type="number" data-field="max" step="1" min="{{@root.limits.maxMin}}" max="{{@root.limits.maxMax}}" value="{{max}}"></label>
+      {{/if}}
+    </div>
+    <div class="bb5e-layout__row">
+      <label><input type="checkbox" data-field="collapse" {{#if collapse}}checked{{/if}}> {{localize "BB5E.Layout.Collapse"}}</label>
+      {{#if overridden}}
+      <button type="button" data-action="resetBlock" data-block="{{key}}"><i class="fa-solid fa-rotate-left" inert></i> {{localize "BB5E.Layout.Reset"}}</button>
+      {{/if}}
+    </div>
+  </fieldset>
+  {{/each}}
+  <p class="hint">{{localize "BB5E.Layout.Hint"}}</p>
+</section>

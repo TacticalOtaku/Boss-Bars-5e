@@ -6,6 +6,12 @@ import { instanceFor, type BossHud } from "../foundry/store";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
+/** Other GM windows the panel links to (loaded lazily by main). */
+export interface PanelLinks {
+  openRanks(): void;
+  openLayout(): void;
+}
+
 interface Row {
   kind: ProfileKind;
   /** Any of the subject's tokens: "show" picks the binding from the profile's display mode. */
@@ -62,6 +68,7 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
       toggle: ActiveBosses.#onToggle,
       hideAll: ActiveBosses.#onHideAll,
       openRanks: ActiveBosses.#onOpenRanks,
+      openLayout: ActiveBosses.#onOpenLayout,
     },
   };
 
@@ -74,13 +81,13 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
   };
 
   readonly #hud: BossHud;
-  readonly #openRanks: () => void;
+  readonly #open: PanelLinks;
   #unsubscribe: (() => void) | null = null;
 
-  constructor(hud: BossHud, openRanks: () => void) {
+  constructor(hud: BossHud, open: PanelLinks) {
     super();
     this.#hud = hud;
-    this.#openRanks = openRanks;
+    this.#open = open;
   }
 
   override async _prepareContext(options: Record<string, unknown>) {
@@ -125,11 +132,15 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onOpenRanks(this: ActiveBosses) {
-    this.#openRanks();
+    this.#open.openRanks();
+  }
+
+  static async #onOpenLayout(this: ActiveBosses) {
+    this.#open.openLayout();
   }
 }
 
-export function openActiveBosses(hud: BossHud, openRanks: () => void): void {
+export function openActiveBosses(hud: BossHud, open: PanelLinks): void {
   const existing = foundry.applications.instances.get("bb5e-active-bosses");
-  void (existing ?? new ActiveBosses(hud, openRanks)).render({ force: true });
+  void (existing ?? new ActiveBosses(hud, open)).render({ force: true });
 }

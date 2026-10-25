@@ -16,10 +16,15 @@ export interface SubjectInput {
   tokens: TokenState[];
 }
 
+/** Key of the whole elite column in the per-scene collapsed set. */
+export const ELITE_COLUMN_ID = "elites";
+
 export interface Viewer {
   isGM: boolean;
   collapsed: ReadonlySet<string>;
+  /** Players may collapse boss bars / the elite column (layout blocks). */
   mayCollapse: boolean;
+  mayCollapseElites: boolean;
 }
 
 interface CommonView {
@@ -52,6 +57,8 @@ export interface HudViews {
   elites: EliteCardView[];
   /** Cards beyond the visible limit ("+N"). */
   eliteOverflow: number;
+  /** The player-side state of the elite column; total counts every card, shown or beyond the limit. */
+  column: { canCollapse: boolean; collapsed: boolean; total: number };
 }
 
 const VIDEO = /\.(webm|mp4|m4v|ogv)(\?|#|$)/i;
@@ -91,7 +98,7 @@ export function buildViews(
     const common: CommonView = {
       id: instance.id,
       label: labels.get(instance.id) ?? baseLabel(subject),
-      portrait: { src, video: VIDEO.test(src) },
+      portrait: { src, video: isVideoPath(src) },
       fraction: total.hp ? hpFraction(total.hp) : null,
       defeated: total.defeated,
       muted: total.hidden,
@@ -121,9 +128,15 @@ export function buildViews(
     }
   }
   elites.sort((a, b) => a.rank - b.rank || a.order - b.order);
+  const canCollapse = !viewer.isGM && viewer.mayCollapseElites;
   return {
     bosses,
     elites: elites.slice(0, eliteLimit).map((entry) => entry.view),
     eliteOverflow: Math.max(0, elites.length - eliteLimit),
+    column: {
+      canCollapse,
+      collapsed: canCollapse && viewer.collapsed.has(ELITE_COLUMN_ID),
+      total: elites.length,
+    },
   };
 }

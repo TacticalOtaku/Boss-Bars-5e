@@ -43,8 +43,8 @@ const subject = (
   actorImg: "actor.webp",
   tokens,
 });
-const gm: Viewer = { isGM: true, collapsed: new Set(), mayCollapse: true };
-const player: Viewer = { isGM: false, collapsed: new Set(), mayCollapse: true };
+const gm: Viewer = { isGM: true, collapsed: new Set(), mayCollapse: true, mayCollapseElites: true };
+const player: Viewer = { isGM: false, collapsed: new Set(), mayCollapse: true, mayCollapseElites: true };
 
 describe("buildViews — boss bars", () => {
   const boss = subject("Ксар’Тун", bossProfile);
@@ -146,5 +146,25 @@ describe("buildViews — elite column", () => {
     const subjects = [subject("Орк", eliteProfile("guard"))];
     expect(buildViews(subjects, ranks, gm, 12).elites[0]?.numbers).toEqual({ value: 30, max: 120, temp: 5 });
     expect(buildViews(subjects, ranks, player, 12).elites[0]).not.toHaveProperty("numbers");
+  });
+
+  it("lets players collapse the whole column, when allowed", () => {
+    const subjects = [subject("Орк", eliteProfile("guard")), subject("Волк", eliteProfile("guard"))];
+    expect(buildViews(subjects, ranks, gm, 12).column).toEqual({
+      canCollapse: false,
+      collapsed: false,
+      total: 2,
+    });
+    const collapsed = { ...player, collapsed: new Set(["elites"]) };
+    expect(buildViews(subjects, ranks, collapsed, 1).column).toEqual({
+      canCollapse: true,
+      collapsed: true,
+      total: 2,
+    });
+    const locked = { ...collapsed, mayCollapseElites: false };
+    expect(buildViews(subjects, ranks, locked, 12).column).toMatchObject({
+      canCollapse: false,
+      collapsed: false,
+    });
   });
 });

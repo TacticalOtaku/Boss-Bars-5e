@@ -1,4 +1,6 @@
-import type { EliteCardView } from "../core/view";
+import type { Block } from "../core/layout";
+import type { EliteCardView, HudViews } from "../core/view";
+import { positionBlock } from "./blocks";
 import { formatNumbers, part, setPortrait } from "./dom";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 
@@ -13,9 +15,23 @@ interface Card extends KeyedItem {
   rank: HTMLElement;
 }
 
+export interface ColumnOptions {
+  reducedMotion(): boolean;
+  /** Player-side collapse of the whole column; absent in editor previews. */
+  collapse?: {
+    labels: { title: string; collapse: string; expand: string };
+    onToggle(collapsed: boolean): void;
+  };
+}
+
 /** The elite column (layout A rows): icon always, name and thin fill as the rank allows, "+N" for the rest. */
-export function createEliteColumn(host: HTMLElement, reducedMotion: () => boolean) {
+export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
   const column = part("div", "bb5e-column", host);
+  const toggle = part("button", "bb5e-column__toggle", column) as HTMLButtonElement;
+  toggle.type = "button";
+  toggle.hidden = true;
+  let collapsed = false;
+  toggle.addEventListener("click", () => options.collapse?.onToggle(!collapsed));
   const cards = part("div", "bb5e-column__cards", column);
   const more = part("div", "bb5e-column__more", column);
   more.hidden = true;
@@ -69,11 +85,29 @@ export function createEliteColumn(host: HTMLElement, reducedMotion: () => boolea
     card.rank.textContent = view.rank.name;
   }
 
-  const list = createKeyedList(cards, createCard, updateCard, reducedMotion);
+  const list = createKeyedList(cards, createCard, updateCard, options.reducedMotion);
   return {
-    update(views: EliteCardView[], overflow: number, uiScale: number) {
-      column.style.setProperty("--bb5e-ui-scale", String(uiScale));
-      list.update(views);
+    element: column,
+    update(
+      views: EliteCardView[],
+      state: Pick<HudViews, "eliteOverflow" | "column">,
+      block: Block,
+      uiScale: number,
+    ) {
+      positionBlock(column, block, uiScale);
+      const { canCollapse, total } = state.column;
+      collapsed = state.column.collapsed;
+      // The toggle is a player control; with nothing to show it would be an empty chip.
+      const labels = options.collapse?.labels;
+      toggle.hidden = !canCollapse || !labels || !total;
+      if (labels) {
+        toggle.textContent = collapsed ? `${labels.title} · ${total} ▸` : "▾";
+        toggle.setAttribute("aria-expanded", String(!collapsed));
+        toggle.setAttribute("aria-label", collapsed ? labels.expand : labels.collapse);
+      }
+      column.classList.toggle("bb5e-column--collapsed", collapsed);
+      list.update(collapsed ? [] : views);
+      const overflow = collapsed ? 0 : state.eliteOverflow;
       more.hidden = !overflow;
       more.textContent = overflow ? `+${overflow}` : "";
     },
