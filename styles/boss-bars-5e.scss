@@ -1,5 +1,6 @@
 @use "boss-bar";
 @use "elite";
+@use "extras";
 @use "apps";
 @use "layout";
 
@@ -12,6 +13,8 @@
   --bb5e-fill: linear-gradient(#e0473f, #8e1414);
   --bb5e-trail: #f3e3b0;
   --bb5e-empty: #1a0d0d;
+  --bb5e-shield-fill: linear-gradient(#9fd8ff, #3d8fd1);
+  --bb5e-mini-fill: linear-gradient(#e9cf8c, #a8823c);
   --bb5e-font-display: georgia, "Times New Roman", serif;
 }
 

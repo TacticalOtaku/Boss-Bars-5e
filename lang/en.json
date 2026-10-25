@@ -22,7 +22,10 @@
       "Open": "Boss Bars profile",
       "Title": "Boss Bars profile",
       "Tab": {
-        "Main": "Main"
+        "Main": "Main",
+        "MiniBars": "Mini-bars",
+        "Statuses": "Statuses",
+        "AutoShow": "Auto-show"
       },
       "Kind": {
         "Label": "Kind",
@@ -96,7 +99,9 @@
       "Hide": "Hide",
       "HideAll": "Hide all",
       "Empty": "No tokens with a Boss Bars profile on this scene.",
-      "NoScene": "No scene is being viewed."
+      "NoScene": "No scene is being viewed.",
+      "Decrease": "Decrease",
+      "Increase": "Increase"
     },
     "Error": {
       "TooLong": "Too long.",
@@ -113,7 +118,12 @@
       "NewerData": "This data was saved by a newer Boss Bars 5e version and is left unchanged.",
       "NoProfile": "This token's actor has no Boss Bars profile.",
       "WriteFailed": "The boss bars could not be changed. See the console.",
-      "WindowFailed": "The Boss Bars 5e window could not be loaded. See the console."
+      "WindowFailed": "The Boss Bars 5e window could not be loaded. See the console.",
+      "NoItem": "Choose an item with uses.",
+      "FieldPath": "A path starts with system. and has only letters, digits, _ and dots.",
+      "BarMax": "The maximum must be a positive number or a system. path (a counter: 1 to 9999).",
+      "StatusName": "A status needs a name of at most 40 characters.",
+      "DelayRange": "The delay must be between 0 and 60 seconds."
     },
     "Column": {
       "Title": "Elites",
@@ -160,6 +170,49 @@
         "Up": "Up",
         "Row": "In a row"
       }
+    },
+    "MiniBars": {
+      "Hint": "Up to 6 small bars under the boss bar or inside the elite card (when its rank shows the fill). Players never see numbers.",
+      "Label": "Label",
+      "Source": "Source",
+      "SourceTemp": "Temporary HP",
+      "SourceLegact": "Legendary actions",
+      "SourceLegres": "Legendary resistances",
+      "SourceItem": "Item uses",
+      "SourcePath": "Number by path",
+      "SourceCounter": "GM counter",
+      "Item": "Item",
+      "ChooseItem": "Choose an item…",
+      "Path": "Path to the value",
+      "Max": "Maximum",
+      "MaxHint": "Number or system. path",
+      "View": "Look",
+      "ViewBar": "Bar",
+      "ViewPips": "Pips",
+      "Players": "Visible to players",
+      "Remove": "Remove mini-bar",
+      "Add": "Add mini-bar"
+    },
+    "Statuses": {
+      "Hint": "Icons come from the effects shown on the token. Midi QOL bookkeeping and DAE duplicates are never shown.",
+      "HideConditions": "Hide conditions",
+      "HideNames": "Hide effects by name",
+      "HideNamesHint": "One name per line.",
+      "Custom": "Custom statuses",
+      "CustomHint": "Switched on per boss from the Active bosses panel.",
+      "Name": "Name",
+      "Icon": "Icon",
+      "Description": "Description (up to 200 characters)",
+      "Remove": "Remove status",
+      "Add": "Add status"
+    },
+    "AutoShow": {
+      "Hint": "The active GM shows and hides this enemy by itself.",
+      "OnCombatStart": "Show when combat reaches round 1",
+      "HideOnCombatEnd": "Hide when combat ends",
+      "HideOnDefeat": "Hide on defeat",
+      "Delay": "Delay, s",
+      "DelayHint": "Before hiding. Healed in time, a defeated enemy stays shown."
     }
   }
 }

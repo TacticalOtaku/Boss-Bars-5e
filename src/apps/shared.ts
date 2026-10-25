@@ -35,6 +35,10 @@ export function previewCard(host: HTMLElement, card: { label: string; img: strin
     muted: false,
     rank: { name: card.rank.name, color: card.rank.color, size: card.rank.size },
     parts: { name: card.rank.parts.name, fill: card.rank.parts.fill },
+    shield: 0,
+    statuses: [],
+    statusOverflow: 0,
+    miniBars: [],
   };
   column.update([view], { eliteOverflow: 0, column: PREVIEW_COLUMN }, DEFAULT_LAYOUT.elites, 1);
 }

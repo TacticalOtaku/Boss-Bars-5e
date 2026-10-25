@@ -1,4 +1,4 @@
-import type { DisplayMode, ProfileKind } from "./profile";
+import { PROFILE_ID, type DisplayMode, type ProfileKind } from "./profile";
 import { isRecord, migrate, type ReadResult } from "./schema";
 
 export const INSTANCES_VERSION = 2;
@@ -11,6 +11,10 @@ export interface Instance {
   actorId?: string;
   /** Show order: the stack and each rank of the column follow it. */
   order: number;
+  /** Manual counter values by mini-bar id; a missing value means full. */
+  counters?: Record<string, number>;
+  /** Ids of the profile's custom statuses switched on for this instance. */
+  customStatuses?: string[];
 }
 
 export interface InstanceState {
@@ -30,6 +34,26 @@ const isInstance = (item: unknown): item is Instance =>
 // v2 added elites and actor-bound instances; v1 items are valid v2 items.
 const STEPS = { 1: (raw: Record<string, unknown>) => raw };
 
+/** Counters and custom statuses are optional (stage 4): bad entries are dropped, the instance stays. */
+function cleanInstance(item: Instance): Instance {
+  const { counters, customStatuses } = item as { counters?: unknown; customStatuses?: unknown };
+  const clean: Instance = { ...item };
+  if (counters !== undefined) {
+    const entries = isRecord(counters)
+      ? Object.entries(counters).filter(
+          ([id, value]) => PROFILE_ID.test(id) && typeof value === "number" && Number.isFinite(value),
+        )
+      : [];
+    clean.counters = Object.fromEntries(entries) as Record<string, number>;
+  }
+  if (customStatuses !== undefined) {
+    clean.customStatuses = Array.isArray(customStatuses)
+      ? customStatuses.filter((id): id is string => typeof id === "string" && PROFILE_ID.test(id))
+      : [];
+  }
+  return clean;
+}
+
 /** Missing flag = nothing shown. Malformed items are skipped; unknown keys are kept for the next write. */
 export function readInstances(raw: unknown): ReadResult<InstanceState> {
   if (raw === undefined || raw === null) {
@@ -38,8 +62,41 @@ export function readInstances(raw: unknown): ReadResult<InstanceState> {
   if (!isRecord(raw) || !Array.isArray(raw.items)) return { status: "invalid" };
   const migrated = migrate(raw, INSTANCES_VERSION, STEPS);
   if (migrated.status !== "ok") return migrated;
-  const items = (migrated.value.items as unknown[]).filter(isInstance);
+  const items = (migrated.value.items as unknown[]).filter(isInstance).map(cleanInstance);
   return { status: "ok", value: { ...migrated.value, dataVersion: INSTANCES_VERSION, items } };
+}
+
+function updateItem(state: InstanceState, id: string, change: (item: Instance) => Instance): InstanceState {
+  const item = state.items.find((each) => each.id === id);
+  if (!item) return state;
+  const next = change(item);
+  return next === item
+    ? state
+    : { ...state, items: state.items.map((each) => (each === item ? next : each)) };
+}
+
+/** Sets a manual counter; the caller clamps the value to the profile's maximum. */
+export function setCounter(state: InstanceState, id: string, barId: string, value: number): InstanceState {
+  return updateItem(state, id, (item) =>
+    item.counters?.[barId] === value ? item : { ...item, counters: { ...item.counters, [barId]: value } },
+  );
+}
+
+/** Switches a custom status on or off; the same state when nothing changes. */
+export function toggleStatus(
+  state: InstanceState,
+  id: string,
+  statusId: string,
+  active: boolean,
+): InstanceState {
+  return updateItem(state, id, (item) => {
+    const current = item.customStatuses ?? [];
+    if (current.includes(statusId) === active) return item;
+    return {
+      ...item,
+      customStatuses: active ? [...current, statusId] : current.filter((each) => each !== statusId),
+    };
+  });
 }
 
 const sameTarget = (item: Instance, target: InstanceTarget) =>

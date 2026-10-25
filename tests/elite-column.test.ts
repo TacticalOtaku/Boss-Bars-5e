@@ -13,6 +13,10 @@ const card = (id: string, extra: Partial<EliteCardView> = {}): EliteCardView => 
   muted: false,
   rank: { name: "Veteran", color: "#b0b8c8", size: 34 },
   parts: { name: true, fill: true },
+  shield: 0,
+  statuses: [],
+  statusOverflow: 0,
+  miniBars: [],
   ...extra,
 });
 

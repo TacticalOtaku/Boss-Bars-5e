@@ -1,0 +1,37 @@
+<section class="tab {{tabs.statuses.cssClass}}" data-tab="statuses" data-group="sheet">
+  <div class="bb5e-card">
+    <p class="hint">{{localize "BB5E.Statuses.Hint"}}</p>
+    <fieldset class="bb5e-status-grid">
+      <legend>{{localize "BB5E.Statuses.HideConditions"}}</legend>
+      {{#each statusChoices}}
+      <label><input type="checkbox" name="hiddenIds.{{id}}" {{#if hidden}}checked{{/if}}> <img src="{{img}}" alt=""> {{name}}</label>
+      {{/each}}
+    </fieldset>
+    <div class="form-group stacked">
+      <label for="{{partId}}-hiddenNames">{{localize "BB5E.Statuses.HideNames"}}</label>
+      <textarea id="{{partId}}-hiddenNames" name="hiddenNames" rows="3">{{hiddenNames}}</textarea>
+      <p class="hint">{{localize "BB5E.Statuses.HideNamesHint"}}</p>
+    </div>
+  </div>
+  <div class="bb5e-card" data-kind-group="boss" {{#if isElite}}hidden{{/if}}>
+    <h3 class="bb5e-panel__heading">{{localize "BB5E.Statuses.Custom"}}</h3>
+    <p class="hint">{{localize "BB5E.Statuses.CustomHint"}}</p>
+    <ol class="bb5e-rows">
+      {{#each customStatuses}}
+      <li class="bb5e-rows__row">
+        <input type="hidden" name="statuses.custom.{{index}}.id" value="{{id}}">
+        <div class="bb5e-rows__line">
+          <input type="text" name="statuses.custom.{{index}}.name" value="{{name}}" maxlength="{{@root.limits.label}}" placeholder="{{localize "BB5E.Statuses.Name"}}" aria-label="{{localize "BB5E.Statuses.Name"}}">
+          <button type="button" class="bb5e-rows__remove" data-action="removeStatus" data-index="{{index}}" aria-label="{{localize "BB5E.Statuses.Remove"}}"><i class="fa-solid fa-trash" inert></i></button>
+        </div>
+        <file-picker name="statuses.custom.{{index}}.img" type="image" value="{{img}}" aria-label="{{localize "BB5E.Statuses.Icon"}}"></file-picker>
+        <textarea name="statuses.custom.{{index}}.description" rows="2" maxlength="{{@root.limits.description}}" placeholder="{{localize "BB5E.Statuses.Description"}}" aria-label="{{localize "BB5E.Statuses.Description"}}">{{description}}</textarea>
+        <p class="bb5e-field-error" data-error-for="statuses.custom.{{index}}.name" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="statuses.custom.{{index}}.img" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="statuses.custom.{{index}}.description" role="alert" hidden></p>
+      </li>
+      {{/each}}
+    </ol>
+    <button type="button" data-action="addStatus" {{#if statusesFull}}disabled{{/if}}><i class="fa-solid fa-plus" inert></i> {{localize "BB5E.Statuses.Add"}}</button>
+  </div>
+</section>

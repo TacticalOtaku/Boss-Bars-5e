@@ -1,0 +1,46 @@
+<section class="tab {{tabs.miniBars.cssClass}}" data-tab="miniBars" data-group="sheet">
+  <div class="bb5e-card">
+    <p class="hint">{{localize "BB5E.MiniBars.Hint"}}</p>
+    <ol class="bb5e-rows">
+      {{#each miniBars}}
+      <li class="bb5e-rows__row" data-bar-index="{{index}}">
+        <input type="hidden" name="miniBars.{{index}}.id" value="{{id}}">
+        <div class="bb5e-rows__line">
+          <input type="text" name="miniBars.{{index}}.label" value="{{label}}" maxlength="{{@root.limits.label}}" placeholder="{{localize "BB5E.MiniBars.Label"}}" aria-label="{{localize "BB5E.MiniBars.Label"}}">
+          <select name="miniBars.{{index}}.source.type" aria-label="{{localize "BB5E.MiniBars.Source"}}">
+            {{#each sources}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{localize label}}</option>{{/each}}
+          </select>
+          <button type="button" class="bb5e-rows__remove" data-action="removeBar" data-index="{{index}}" aria-label="{{localize "BB5E.MiniBars.Remove"}}"><i class="fa-solid fa-trash" inert></i></button>
+        </div>
+        <div class="bb5e-rows__line" data-source-group="item">
+          <select name="miniBars.{{index}}.source.itemId" aria-label="{{localize "BB5E.MiniBars.Item"}}">
+            <option value="">{{localize "BB5E.MiniBars.ChooseItem"}}</option>
+            {{#each items}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}
+          </select>
+        </div>
+        <div class="bb5e-rows__line" data-source-group="path">
+          <input type="text" name="miniBars.{{index}}.source.path" value="{{path}}" maxlength="{{@root.limits.fieldPath}}" placeholder="system.attributes.ac.value" aria-label="{{localize "BB5E.MiniBars.Path"}}">
+          <input type="text" name="miniBars.{{index}}.source.max" value="{{pathMax}}" maxlength="{{@root.limits.fieldPath}}" placeholder="{{localize "BB5E.MiniBars.MaxHint"}}" aria-label="{{localize "BB5E.MiniBars.Max"}}">
+        </div>
+        <div class="bb5e-rows__line" data-source-group="counter">
+          <label>{{localize "BB5E.MiniBars.Max"}}
+            <input type="number" name="miniBars.{{index}}.source.counterMax" value="{{counterMax}}" min="1" max="{{@root.limits.counterMax}}" step="1">
+          </label>
+        </div>
+        <div class="bb5e-rows__line">
+          <select name="miniBars.{{index}}.view" aria-label="{{localize "BB5E.MiniBars.View"}}">
+            <option value="bar" {{#unless pips}}selected{{/unless}}>{{localize "BB5E.MiniBars.ViewBar"}}</option>
+            <option value="pips" {{#if pips}}selected{{/if}}>{{localize "BB5E.MiniBars.ViewPips"}}</option>
+          </select>
+          <label><input type="checkbox" name="miniBars.{{index}}.players" {{#if players}}checked{{/if}}> {{localize "BB5E.MiniBars.Players"}}</label>
+        </div>
+        <p class="bb5e-field-error" data-error-for="miniBars.{{index}}.label" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="miniBars.{{index}}.source.itemId" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="miniBars.{{index}}.source.path" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="miniBars.{{index}}.source.max" role="alert" hidden></p>
+      </li>
+      {{/each}}
+    </ol>
+    <button type="button" data-action="addBar" {{#if barsFull}}disabled{{/if}}><i class="fa-solid fa-plus" inert></i> {{localize "BB5E.MiniBars.Add"}}</button>
+  </div>
+</section>

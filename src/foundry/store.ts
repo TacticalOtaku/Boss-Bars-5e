@@ -1,9 +1,9 @@
 import { MODULE_ID } from "../constants";
 import { isDefeated, type TokenState } from "../core/aggregate";
 import { readInstances, type Instance } from "../core/instances";
-import { readProfile } from "../core/profile";
+import { readProfile, type Profile } from "../core/profile";
 import { buildViews, type HudViews, type SubjectInput } from "../core/view";
-import { hasDefeatedStatus, readHp } from "../integrations/dnd5e/actor";
+import { hasDefeatedStatus, readBar, readEffects, readHp } from "../integrations/dnd5e/actor";
 import { logger } from "../logger";
 import type { Layout } from "../core/layout";
 import { currentLayout } from "./layout";
@@ -11,7 +11,9 @@ import { collapsedIds, currentRanks } from "./settings";
 
 /**
  * Everything that can change what a bar or card shows. HP is read from the data on every update (ADR 0001); items
- * and effects change effectiveMax; updateActor also fires for an unlinked token's synthetic actor.
+ * and effects change effectiveMax; updateActor also fires for an unlinked token's synthetic actor. Statuses follow
+ * the same hooks: an effect suppressed by its item or by expiry fires no effect hook of its own. Combat and world
+ * time move the remaining-time labels of the status tooltips.
  */
 const HOOKS = [
   "updateActor",
@@ -27,7 +29,9 @@ const HOOKS = [
   "createCombatant",
   "updateCombatant",
   "deleteCombatant",
+  "updateCombat",
   "deleteCombat",
+  "updateWorldTime",
   "updateScene",
   "canvasReady",
   "clientSettingChanged",
@@ -39,6 +43,9 @@ export interface BossHud {
   /** Called after each recompute (open GM windows follow the scene). Returns the unsubscribe function. */
   subscribe(listener: () => void): () => void;
 }
+
+/** Temp HP peaks of mini-bars, kept between recomputes (core/minibars). */
+const peaks = new Map<string, number>();
 
 export function startStore(render: (views: HudViews, layout: Layout, uiScale: number) => void): BossHud {
   const listeners = new Set<() => void>();
@@ -81,20 +88,23 @@ const combatantDefeated = (sceneId: string, tokenId: string) =>
     combat.combatants.some((each) => each.sceneId === sceneId && each.tokenId === tokenId && each.defeated),
   );
 
-function tokenState(scene: SceneDocument, token: TokenDocument): TokenState {
+function tokenState(scene: SceneDocument, token: TokenDocument, profile: Profile): TokenState {
   const actor = token.actor;
   const hp = actor ? readHp(actor) : null;
+  const bars = profile.miniBars.filter((bar) => bar.source.type !== "temp" && bar.source.type !== "counter");
   return {
     tokenId: token.id,
     hidden: token.hidden,
     linked: token.actorLink,
     hp,
     defeated: isDefeated(hp, actor ? hasDefeatedStatus(actor) : false, combatantDefeated(scene.id, token.id)),
+    effects: actor ? readEffects(actor) : [],
+    bars: Object.fromEntries(bars.map((bar) => [bar.id, actor ? readBar(actor, bar.source) : null])),
   };
 }
 
 /** What the store needs for one instance; null when its token or actor is gone or has no readable profile. */
-function subjectOf(scene: SceneDocument, instance: Instance): SubjectInput | null {
+export function subjectOf(scene: SceneDocument, instance: Instance): SubjectInput | null {
   let actor: ActorDocument | null | undefined;
   let tokens: TokenDocument[];
   let name: string;
@@ -116,7 +126,7 @@ function subjectOf(scene: SceneDocument, instance: Instance): SubjectInput | nul
     profile: profile.value,
     name,
     actorImg: (tokens[0]?.actor ?? actor).img,
-    tokens: tokens.map((token) => tokenState(scene, token)),
+    tokens: tokens.map((token) => tokenState(scene, token, profile.value)),
   };
 }
 
@@ -149,5 +159,5 @@ function collectViews(warned: Set<string>, layout: Layout): HudViews {
     mayCollapse: layout.bosses.collapse,
     mayCollapseElites: layout.elites.collapse,
   };
-  return buildViews(subjects, currentRanks(), viewer, layout.elites.max);
+  return buildViews(subjects, currentRanks(), viewer, layout.elites.max, peaks);
 }

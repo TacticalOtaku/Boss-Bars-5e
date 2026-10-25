@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0
+
+- Auto-show (profile tab "Auto-show"): the active GM shows enemies when combat reaches round 1 and hides them after a
+  delay when combat ends or when they fall (0 HP, the dead status or defeated in the tracker; ×N: all tokens).
+  Healed before the delay, an enemy stays shown. Defaults: show off, both hides on, 3 s.
+- Statuses on the boss bar (10) and on elite cards whose rank shows statuses (4), the rest as "+N": the effects
+  Foundry draws on the token, without Midi QOL bookkeeping (reaction, bonus action, flanking) or DAE's dependent
+  duplicates; DAE stacks as a badge. Tooltip: name, remaining time, description as text.
+- Hide statuses per profile by condition or effect name; bosses get custom statuses (icon, name, description),
+  switched on per boss from the "Active bosses" panel.
+- Mini-bars (up to 6 per profile): temporary HP, legendary actions and resistances, item uses, a number by `system.`
+  path, or a GM counter set with ± in the panel. Bar or pips, "visible to players"; the GM sees numbers, players never
+  do; ×N sums them. Elite cards show them when the rank shows the fill.
+- Temporary HP shield: a blue segment right after the fill (players see it without numbers).
+- The new profile and instance fields are optional: data versions stay at 2, and 0.4.0 leaves them untouched.
+
 ## 0.4.0
 
 - Layout mode (GM, from the "Active bosses" panel): drag the boss stack and the elite column on your own screen;

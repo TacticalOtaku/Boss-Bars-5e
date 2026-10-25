@@ -2,6 +2,7 @@ import type { Block } from "../core/layout";
 import type { BossBarView } from "../core/view";
 import { positionBlock } from "./blocks";
 import { formatNumbers, part, setPortrait } from "./dom";
+import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 
 export interface StackOptions {
@@ -20,7 +21,10 @@ interface Bar extends KeyedItem {
   meter: HTMLElement;
   fill: HTMLElement;
   trail: HTMLElement;
+  shield: HTMLElement;
   numbers: HTMLElement;
+  miniBars: HTMLElement;
+  statuses: HTMLElement;
   view: BossBarView | null;
   shown: number | null;
 }
@@ -46,7 +50,10 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     meter.setAttribute("aria-valuemax", "100");
     const trail = part("div", "bb5e-boss__trail", meter);
     const fill = part("div", "bb5e-boss__fill", meter);
+    const shield = part("div", "bb5e-boss__shield", meter);
     const numbers = part("span", "bb5e-boss__numbers", meter);
+    const miniBars = part("div", "bb5e-minibars bb5e-boss__minibars", body);
+    const statuses = createStatusRow("bb5e-boss__statuses", body);
     const bar: Bar = {
       el,
       portrait,
@@ -57,7 +64,10 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       meter,
       fill,
       trail,
+      shield,
       numbers,
+      miniBars,
+      statuses,
       view: null,
       shown: null,
       leaving: null,
@@ -109,6 +119,12 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     setFill(bar, view.defeated ? 0 : (view.fraction ?? 0));
     bar.numbers.hidden = !view.numbers;
     bar.numbers.textContent = view.numbers ? formatNumbers(view.numbers) : "";
+    // The temp HP shield sits right after the fill; the meter clips what reaches past its end.
+    bar.shield.hidden = !view.shield || view.defeated;
+    bar.shield.style.setProperty("--bb5e-at", String(view.defeated ? 0 : (view.fraction ?? 0)));
+    bar.shield.style.setProperty("--bb5e-shield", String(view.shield));
+    renderMiniBars(bar.miniBars, view.miniBars);
+    renderStatuses(bar.statuses, view.statuses, view.statusOverflow);
   }
 
   const list = createKeyedList(stack, createBar, updateBar, options.reducedMotion);

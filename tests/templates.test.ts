@@ -20,16 +20,66 @@ for (const file of templates) {
   handlebars.registerPartial(`modules/boss-bars-5e/templates/${name}`, readFileSync(file, "utf8"));
 }
 
-const panelRow = { tokenId: "t", instanceId: "i", name: "<b>Boss</b>", img: "a.webp", many: true, count: 3 };
+const panelRow = {
+  tokenId: "t",
+  instanceId: "i",
+  name: "<b>Boss</b>",
+  img: "a.webp",
+  many: true,
+  count: 3,
+  counters: [{ barId: "a", label: "<b>C</b>", value: 1, max: 3 }],
+  customs: [{ id: "s", name: "<b>S</b>", img: "s.webp", active: true }],
+};
 /** A context that switches every optional branch on, with markup in every user-written text. */
 const context = {
   partId: "app-main",
   tabs: { main: { cssClass: "active" } },
-  values: { playerName: '"><img src=x>', title: "<b>T</b>", portrait: null, size: 100, rank: "r" },
+  values: {
+    playerName: '"><img src=x>',
+    title: "<b>T</b>",
+    portrait: null,
+    size: 100,
+    rank: "r",
+    autoShow: { onCombatStart: true, hideOnCombatEnd: true, hideOnDefeat: true, delay: 3 },
+  },
+  miniBars: [
+    {
+      index: 0,
+      id: "b",
+      label: '"><b>L</b>',
+      pips: true,
+      players: true,
+      sources: [{ value: "item", label: "<b>K</b>", selected: true }],
+      items: [{ id: "i", name: "<b>I</b>", selected: true }],
+      path: "<b>p</b>",
+      pathMax: "<b>m</b>",
+      counterMax: 3,
+    },
+  ],
+  barsFull: true,
+  statusChoices: [{ id: "prone", name: "<b>P</b>", img: "p.svg", hidden: true }],
+  hiddenNames: "</textarea><b>x</b>",
+  customStatuses: [
+    { index: 0, id: "s", name: "<b>S</b>", img: "s.webp", description: "</textarea><b>D</b>" },
+  ],
+  statusesFull: true,
   isElite: true,
   byActor: true,
   ranks: [{ id: "r", name: "<b>R</b>", selected: true }],
-  limits: { text: 80, sizeMin: 50, sizeMax: 200, name: 40, offset: 10000, maxMin: 1, maxMax: 20 },
+  limits: {
+    text: 80,
+    sizeMin: 50,
+    sizeMax: 200,
+    name: 40,
+    offset: 10000,
+    maxMin: 1,
+    maxMax: 20,
+    label: 40,
+    fieldPath: 200,
+    counterMax: 9999,
+    description: 200,
+    delayMax: 60,
+  },
   worldLayer: false,
   blocks: [
     {

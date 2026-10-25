@@ -1,0 +1,181 @@
+// Status icons, mini-bars and the temp HP shield, shared by the boss bar and the elite card (spec §4).
+// Sizes in em follow the bar's or card's own font size.
+
+.bb5e-boss__shield,
+.bb5e-elite__shield {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--bb5e-at, 0) * 100%);
+  width: calc(var(--bb5e-shield, 0) * 100%);
+  background: var(--bb5e-shield-fill);
+  box-shadow: inset 0 0 0.25em rgb(255 255 255 / 45%);
+  transition:
+    left 0.18s ease-out,
+    width 0.18s ease-out;
+}
+
+.bb5e-minibars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25em 0.75em;
+  margin-top: 0.3125em;
+}
+
+.bb5e-mini {
+  display: flex;
+  flex: 1 1 10em;
+  gap: 0.375em;
+  align-items: center;
+  min-width: 0;
+  font-size: 0.6875em;
+}
+
+.bb5e-mini__label {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--bb5e-gold);
+  text-overflow: ellipsis;
+  text-shadow: 0 0.1em 0.2em #000;
+  white-space: nowrap;
+}
+
+.bb5e-mini__track {
+  position: relative;
+  flex: 1;
+  height: 0.5em;
+  overflow: hidden;
+  border: 1px solid rgb(201 164 92 / 60%);
+  background: var(--bb5e-empty);
+}
+
+.bb5e-mini__fill {
+  position: absolute;
+  inset: 0;
+  background: var(--bb5e-mini-fill);
+  transform-origin: left center;
+  transition: transform 0.25s ease-out;
+}
+
+.bb5e-mini__pips {
+  display: flex;
+  flex: 1;
+  gap: 0.25em;
+}
+
+.bb5e-mini__pip {
+  width: 0.625em;
+  height: 0.625em;
+  border: 1px solid var(--bb5e-gold);
+  background: var(--bb5e-empty);
+  rotate: 45deg;
+
+  &--on {
+    background: var(--bb5e-gold);
+    box-shadow: 0 0 0.25em rgb(201 164 92 / 70%);
+  }
+}
+
+.bb5e-mini__numbers {
+  flex: none;
+  font-family: monospace;
+  opacity: 0.85;
+}
+
+.bb5e-statuses {
+  display: flex;
+  gap: 0.25em;
+  align-items: center;
+  margin-top: 0.3125em;
+}
+
+.bb5e-statuses__icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25em;
+}
+
+// Icons take the pointer for Foundry's tooltip; the rest of the HUD lets clicks through.
+.bb5e-status {
+  position: relative;
+  width: 1.5em;
+  height: 1.5em;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 0.1875em;
+  background: rgb(0 0 0 / 60%);
+  pointer-events: auto;
+}
+
+.bb5e-status__icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+
+.bb5e-status__stacks {
+  position: absolute;
+  right: -0.25em;
+  bottom: -0.25em;
+  min-width: 1.1em;
+  padding: 0 0.15em;
+  border-radius: 0.55em;
+  background: #000;
+  color: #fff;
+  font: 600 0.625em / 1.1 monospace;
+  text-align: center;
+}
+
+.bb5e-statuses__more {
+  color: var(--bb5e-ink);
+  font-size: 0.6875em;
+  opacity: 0.85;
+}
+
+.bb5e-elite {
+  .bb5e-minibars,
+  .bb5e-statuses {
+    margin-top: 0.1875em;
+  }
+
+  .bb5e-mini {
+    font-size: 0.625em;
+  }
+
+  .bb5e-status {
+    width: 1.125em;
+    height: 1.125em;
+  }
+}
+
+// Collapsed boss bar: the name and a thin fill only.
+.bb5e-boss--collapsed {
+  .bb5e-minibars,
+  .bb5e-statuses {
+    display: none;
+  }
+}
+
+// Status tooltip: name, remaining time and description on their own lines.
+#tooltip.bb5e-tooltip {
+  max-width: 20em;
+  white-space: pre-line;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb5e-boss__shield,
+  .bb5e-elite__shield,
+  .bb5e-mini__fill {
+    transition: none;
+  }
+}
+
+.performance-low {
+  .bb5e-boss__shield,
+  .bb5e-elite__shield,
+  .bb5e-mini__fill {
+    transition: none;
+  }
+}

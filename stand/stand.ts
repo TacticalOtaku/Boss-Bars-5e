@@ -41,6 +41,7 @@ const state = {
   collapsed: new Set<string>(),
   ...fresh(),
 };
+const peaks = new Map<string, number>();
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const overlay = mountOverlay(host);
@@ -67,7 +68,7 @@ const column = createEliteColumn(overlay, {
 
 function render(): void {
   const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true, mayCollapseElites: true };
-  const views = buildViews([...state.bosses, ...state.elites], FIXTURE_RANKS, viewer, state.limit);
+  const views = buildViews([...state.bosses, ...state.elites], FIXTURE_RANKS, viewer, state.limit, peaks);
   stack.update(views.bosses, { ...DEFAULT_LAYOUT.bosses, dir: state.bossDir }, state.uiScale);
   column.update(views.elites, views, DEFAULT_LAYOUT.elites, state.uiScale);
 }
@@ -97,6 +98,24 @@ const ACTIONS: Record<string, () => void> = {
   "Второй босс": () => {
     if (state.bosses.length > 1) state.bosses.pop();
     else state.bosses.push(structuredClone(FIXTURE_BOSSES[1]!));
+  },
+  "Щит −8": () => {
+    const hp = firstHp();
+    if (hp) hp.temp = hp.temp > 0 ? Math.max(0, hp.temp - 8) : 24;
+  },
+  "Легендарное −1": () => {
+    const leg = state.bosses[0]?.tokens[0]?.bars?.legact;
+    if (leg) leg.value = leg.value > 0 ? leg.value - 1 : leg.max;
+  },
+  "Броня −1": () => {
+    const instance = state.bosses[0]?.instance;
+    if (!instance) return;
+    const value = instance.counters?.armour ?? 5;
+    instance.counters = { armour: value > 0 ? value - 1 : 5 };
+  },
+  "Свой статус": () => {
+    const instance = state.bosses[0]?.instance;
+    if (instance) instance.customStatuses = instance.customStatuses?.length ? [] : ["rage"];
   },
   "Урон элите": () => state.elites.forEach((elite) => hurt(elite, 0.2)),
   "Лимит 12 / 3": () => (state.limit = state.limit === 12 ? 3 : 12),

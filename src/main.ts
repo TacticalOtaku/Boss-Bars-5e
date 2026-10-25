@@ -3,6 +3,7 @@ import type { LayoutHost } from "./apps/layout-panel";
 import { MODULE_ID } from "./constants";
 import { ELITE_COLUMN_ID } from "./core/view";
 import { pruneScenes, registerAuthority } from "./foundry/authority";
+import { startCombatWatch } from "./foundry/combat";
 import { registerEntryPoints } from "./foundry/entry-points";
 import { registerSettings, setCollapsed } from "./foundry/settings";
 import { startStore, uiScale, type BossHud } from "./foundry/store";
@@ -87,6 +88,8 @@ Hooks.once("ready", () => {
     column.update(views.elites, views, layout.elites, scale);
   });
   layoutHost = { host, overlay, blocks: { bosses: stack.element, elites: column.element }, hud, uiScale };
+  // Before the first recompute: its defeat check hides what fell while no page was watching.
+  startCombatWatch(hud);
   hud.refresh();
 
   // Automatic clean-up, active GM only: deleted tokens and removed profiles take their bars and cards along.

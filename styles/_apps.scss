@@ -132,13 +132,18 @@
 }
 
 .bb5e-panel__row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  display: grid;
+  gap: 6px;
   padding: 6px 8px;
   border-radius: 9px;
   background: var(--bb5e-app-surface);
   box-shadow: var(--bb5e-app-raise);
+}
+
+.bb5e-panel__main {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 
   img {
     flex: none;
@@ -153,6 +158,53 @@
     flex: none;
     width: auto;
     margin-left: auto;
+  }
+}
+
+// Shown rows: manual counters and custom statuses (spec §11).
+.bb5e-panel__extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 42px;
+  font-size: var(--font-size-12, 12px);
+
+  button {
+    flex: none;
+    width: auto;
+    min-width: 26px;
+    height: 24px;
+    padding: 0 6px;
+    line-height: 1;
+  }
+}
+
+.bb5e-panel__counter {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+
+  output {
+    min-width: 3.5em;
+    font-family: monospace;
+    text-align: center;
+  }
+}
+
+.bb5e-panel__custom {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+
+  img {
+    width: 16px;
+    height: 16px;
+    border: 0;
+  }
+
+  &[aria-pressed="true"] {
+    background: var(--bb5e-app-accent);
+    color: #23262e;
   }
 }
 
@@ -315,4 +367,86 @@
       grid-column: 2;
     }
   }
+}
+
+// Profile editor: mini-bar and custom status rows, status checkboxes, auto-show switches.
+.bb5e-rows {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.bb5e-rows__row {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 9px;
+  background: var(--bb5e-app-sunken);
+}
+
+.bb5e-rows__line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+
+  input[type="text"],
+  select {
+    flex: 1;
+    min-width: 8em;
+  }
+
+  input[type="number"] {
+    width: 5em;
+  }
+
+  label {
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+  }
+}
+
+.bb5e-rows__remove {
+  flex: none;
+  width: 32px;
+  color: var(--bb5e-app-danger);
+}
+
+.bb5e-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+
+  label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  img {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border: 0;
+  }
+}
+
+.bb5e-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
 }

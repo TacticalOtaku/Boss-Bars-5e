@@ -1,0 +1,16 @@
+<section class="tab {{tabs.autoShow.cssClass}}" data-tab="autoShow" data-group="sheet">
+  <div class="bb5e-card">
+    <p class="hint">{{localize "BB5E.AutoShow.Hint"}}</p>
+    <label class="bb5e-check"><input type="checkbox" name="autoShow.onCombatStart" {{#if values.autoShow.onCombatStart}}checked{{/if}}> {{localize "BB5E.AutoShow.OnCombatStart"}}</label>
+    <label class="bb5e-check"><input type="checkbox" name="autoShow.hideOnCombatEnd" {{#if values.autoShow.hideOnCombatEnd}}checked{{/if}}> {{localize "BB5E.AutoShow.HideOnCombatEnd"}}</label>
+    <label class="bb5e-check"><input type="checkbox" name="autoShow.hideOnDefeat" {{#if values.autoShow.hideOnDefeat}}checked{{/if}}> {{localize "BB5E.AutoShow.HideOnDefeat"}}</label>
+    <div class="form-group">
+      <label for="{{partId}}-delay">{{localize "BB5E.AutoShow.Delay"}}</label>
+      <div class="form-fields">
+        <input type="number" id="{{partId}}-delay" name="autoShow.delay" value="{{values.autoShow.delay}}" min="0" max="{{limits.delayMax}}" step="1">
+      </div>
+      <p class="hint">{{localize "BB5E.AutoShow.DelayHint"}}</p>
+      <p class="bb5e-field-error" data-error-for="autoShow.delay" role="alert" hidden></p>
+    </div>
+  </div>
+</section>

@@ -1,7 +1,30 @@
 <li class="bb5e-panel__row{{#if instanceId}} bb5e-panel__row--shown{{/if}}" data-token-id="{{tokenId}}" {{#if instanceId}}data-instance-id="{{instanceId}}"{{/if}}>
-  <img src="{{img}}" alt="">
-  <span class="bb5e-panel__name">{{name}}{{#if many}} ×{{count}}{{/if}}</span>
-  <button type="button" data-action="toggle" aria-pressed="{{#if instanceId}}true{{else}}false{{/if}}">
-    {{#if instanceId}}{{localize "BB5E.Panel.Hide"}}{{else}}{{localize "BB5E.Panel.Show"}}{{/if}}
-  </button>
+  <div class="bb5e-panel__main">
+    <img src="{{img}}" alt="">
+    <span class="bb5e-panel__name">{{name}}{{#if many}} ×{{count}}{{/if}}</span>
+    <button type="button" data-action="toggle" aria-pressed="{{#if instanceId}}true{{else}}false{{/if}}">
+      {{#if instanceId}}{{localize "BB5E.Panel.Hide"}}{{else}}{{localize "BB5E.Panel.Show"}}{{/if}}
+    </button>
+  </div>
+  {{#if counters.length}}
+  <div class="bb5e-panel__extras">
+    {{#each counters}}
+    <span class="bb5e-panel__counter" data-bar-id="{{barId}}" data-value="{{value}}" data-max="{{max}}">
+      <span class="bb5e-panel__counter-label">{{label}}</span>
+      <button type="button" data-action="counter" data-delta="-1" aria-label="{{localize "BB5E.Panel.Decrease"}} {{label}}">−</button>
+      <output>{{value}} / {{max}}</output>
+      <button type="button" data-action="counter" data-delta="1" aria-label="{{localize "BB5E.Panel.Increase"}} {{label}}">+</button>
+    </span>
+    {{/each}}
+  </div>
+  {{/if}}
+  {{#if customs.length}}
+  <div class="bb5e-panel__extras">
+    {{#each customs}}
+    <button type="button" class="bb5e-panel__custom" data-action="toggleStatus" data-status-id="{{id}}" aria-pressed="{{#if active}}true{{else}}false{{/if}}">
+      {{#if img}}<img src="{{img}}" alt="">{{/if}} {{name}}
+    </button>
+    {{/each}}
+  </div>
+  {{/if}}
 </li>
