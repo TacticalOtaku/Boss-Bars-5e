@@ -1,0 +1,298 @@
+<!doctype html>
+<!--
+  PROTOTYPE — выбросить после решения тикета «Редакторы: профиль, ранги, пресеты и облики» (#16).
+  Три структуры редактора профиля босса, переключаются ?variant=A|B|C, стрелками внизу или ← →.
+  Сверху — экран: профиль босса, профиль элиты, ранги, библиотека обликов и пресетов.
+  Окна в стиле листа AIM (токены Tactile из actor-inventory-manager). Только вид: ни Foundry, ни сохранения.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editors prototype</title>
+<style>
+  :root {
+    --tc-bg: #E7E8EB; --tc-surface: #F3F3F5; --tc-sunken: #D9DBDF; --tc-ink: #23262E; --tc-muted: #626876;
+    --tc-line: rgb(35 38 46 / 9%); --tc-danger: #C2363F; --tc-good: #2F7D57;
+    --tc-accent: oklch(0.73 0.13 45); --tc-accent-text: oklch(0.5 0.14 45); --tc-on-accent: oklch(0.24 0.04 45); --tc-accent-soft: oklch(0.73 0.13 45 / 0.18);
+    --tc-raise: inset 0 1px 0 rgb(255 255 255 / 85%), 0 10px 24px -12px rgb(38 44 60 / 45%), 0 2px 5px -2px rgb(38 44 60 / 22%);
+    --tc-press: inset 0 2px 5px rgb(38 44 60 / 18%), inset 0 -1px 0 rgb(255 255 255 / 70%);
+    --tc-window: 0 30px 70px -28px rgb(10 12 18 / 75%), inset 0 0 0 1px rgb(255 255 255 / 50%);
+    --tc-font-ui: "Onest", "Segoe UI", system-ui, sans-serif; --tc-font-mono: "JetBrains Mono", ui-monospace, monospace; --tc-font-display: "Unbounded", "Segoe UI Black", var(--tc-font-ui);
+  }
+  body.dark {
+    --tc-bg: #1E2026; --tc-surface: #272A31; --tc-sunken: #17191E; --tc-ink: #E6E7EA; --tc-muted: #9AA0AD; --tc-line: rgb(255 255 255 / 8%);
+    --tc-raise: inset 0 1px 0 rgb(255 255 255 / 6%), 0 10px 24px -12px rgb(0 0 0 / 70%); --tc-press: inset 0 2px 5px rgb(0 0 0 / 50%);
+    --tc-window: 0 30px 70px -28px rgb(0 0 0 / 90%), inset 0 0 0 1px rgb(255 255 255 / 6%);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: #2b3327 radial-gradient(ellipse at 50% 40%, #3b4a37, #141a11); font: 13px/1.45 var(--tc-font-ui); color: var(--tc-ink); }
+  #desk { position: relative; padding: 54px 20px 80px; display: flex; gap: 18px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .win { background: var(--tc-bg); border-radius: 22px; box-shadow: var(--tc-window); overflow: hidden; display: flex; flex-direction: column; }
+  .win > header { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; }
+  .win > header .av { width: 34px; height: 34px; border-radius: 99px; background: radial-gradient(circle at 50% 35%, #e2b48a 0 18%, transparent 19%), radial-gradient(ellipse at 50% 95%, #7a2f2f 0 45%, transparent 46%), linear-gradient(160deg, #3d1414, #120606); box-shadow: var(--tc-raise); flex: none; }
+  .win > header h2 { margin: 0; font: 700 14px/1.15 var(--tc-font-display); text-transform: uppercase; }
+  .win > header .sub { font: 500 10.5px var(--tc-font-mono); color: var(--tc-muted); text-transform: uppercase; letter-spacing: .06em; flex: 1; }
+  .win > header .x { width: 26px; height: 26px; border-radius: 99px; background: var(--tc-surface); box-shadow: var(--tc-raise); display: grid; place-items: center; color: var(--tc-muted); }
+  .win .body { padding: 0 14px 14px; display: grid; gap: 10px; min-height: 0; }
+  .blk { background: var(--tc-surface); border-radius: 12px; box-shadow: var(--tc-raise); padding: 10px 12px; }
+  .blk h3 { margin: 0 0 8px; font: 600 10.5px var(--tc-font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--tc-muted); }
+  .row { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--tc-line); }
+  .row:last-child { border-bottom: 0; }
+  .row > span:first-child { color: var(--tc-muted); }
+  input[type=text], input[type=number], select { width: 100%; background: var(--tc-sunken); color: var(--tc-ink); border: 0; border-radius: 9px; box-shadow: var(--tc-press); padding: 5px 9px; font: inherit; }
+  input[type=number] { width: 80px; }
+  input[type=range] { width: 100%; accent-color: oklch(0.73 0.13 45); }
+  .btn { border: 0; border-radius: 999px; padding: 5px 12px; font: 500 12px var(--tc-font-ui); background: var(--tc-surface); color: var(--tc-ink); box-shadow: var(--tc-raise); cursor: pointer; }
+  .btn.acc { background: var(--tc-accent); color: var(--tc-on-accent); }
+  .btn.sm { padding: 3px 9px; font-size: 11px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { border-radius: 999px; padding: 2px 9px; background: var(--tc-sunken); box-shadow: var(--tc-press); font-size: 11px; }
+  .chip.on { background: var(--tc-accent-soft); color: var(--tc-accent-text); box-shadow: none; }
+  .tabs-v { display: grid; gap: 3px; align-content: start; }
+  .tabs-v button, .tabs-h button { border: 0; background: none; color: var(--tc-muted); text-align: left; padding: 6px 10px; border-radius: 9px; font: 500 12.5px var(--tc-font-ui); cursor: pointer; }
+  .tabs-v button.on, .tabs-h button.on { background: var(--tc-surface); color: var(--tc-ink); box-shadow: var(--tc-raise); }
+  .tabs-h { display: flex; gap: 3px; flex-wrap: wrap; }
+  .muted { color: var(--tc-muted); font-size: 11.5px; }
+  .list .it { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--tc-line); }
+  .list .it:last-child { border-bottom: 0; }
+  .grip { color: var(--tc-muted); cursor: grab; }
+  .mono { font-family: var(--tc-font-mono); font-size: 11px; }
+
+  /* превью — сцена с полосой */
+  .preview { position: relative; border-radius: 12px; overflow: hidden; background: radial-gradient(ellipse at 50% 60%, #3b4a37, #141a11); box-shadow: var(--tc-press); color: #e8e2d6; }
+  .preview .pv-note { position: absolute; left: 8px; bottom: 6px; font: 10px var(--tc-font-mono); color: #fff8; }
+  .hb { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); width: 86%; display: flex; align-items: center; }
+  .hb .p { width: 58px; height: 58px; border-radius: 50%; border: 3px solid #c9a45c; box-shadow: 0 0 0 2px #000; flex: none; z-index: 1; background: radial-gradient(circle at 50% 35%, #e2b48a 0 18%, transparent 19%), radial-gradient(ellipse at 50% 95%, #7a2f2f 0 45%, transparent 46%), linear-gradient(160deg, #3d1414, #120606); }
+  .hb .b { flex: 1; margin-left: -12px; padding-left: 18px; }
+  .hb .n { font: 600 16px Georgia, serif; letter-spacing: .06em; text-transform: uppercase; text-shadow: 0 2px 3px #000; }
+  .hb .n i { font: italic 11px Georgia, serif; color: #c9a45c; text-transform: none; letter-spacing: 0; margin-left: 8px; }
+  .hb .bar { position: relative; height: 14px; background: #1a0d0d; border: 2px solid #c9a45c; box-shadow: 0 0 0 1px #000; overflow: hidden; margin-top: 2px; }
+  .hb .bar .tr, .hb .bar .fl { position: absolute; top: 0; bottom: 0; left: 0; }
+  .hb .bar .tr { background: #f3e3b0; transition: width .6s ease .5s; } .hb .bar .fl { background: linear-gradient(#e0473f, #8e1414); transition: width .18s; }
+  .hb .bar .nt { position: absolute; top: 0; bottom: 0; width: 2px; background: #000c; }
+  .hb .bar .num { position: absolute; right: 5px; top: -1px; font: 10px monospace; color: #fff; }
+  .hb .mini { font-size: 10px; color: #e5c06a; margin-top: 3px; display: flex; justify-content: space-between; }
+  .hb .q { position: absolute; top: -16px; left: 70px; font-style: italic; font-size: 12px; text-shadow: 0 1px 3px #000; opacity: 0; transition: opacity .3s; }
+  .hb .q.on { opacity: 1; }
+  .hb.dead { opacity: .25; filter: grayscale(1); transition: all .8s; }
+  .ec { display: flex; align-items: center; gap: 8px; background: linear-gradient(90deg, #000c, #0006); border-left: 3px solid var(--rc); padding: 4px 8px 4px 4px; border-radius: 3px; color: #e8e2d6; width: 220px; }
+  .ec .p { width: var(--sz); height: var(--sz); border-radius: 4px; background: radial-gradient(circle at 50% 38%, #c9b79c 0 20%, transparent 21%), radial-gradient(ellipse at 50% 100%, #555 0 50%, transparent 51%), #23202a; flex: none; }
+  .ec .nm { font-size: 12px; } .ec .h { height: 5px; background: #000; margin-top: 3px; } .ec .h > div { height: 100%; background: #c23b33; }
+  .ec .rk { font: 9px monospace; color: #fff6; text-transform: uppercase; }
+  .console { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+  /* фазы: шкала ХП */
+  .scale { position: relative; height: 26px; border-radius: 9px; background: linear-gradient(90deg, #8e1414, #e0473f); box-shadow: var(--tc-press); margin: 6px 0 16px; }
+  .scale .mk { position: absolute; top: -4px; bottom: -4px; width: 4px; margin-left: -2px; background: var(--tc-ink); border-radius: 2px; cursor: ew-resize; }
+  .scale .mk span { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); font: 10px var(--tc-font-mono); white-space: nowrap; color: var(--tc-muted); }
+
+  /* галерея */
+  .gal { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+  .card { border-radius: 12px; background: var(--tc-surface); box-shadow: var(--tc-raise); padding: 6px; cursor: pointer; }
+  .card.on { outline: 2px solid var(--tc-accent); }
+  .card .th { height: 46px; border-radius: 8px; position: relative; overflow: hidden; background: #141a11; }
+  .card .th i { position: absolute; left: 10%; right: 10%; top: 20px; height: 8px; border: 1px solid var(--f); background: linear-gradient(90deg, var(--a), var(--b)); }
+  .card .t { font-size: 11.5px; margin-top: 4px; } .card .k { font: 9.5px var(--tc-font-mono); color: var(--tc-muted); }
+
+  #screens { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; gap: 4px; background: #000a; padding: 4px; border-radius: 999px; }
+  #screens button { border: 0; background: none; color: #ddd; padding: 5px 12px; border-radius: 999px; font: 500 12px system-ui; cursor: pointer; }
+  #screens button.on { background: #fff; color: #111; }
+  #theme { position: fixed; top: 14px; right: 14px; z-index: 40; }
+  #switcher { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; background: #ff3d7f; color: #fff; font: 600 13px system-ui; padding: 6px 10px; border-radius: 999px; box-shadow: 0 6px 20px #000a; }
+  #switcher button { background: #fff3; color: #fff; border: 0; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 15px; }
+  #state { position: fixed; left: 12px; bottom: 12px; z-index: 40; max-width: 300px; background: #000c; color: #9fd0a0; font: 10px monospace; padding: 6px 8px; border-radius: 6px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="screens"></div>
+<button id="theme" class="btn sm">Тёмная тема</button>
+<div id="desk"></div>
+<div id="state"></div>
+<div id="switcher"><button id="prev" aria-label="Предыдущий вариант">←</button><span id="vlabel"></span><button id="next" aria-label="Следующий вариант">→</button></div>
+
+<script>
+const VARIANTS = {
+  A: "Три колонки: вкладки слева, превью в центре, поля справа",
+  B: "Превью сверху, вкладки и поля под ним во всю ширину",
+  C: "Раздельно: профиль — данные, облик — отдельная «Мастерская обликов»",
+};
+const SCREENS = { boss: "Профиль босса", elite: "Профиль элиты", ranks: "Ранги", library: "Облики и пресеты" };
+const TABS = ["Основное", "Облик", "Мини-полосы", "Статусы", "Фазы", "Фразы", "Музыка", "Автопоказ"];
+const CATS = ["Компоновка", "Шрифт", "Рамка", "Заливка и цвет", "Эффект изменения ХП", "Появление и уход", "Стиль портрета", "Стиль мини-полос", "Стиль статусов"];
+const THEMES = [["Классика RPG", "#e0473f", "#8e1414", "#c9a45c"], ["Пепел и пламя", "#ff8a3c", "#7a1a05", "#ffb35c"], ["Вечная мерзлота", "#bfe8ff", "#2a5f8a", "#e8f6ff"], ["Буря", "#ffe66b", "#4a3aa8", "#c9c2ff"], ["Нежить", "#b7c9a8", "#2f3a2a", "#d8d2c0"], ["Бездна", "#9a5cff", "#12052a", "#5a2ca8"], ["Готика", "#b0303a", "#200a10", "#8c8c96"], ["Древняя Русь", "#d8342a", "#5a0d08", "#e5c06a"], ["Неон", "#2cf7ff", "#ff2ca8", "#2cf7ff"], ["Пиксель", "#5cd65c", "#1f5f1f", "#fff"], ["Кристалл", "#7cf2e0", "#2a6aa8", "#d0fff8"], ["Чума и гниль", "#9ab040", "#3a3a10", "#6a6a40"]];
+const S = {
+  variant: "A", screen: "boss", tab: "Основное", hp: 312, trail: 312, max: 420, dead: false, quote: false, phase: 0, look: 0, dirty: false,
+  phases: [{ name: "Пробуждение", t: "начало" }, { name: "Ярость", t: "hp", v: 66 }, { name: "Пепельная форма", t: "form" }],
+  ranks: [
+    { name: "Капитан", color: "#e5c06a", parts: ["иконка", "имя", "заливка", "статусы"], size: 40 },
+    { name: "Ветеран", color: "#b0b8c8", parts: ["иконка", "имя", "заливка"], size: 34 },
+    { name: "Боец", color: "#9a7b5c", parts: ["иконка", "имя"], size: 30 },
+    { name: "Страж", color: "#6a6a7a", parts: ["иконка"], size: 30 },
+  ],
+};
+const pct = () => Math.max(0, S.hp / S.max * 100);
+
+// ---------- общие куски ----------
+function bossPreview(h = 150) {
+  const th = THEMES[S.look];
+  return `<div class="preview" style="height:${h}px">
+    <div class="hb ${S.dead ? "dead" : ""}"><div class="q ${S.quote ? "on" : ""}">«Пепел помнит ваши имена…»</div><div class="p"></div><div class="b">
+      <div class="n">Ксар’Тун<i>${S.phases[S.phase].name}</i></div>
+      <div class="bar" style="border-color:${th[3]}"><div class="tr" style="width:${S.trail / S.max * 100}%"></div><div class="fl" style="width:${pct()}%;background:linear-gradient(${th[1]},${th[2]})"></div><i class="nt" style="left:66%"></i><span class="num">${S.hp}/${S.max}</span></div>
+      <div class="mini"><span>Лег. действия ◆◆◇ · Сопр. ◆◇◇</span><span>🔥 🛡</span></div></div></div>
+    <span class="pv-note">живое превью · вид ГМа · облик «${th[0]}»</span></div>`;
+}
+const consoleHtml = () => `<div class="console"><span class="muted">Тест-пульт:</span>
+  <button class="btn sm" data-t="d10">Урон 10%</button><button class="btn sm" data-t="d30">Урон 30%</button><button class="btn sm" data-t="heal">Лечение</button>
+  <button class="btn sm" data-t="phase">След. фаза</button><button class="btn sm" data-t="dead">Поражение</button><button class="btn sm" data-t="quote">Фраза</button><button class="btn sm" data-t="reset">Сброс</button>
+  <span class="muted">в актёра не пишет</span></div>`;
+const head = (title, sub) => `<header><div class="av"></div><h2>${title}</h2><span class="sub">${sub}</span><span class="x">✕</span></header>`;
+const footer = () => `<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center">${S.dirty ? `<span class="muted" style="margin-right:auto">● есть несохранённые правки</span>` : ""}<button class="btn">Отмена</button><button class="btn acc">Сохранить</button></div>`;
+const r = (label, ctl) => `<div class="row"><span>${label}</span><span>${ctl}</span></div>`;
+
+function lookPicker(compact) {
+  return `<div class="gal">${THEMES.slice(0, compact ? 6 : 12).map((t, i) => `<div class="card ${S.look === i ? "on" : ""}" data-look="${i}"><div class="th" style="--a:${t[1]};--b:${t[2]};--f:${t[3]}"><i></i></div><div class="t">${t[0]}</div><div class="k">встроенный</div></div>`).join("")}</div>`;
+}
+
+function tabBody(tab) {
+  switch (tab) {
+    case "Основное": return `<div class="blk"><h3>Основное</h3>
+      ${r("Вид профиля", `<span class="chips"><span class="chip on">Босс</span><span class="chip">Элита</span></span>`)}
+      ${r("Имя для игроков", `<input type="text" value="Ксар’Тун" data-dirty>`)}
+      ${r("Титул", `<input type="text" value="Пожиратель пепла" data-dirty>`)}
+      ${r("Портрет", `<span style="display:flex;gap:6px"><input type="text" value="worlds/test/bosses/ksar.webm"><button class="btn sm">FilePicker</button></span>`)}
+      ${r("Размер", `<input type="range" min="60" max="140" value="100" data-dirty>`)}
+      ${r("Режим показа", `<select data-dirty><option>На каждый токен</option><option>Одна на актёра (сумма, ×N)</option></select>`)}
+      ${r("Заливка", `<select data-dirty><option>Сегменты (засечки фаз)</option><option>Перезаливка по фазам</option></select>`)}
+      ${r("Засечки игрокам", `<label><input type="checkbox" checked data-dirty> показывать</label>`)}</div>`;
+    case "Облик": return `<div class="blk"><h3>Облик</h3>${lookPicker(true)}<div class="muted" style="margin-top:6px">Ещё 24 облика — в библиотеке.</div></div>
+      <div class="blk"><h3>Переопределить категории</h3>${CATS.map((c, i) => r(c, `<select data-dirty><option>как в облике</option><option>${THEMES[(i + 3) % THEMES.length][0]}</option></select>`)).join("")}</div>`;
+    case "Мини-полосы": return `<div class="blk"><h3>Мини-полосы</h3><div class="list">
+      ${[["Легендарные действия", "legact", "ромбики"], ["Легендарные сопротивления", "legres", "ромбики"], ["Броня", "flags.world.armor", "полоса"]].map(m => `<div class="it"><span class="grip">⠿</span><span>${m[0]}<br><span class="mono muted">${m[1]} · ${m[2]}</span></span><label class="muted"><input type="checkbox" checked> видна игрокам</label></div>`).join("")}
+      </div><button class="btn sm" style="margin-top:6px">+ Мини-полоса</button></div>`;
+    case "Статусы": return `<div class="blk"><h3>Скрыть от игроков</h3><div class="chips"><span class="chip on">Концентрация</span><span class="chip">Отравлен</span><span class="chip">Горит</span><span class="chip">Ослеплён</span></div>
+      <div class="muted" style="margin-top:6px">Служебные статусы Midi и дубли DAE скрыты всегда.</div></div>
+      <div class="blk"><h3>Свои статусы ГМа</h3><div class="list"><div class="it"><span>🜂</span><span>Пепельный щит<br><span class="mono muted">«Урон огнём лечит»</span></span><button class="btn sm">✎</button></div></div><button class="btn sm" style="margin-top:6px">+ Статус</button></div>`;
+    case "Фазы": return `<div class="blk"><h3>Шкала ХП</h3><div class="scale"><div class="mk" style="left:66%"><span>66% · Ярость</span></div></div>
+      <div class="list">${S.phases.map((p, i) => `<div class="it"><span class="grip">⠿</span><span><b>${p.name}</b><br><span class="mono muted">${p.t === "начало" ? "начало боя" : p.t === "hp" ? `порог: ниже ${p.v}%` : "форма: Ксар’Тун, Пепельный"}</span></span><button class="btn sm" data-goto="${i}">Проиграть</button></div>`).join("")}</div>
+      <button class="btn sm" style="margin-top:6px">+ Фаза</button> <span class="muted">до 6 фаз, пороги 5–95%, ≥ 8% между ними</span></div>
+      <div class="blk"><h3>Фаза «Ярость» — при входе</h3>${r("Метка", `<input type="text" value="ФАЗА II">`)}${r("Эффект", `<select><option>как в облике</option><option>Раскол рамки</option></select>`)}${r("Облик", `<select><option>без изменений</option><option>Пепел и пламя</option></select>`)}${r("Музыка", `<select><option>без изменений</option><option>Ярость пепла.ogg</option></select>`)}</div>`;
+    case "Фразы": return `<div class="blk"><h3>Фразы</h3><div class="list">
+      ${[["Появление", "1 вариант · раз за бой"], ["Вход в фазу «Ярость»", "2 варианта · по очереди"], ["Крит по боссу", "3 варианта · случайно · раз в 2 раунда · {attacker}"], ["Ниже 25% ХП", "1 вариант · раз за бой"]].map(q => `<div class="it"><span class="grip">⠿</span><span>${q[0]}<br><span class="mono muted">${q[1]}</span></span><button class="btn sm" data-t="quote">▶</button></div>`).join("")}
+      </div><button class="btn sm" style="margin-top:6px">+ Фраза</button></div>`;
+    case "Музыка": return `<div class="blk"><h3>Музыка</h3>${r("Трек или плейлист", `<select><option>Боссы / Пепельный трон</option><option>— нет —</option></select>`)}${r("Приоритет", `<input type="number" value="10">`)}${r("Переход, мс", `<input type="number" value="2000">`)}<div class="muted">Громкость — из трека. Музыка фаз — во вкладке «Фазы».</div></div>`;
+    case "Автопоказ": return `<div class="blk"><h3>Автопоказ</h3>${r("При начале боя", `<label><input type="checkbox" checked> показать</label>`)}${r("В конце боя", `<label><input type="checkbox" checked> скрыть</label>`)}${r("При поражении", `<label><input type="checkbox" checked> скрыть через <input type="number" value="4"> с</label>`)}</div>`;
+  }
+}
+
+// ---------- варианты профиля босса ----------
+function bossA() {
+  return `<div class="win" style="width:1100px">${head("Профиль босса", "Ксар’Тун · актёр")}
+    <div class="body" style="grid-template-columns:150px 1fr 380px">
+      <div class="tabs-v">${TABS.map(t => `<button data-tab="${t}" class="${S.tab === t ? "on" : ""}">${t}</button>`).join("")}</div>
+      <div style="display:grid;gap:8px;align-content:start">${bossPreview(180)}${consoleHtml()}</div>
+      <div style="display:grid;gap:10px;align-content:start;max-height:560px;overflow:auto">${tabBody(S.tab)}</div>
+    </div><div class="body">${footer()}</div></div>`;
+}
+function bossB() {
+  return `<div class="win" style="width:860px">${head("Профиль босса", "Ксар’Тун · актёр")}
+    <div class="body">${bossPreview(150)}${consoleHtml()}
+      <div class="tabs-h">${TABS.map(t => `<button data-tab="${t}" class="${S.tab === t ? "on" : ""}">${t}</button>`).join("")}</div>
+      <div style="display:grid;gap:10px;grid-template-columns:${["Облик", "Фазы", "Статусы"].includes(S.tab) ? "1fr 1fr" : "1fr"}">${tabBody(S.tab)}</div>${footer()}</div></div>`;
+}
+function bossC() {
+  const tabs = TABS.filter(t => t !== "Облик");
+  const tab = tabs.includes(S.tab) ? S.tab : "Основное";
+  return `<div class="win" style="width:640px">${head("Профиль босса", "Ксар’Тун · данные")}
+    <div class="body" style="grid-template-columns:140px 1fr">
+      <div class="tabs-v">${tabs.map(t => `<button data-tab="${t}" class="${tab === t ? "on" : ""}">${t}</button>`).join("")}
+        <div class="blk" style="margin-top:8px;padding:6px"><div class="muted">Облик</div><b>${THEMES[S.look][0]}</b><br><button class="btn sm" style="margin-top:4px">Мастерская →</button></div></div>
+      <div style="display:grid;gap:10px;align-content:start">${tabBody(tab)}</div></div><div class="body">${footer()}</div></div>
+    ${workshop()}`;
+}
+function workshop() {
+  return `<div class="win" style="width:600px">${head("Мастерская обликов", "облик профиля · " + THEMES[S.look][0])}
+    <div class="body">${bossPreview(140)}${consoleHtml()}
+      <div class="blk"><h3>Облик</h3>${lookPicker(false)}</div>
+      <div class="blk"><h3>Категории облика</h3>${CATS.slice(0, 5).map(c => r(c, `<select><option>${THEMES[S.look][0]}</option><option>свой…</option></select>`)).join("")}<div class="muted">…ещё 4 категории</div></div>
+      <div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn">Копия облика</button><button class="btn acc">Применить к профилю</button></div></div></div>`;
+}
+
+// ---------- общие экраны ----------
+function eliteCard(rk, name, hp) {
+  const has = p => rk.parts.includes(p);
+  return `<div class="ec" style="--rc:${rk.color};--sz:${rk.size}px;${rk.parts.length === 1 ? "width:auto" : ""}"><div class="p"></div>${rk.parts.length > 1 ? `<div style="flex:1"><div class="nm">${name}</div>${has("заливка") ? `<div class="h"><div style="width:${hp}%"></div></div>` : ""}${has("статусы") ? `<div style="font-size:11px">😡 🛡</div>` : ""}<div class="rk">${rk.name}</div></div>` : ""}</div>`;
+}
+function eliteScreen() {
+  return `<div class="win" style="width:760px">${head("Профиль элиты", "Орк-берсерк · актёр")}
+    <div class="body" style="grid-template-columns:1fr 260px">
+      <div style="display:grid;gap:10px"><div class="blk"><h3>Основное</h3>
+        ${r("Вид профиля", `<span class="chips"><span class="chip">Босс</span><span class="chip on">Элита</span></span>`)}
+        ${r("Ранг", `<select id="erank">${S.ranks.map((k, i) => `<option value="${i}" ${i === (S.eliteRank ?? 1) ? "selected" : ""}>${k.name}</option>`).join("")}</select>`)}
+        ${r("Имя для игроков", `<input type="text" placeholder="пусто — имя токена">`)}
+        ${r("Портрет", `<span style="display:flex;gap:6px"><input type="text" value="icons/orc.webp"><button class="btn sm">FilePicker</button></span>`)}
+        ${r("Режим показа", `<select><option>На каждый токен</option><option>Одна на актёра (×N)</option></select>`)}</div>
+        ${tabBody("Автопоказ")}${tabBody("Мини-полосы").replace("Мини-полосы</h3>", "Мини-полосы</h3><div class=\"muted\">видны, только если ранг показывает заливку</div>")}</div>
+      <div class="blk" style="align-self:start"><h3>Превью карточки</h3><div class="preview" style="padding:14px;display:grid;gap:6px">${eliteCard(S.ranks[S.eliteRank ?? 1], "Орк-берсерк 2", 66)}</div>
+        <div class="muted" style="margin-top:6px">Облик и части карточки задаёт ранг.</div></div></div>
+    <div class="body">${footer()}</div></div>`;
+}
+function ranksScreen() {
+  return `<div class="win" style="width:900px">${head("Ранги элиты", "мир · порядок = сила")}
+    <div class="body"><div class="blk"><h3>Ранги — сверху сильнее</h3><div class="list">
+      ${S.ranks.map((k, i) => `<div class="it" style="grid-template-columns:18px 140px 1fr 230px auto"><span class="grip">⠿</span>
+        <span style="display:flex;gap:6px;align-items:center"><input type="color" value="${k.color}" style="width:26px;height:22px;border:0;background:none"><input type="text" value="${k.name}"></span>
+        <span class="chips">${["иконка", "имя", "заливка", "статусы"].map(p => `<span class="chip ${k.parts.includes(p) ? "on" : ""}" data-rank="${i}" data-part="${p}">${p}</span>`).join("")}
+          <span class="muted">размер ${k.size}</span><select style="width:130px"><option>Классика RPG</option><option>Сталь и кровь</option></select></span>
+        <span class="preview" style="padding:6px">${eliteCard(k, "Орк", 70)}</span><button class="btn sm">✕</button></div>`).join("")}
+      </div><button class="btn sm" style="margin-top:6px">+ Ранг</button></div>${footer()}</div></div>`;
+}
+function libraryScreen() {
+  return `<div class="win" style="width:960px">${head("Облики и пресеты", "библиотека мира")}
+    <div class="body" style="grid-template-columns:170px 1fr">
+      <div class="tabs-v"><button class="on">Облики</button>${CATS.map(c => `<button>${c}</button>`).join("")}</div>
+      <div style="display:grid;gap:10px"><div style="display:flex;gap:6px;align-items:center"><input type="text" placeholder="Поиск" style="max-width:220px"><span class="chips"><span class="chip on">Все</span><span class="chip">Встроенные</span><span class="chip">Мои</span></span>
+        <span style="margin-left:auto;display:flex;gap:6px"><button class="btn sm">Импорт JSON</button><button class="btn sm">Экспорт</button></span></div>
+        ${lookPicker(false)}
+        <div class="blk"><h3>Выбран: ${THEMES[S.look][0]} — встроенный, только чтение</h3>${bossPreview(130)}<div style="display:flex;gap:6px;margin-top:8px"><button class="btn acc">Сделать копию</button><button class="btn">Лист-превью всех пресетов</button></div></div></div></div></div>`;
+}
+
+function render() {
+  document.getElementById("screens").innerHTML = Object.entries(SCREENS).map(([k, v]) => `<button data-screen="${k}" class="${S.screen === k ? "on" : ""}">${v}</button>`).join("");
+  const desk = document.getElementById("desk");
+  desk.innerHTML = S.screen === "boss" ? { A: bossA, B: bossB, C: bossC }[S.variant]() : S.screen === "elite" ? eliteScreen() : S.screen === "ranks" ? ranksScreen() : libraryScreen();
+  document.getElementById("switcher").style.display = S.screen === "boss" ? "" : "none";
+  document.getElementById("vlabel").textContent = `${S.variant} (${VARIANTS[S.variant]})`;
+  document.getElementById("state").textContent = JSON.stringify({ variant: S.variant, screen: S.screen, tab: S.tab, hp: `${S.hp}/${S.max}`, phase: S.phases[S.phase].name, look: THEMES[S.look][0], dead: S.dead, dirty: S.dirty }, null, 1);
+}
+function hit(f) { S.hp = Math.max(0, Math.min(S.max, Math.round(S.hp - S.max * f))); render(); requestAnimationFrame(() => requestAnimationFrame(() => { S.trail = S.hp; render(); })); }
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-screen],[data-tab],[data-t],[data-look],[data-goto],[data-part]"); if (!t) return;
+  if (t.dataset.screen) S.screen = t.dataset.screen;
+  if (t.dataset.tab) S.tab = t.dataset.tab;
+  if (t.dataset.look) { S.look = Number(t.dataset.look); S.dirty = true; }
+  if (t.dataset.goto) S.phase = Number(t.dataset.goto);
+  if (t.dataset.part) { const k = S.ranks[t.dataset.rank], p = t.dataset.part; if (p !== "иконка") k.parts = k.parts.includes(p) ? k.parts.filter(x => x !== p) : [...k.parts, p]; S.dirty = true; }
+  const a = t.dataset.t;
+  if (a === "d10") return hit(.1); if (a === "d30") return hit(.3); if (a === "heal") return hit(-.2);
+  if (a === "phase") S.phase = (S.phase + 1) % S.phases.length;
+  if (a === "dead") S.dead = !S.dead;
+  if (a === "quote") { S.quote = true; setTimeout(() => { S.quote = false; render(); }, 2500); }
+  if (a === "reset") Object.assign(S, { hp: 312, trail: 312, dead: false, phase: 0 });
+  render();
+});
+document.addEventListener("input", e => { if (e.target.closest("[data-dirty]")) { S.dirty = true; document.getElementById("state").textContent = document.getElementById("state").textContent.replace('"dirty": false', '"dirty": true'); } });
+document.addEventListener("change", e => { if (e.target.id === "erank") { S.eliteRank = Number(e.target.value); render(); } });
+document.getElementById("theme").onclick = e => { document.body.classList.toggle("dark"); e.target.textContent = document.body.classList.contains("dark") ? "Светлая тема" : "Тёмная тема"; };
+
+let v = new URLSearchParams(location.search).get("variant"); if (VARIANTS[v]) S.variant = v;
+const keys = Object.keys(VARIANTS);
+function step(d) { S.variant = keys[(keys.indexOf(S.variant) + d + keys.length) % keys.length]; try { history.replaceState(null, "", `?variant=${S.variant}`); } catch {} render(); }
+document.getElementById("prev").onclick = () => step(-1);
+document.getElementById("next").onclick = () => step(1);
+addEventListener("keydown", e => { if (e.target.closest("input,textarea,select,[contenteditable]")) return; if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); });
+render();
+</script>
+</body>
+</html>
