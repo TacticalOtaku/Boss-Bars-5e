@@ -2,6 +2,7 @@ import type { Block } from "../core/layout";
 import type { EliteCardView, HudViews } from "../core/view";
 import { positionBlock } from "./blocks";
 import { formatNumbers, part, setPortrait } from "./dom";
+import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 
 interface Card extends KeyedItem {
@@ -12,7 +13,10 @@ interface Card extends KeyedItem {
   numbers: HTMLElement;
   meter: HTMLElement;
   fill: HTMLElement;
+  shield: HTMLElement;
   rank: HTMLElement;
+  miniBars: HTMLElement;
+  statuses: HTMLElement;
 }
 
 export interface ColumnOptions {
@@ -49,14 +53,31 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     meter.setAttribute("aria-valuemin", "0");
     meter.setAttribute("aria-valuemax", "100");
     const fill = part("div", "bb5e-elite__fill", meter);
+    const shield = part("div", "bb5e-elite__shield", meter);
+    const miniBars = part("div", "bb5e-minibars bb5e-elite__minibars", info);
+    const statuses = createStatusRow("bb5e-elite__statuses", info);
     const rank = part("div", "bb5e-elite__rank", info);
-    return { el, icon, info, name, count, numbers, meter, fill, rank, leaving: null };
+    return {
+      el,
+      icon,
+      info,
+      name,
+      count,
+      numbers,
+      meter,
+      fill,
+      shield,
+      rank,
+      miniBars,
+      statuses,
+      leaving: null,
+    };
   }
 
   function updateCard(card: Card, view: EliteCardView) {
     const { el } = card;
     const { parts } = view;
-    const iconOnly = !parts.name && !parts.fill;
+    const iconOnly = !parts.name && !parts.fill && !view.statuses.length;
     el.classList.toggle("bb5e-elite--icon-only", iconOnly);
     el.classList.toggle("bb5e-elite--defeated", view.defeated);
     el.classList.toggle("bb5e-elite--muted", view.muted);
@@ -82,6 +103,11 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     if (view.fraction === null) card.meter.removeAttribute("aria-valuenow");
     else card.meter.setAttribute("aria-valuenow", String(Math.round(shown * 100)));
     card.fill.style.transform = `scaleX(${shown})`;
+    card.shield.hidden = !view.shield || view.defeated;
+    card.shield.style.setProperty("--bb5e-at", String(shown));
+    card.shield.style.setProperty("--bb5e-shield", String(view.shield));
+    renderMiniBars(card.miniBars, view.miniBars);
+    renderStatuses(card.statuses, view.statuses, view.statusOverflow);
     card.rank.textContent = view.rank.name;
   }
 

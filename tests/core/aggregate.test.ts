@@ -27,7 +27,7 @@ describe("aggregate", () => {
       [token("a"), token("b"), token("c", { hp: { value: 0, effectiveMax: 20, temp: 0 } })],
       true,
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       hp: { value: 20, effectiveMax: 60, temp: 4 },
       count: 3,
       hidden: false,

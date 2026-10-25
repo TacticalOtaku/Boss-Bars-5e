@@ -6,7 +6,9 @@ import {
   pruneInstances,
   readInstances,
   rebindInstances,
+  setCounter,
   showInstance,
+  toggleStatus,
 } from "../../src/core/instances";
 
 const empty = { dataVersion: INSTANCES_VERSION, items: [] };
@@ -111,5 +113,44 @@ describe("instance reducers", () => {
     expect(hideAll(state).items).toEqual([]);
     expect(pruneInstances(state, (i) => i.tokenId !== "t2").items.map((i) => i.id)).toEqual(["a"]);
     expect(pruneInstances(state, () => true)).toBe(state);
+  });
+});
+
+describe("counters and custom statuses", () => {
+  const state = {
+    dataVersion: INSTANCES_VERSION,
+    items: [{ id: "a", kind: "boss" as const, tokenId: "t", order: 1 }],
+  };
+
+  it("cleans stored counters and custom statuses without dropping the instance", () => {
+    const read = readInstances({
+      dataVersion: 2,
+      items: [
+        {
+          id: "a",
+          kind: "boss",
+          tokenId: "t",
+          order: 1,
+          counters: { armour: 2, "a b": 1, x: "3", y: Number.NaN },
+          customStatuses: ["rage", 5, "<b>"],
+        },
+        { id: "b", kind: "boss", tokenId: "u", order: 2, counters: [], customStatuses: "rage" },
+      ],
+    });
+    expect(read.status === "ok" && read.value.items).toEqual([
+      { id: "a", kind: "boss", tokenId: "t", order: 1, counters: { armour: 2 }, customStatuses: ["rage"] },
+      { id: "b", kind: "boss", tokenId: "u", order: 2, counters: {}, customStatuses: [] },
+    ]);
+  });
+
+  it("sets a counter and toggles a status, returning the same state when nothing changes", () => {
+    const counted = setCounter(state, "a", "armour", 2);
+    expect(counted.items[0]?.counters).toEqual({ armour: 2 });
+    expect(setCounter(counted, "a", "armour", 2)).toBe(counted);
+    expect(setCounter(state, "missing", "armour", 2)).toBe(state);
+    const on = toggleStatus(state, "a", "rage", true);
+    expect(on.items[0]?.customStatuses).toEqual(["rage"]);
+    expect(toggleStatus(on, "a", "rage", true)).toBe(on);
+    expect(toggleStatus(on, "a", "rage", false).items[0]?.customStatuses).toEqual([]);
   });
 });

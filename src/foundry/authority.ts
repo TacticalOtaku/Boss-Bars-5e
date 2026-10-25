@@ -6,9 +6,13 @@ import {
   pruneInstances,
   readInstances,
   rebindInstances,
+  setCounter,
   showInstance,
+  toggleStatus,
+  type Instance,
+  type InstanceState,
 } from "../core/instances";
-import { readProfile } from "../core/profile";
+import { readProfile, type Profile } from "../core/profile";
 import { logger } from "../logger";
 
 const QUERY = `${MODULE_ID}.write`;
@@ -88,10 +92,40 @@ async function apply(action: WriteAction): Promise<void> {
     next = showInstance(next, profile.value.kind, target, foundry.utils.randomID());
   } else if (action.type === "hide") {
     next = hideInstance(next, action.instanceId);
-  } else {
+  } else if (action.type === "hideAll") {
     next = hideAll(next);
+  } else {
+    next = applyInstanceEdit(scene, next, action);
   }
   if (next !== read.value) await scene.setFlag(MODULE_ID, "instances", next);
+}
+
+function instanceProfile(scene: SceneDocument, item: Instance): Profile | null {
+  const actor = item.tokenId
+    ? scene.tokens.get(item.tokenId)?.baseActor
+    : game.actors.get(item.actorId ?? "");
+  const profile = readProfile(actor?.flags[MODULE_ID]?.profile);
+  return profile.status === "ok" ? profile.value : null;
+}
+
+/** Counters and custom statuses must exist in the instance's profile; a counter is clamped to its maximum. */
+function applyInstanceEdit(
+  scene: SceneDocument,
+  state: InstanceState,
+  action: Extract<WriteAction, { type: "setCounter" | "toggleStatus" }>,
+): InstanceState {
+  const item = state.items.find((each) => each.id === action.instanceId);
+  const profile = item ? instanceProfile(scene, item) : null;
+  if (!profile) throw new WriteError("BB5E.Error.Invalid");
+  if (action.type === "setCounter") {
+    const source = profile.miniBars.find((bar) => bar.id === action.barId)?.source;
+    if (source?.type !== "counter") throw new WriteError("BB5E.Error.Invalid");
+    return setCounter(state, action.instanceId, action.barId, Math.min(source.max, action.value));
+  }
+  const known =
+    profile.kind === "boss" && profile.statuses.custom.some((status) => status.id === action.statusId);
+  if (!known) throw new WriteError("BB5E.Error.Invalid");
+  return toggleStatus(state, action.instanceId, action.statusId, action.active);
 }
 
 /**

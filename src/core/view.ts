@@ -2,8 +2,10 @@ import { aggregate, type TokenState } from "./aggregate";
 import { hpFraction, type HpData } from "./hp";
 import type { Instance } from "./instances";
 import { numberLabels } from "./labels";
+import { buildMiniBars, type MiniBarView } from "./minibars";
 import type { Profile } from "./profile";
 import { rankOf, type Rank } from "./ranks";
+import { buildStatuses, type StatusView } from "./statuses";
 
 /** One shown instance with everything the store read for it. */
 export interface SubjectInput {
@@ -38,7 +40,16 @@ interface CommonView {
   count?: number;
   /** GM only: a player's view never carries HP numbers. */
   numbers?: { value: number; max: number; temp: number };
+  /** Temp HP shield after the fill: temp / effectiveMax, 0 when there is none. */
+  shield: number;
+  statuses: StatusView[];
+  /** Status icons beyond the limit ("+N"). */
+  statusOverflow: number;
+  miniBars: MiniBarView[];
 }
+
+/** Visible status icons per bar and per card (spec §4; style presets come in stage 5). */
+export const STATUS_LIMITS = { boss: 10, elite: 4 } as const;
 
 export interface BossBarView extends CommonView {
   title: string;
@@ -69,15 +80,20 @@ const numbersOf = (hp: HpData | null, isGM: boolean) =>
     ? { numbers: { value: hp.value, max: hp.effectiveMax, temp: hp.temp } }
     : {};
 
+const shieldOf = (hp: HpData | null) =>
+  hp && hp.temp > 0 && hp.effectiveMax > 0 ? Math.min(1, hp.temp / hp.effectiveMax) : 0;
+
 /**
  * Bars and cards for one viewer: hidden tokens left out for players, equal names numbered the same way for
- * everyone, elites sorted by rank then show order and cut at `eliteLimit`.
+ * everyone, elites sorted by rank then show order and cut at `eliteLimit`. `peaks` keeps temp HP peaks of
+ * mini-bars between calls.
  */
 export function buildViews(
   subjects: SubjectInput[],
   ranks: Rank[],
   viewer: Viewer,
   eliteLimit: number,
+  peaks = new Map<string, number>(),
 ): HudViews {
   const baseLabel = (subject: SubjectInput) => subject.profile.playerName || subject.name;
   const labels = numberLabels(
@@ -95,6 +111,24 @@ export function buildViews(
     if (!total) continue;
     const { instance, profile } = subject;
     const src = profile.portrait ?? subject.actorImg;
+    const isBoss = profile.kind === "boss";
+    const rank = isBoss ? null : rankOf(ranks, profile.rank);
+    const custom = isBoss
+      ? profile.statuses.custom.filter((status) => instance.customStatuses?.includes(status.id))
+      : [];
+    const { statuses, overflow } =
+      isBoss || rank?.rank.parts.statuses
+        ? buildStatuses(
+            total.tokens.map((token) => token.effects ?? []),
+            profile.statuses.hidden,
+            custom,
+            isBoss ? STATUS_LIMITS.boss : STATUS_LIMITS.elite,
+          )
+        : { statuses: [], overflow: 0 };
+    const miniBars =
+      isBoss || rank?.rank.parts.fill
+        ? buildMiniBars(profile.miniBars, total.tokens, instance.counters, viewer.isGM, peaks, instance.id)
+        : [];
     const common: CommonView = {
       id: instance.id,
       label: labels.get(instance.id) ?? baseLabel(subject),
@@ -104,6 +138,10 @@ export function buildViews(
       muted: total.hidden,
       ...(profile.displayMode === "actor" && instance.actorId ? { count: total.count } : {}),
       ...numbersOf(total.hp, viewer.isGM),
+      shield: shieldOf(total.hp),
+      statuses,
+      statusOverflow: overflow,
+      miniBars,
     };
     if (profile.kind === "boss") {
       const canCollapse = !viewer.isGM && viewer.mayCollapse;
@@ -114,15 +152,15 @@ export function buildViews(
         collapsed: canCollapse && viewer.collapsed.has(instance.id),
         canCollapse,
       });
-    } else {
-      const { rank, index } = rankOf(ranks, profile.rank);
+    } else if (rank) {
+      const { parts } = rank.rank;
       elites.push({
         view: {
           ...common,
-          rank: { name: rank.name, color: rank.color, size: rank.size },
-          parts: { name: rank.parts.name, fill: rank.parts.fill },
+          rank: { name: rank.rank.name, color: rank.rank.color, size: rank.rank.size },
+          parts: { name: parts.name, fill: parts.fill },
         },
-        rank: index,
+        rank: rank.index,
         order: instance.order,
       });
     }

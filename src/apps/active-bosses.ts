@@ -21,6 +21,9 @@ interface Row {
   count: number;
   img: string;
   order: number;
+  /** Shown rows only: manual counters and the boss's custom statuses. */
+  counters: { barId: string; label: string; value: number; max: number }[];
+  customs: { id: string; name: string; img: string; active: boolean }[];
 }
 
 /**
@@ -44,6 +47,29 @@ function sceneRows(scene: SceneDocument): Row[] {
     }
     const instance = instanceFor(items, token);
     const name = byActor ? actor.name : token.name;
+    const counters = instance
+      ? profile.value.miniBars.flatMap(({ id, label, source }) =>
+          source.type === "counter"
+            ? [
+                {
+                  barId: id,
+                  label,
+                  value: Math.min(source.max, instance.counters?.[id] ?? source.max),
+                  max: source.max,
+                },
+              ]
+            : [],
+        )
+      : [];
+    const customs =
+      instance && profile.value.kind === "boss"
+        ? profile.value.statuses.custom.map((status) => ({
+            id: status.id,
+            name: status.name,
+            img: status.img,
+            active: Boolean(instance.customStatuses?.includes(status.id)),
+          }))
+        : [];
     rows.set(key, {
       kind: profile.value.kind,
       tokenId: token.id,
@@ -52,6 +78,8 @@ function sceneRows(scene: SceneDocument): Row[] {
       count: 1,
       img: profile.value.portrait ?? actor.img,
       order: instance?.order ?? Number.POSITIVE_INFINITY,
+      counters,
+      customs,
     });
   }
   return [...rows.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
@@ -66,6 +94,8 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
     position: { width: 400, height: "auto" },
     actions: {
       toggle: ActiveBosses.#onToggle,
+      counter: ActiveBosses.#onCounter,
+      toggleStatus: ActiveBosses.#onToggleStatus,
       hideAll: ActiveBosses.#onHideAll,
       openRanks: ActiveBosses.#onOpenRanks,
       openLayout: ActiveBosses.#onOpenLayout,
@@ -124,6 +154,26 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
         ? { type: "hide", sceneId: scene.id, instanceId }
         : { type: "show", sceneId: scene.id, tokenId },
     );
+  }
+
+  static async #onCounter(this: ActiveBosses, _event: Event, target: HTMLElement) {
+    const scene = canvas?.scene;
+    const instanceId = target.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
+    const counter = target.closest<HTMLElement>("[data-bar-id]");
+    const { barId, value, max } = counter?.dataset ?? {};
+    if (!scene || !instanceId || !barId) return;
+    const next = Math.min(Number(max), Math.max(0, Number(value) + Number(target.dataset.delta)));
+    if (next !== Number(value))
+      await writeOrNotify({ type: "setCounter", sceneId: scene.id, instanceId, barId, value: next });
+  }
+
+  static async #onToggleStatus(this: ActiveBosses, _event: Event, target: HTMLElement) {
+    const scene = canvas?.scene;
+    const instanceId = target.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
+    const statusId = target.dataset.statusId;
+    if (!scene || !instanceId || !statusId) return;
+    const active = target.getAttribute("aria-pressed") !== "true";
+    await writeOrNotify({ type: "toggleStatus", sceneId: scene.id, instanceId, statusId, active });
   }
 
   static async #onHideAll(this: ActiveBosses) {

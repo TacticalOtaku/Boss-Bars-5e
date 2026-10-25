@@ -15,6 +15,10 @@ const view = (id: string, extra: Partial<BossBarView> = {}): BossBarView => ({
   muted: false,
   collapsed: false,
   canCollapse: false,
+  shield: 0,
+  statuses: [],
+  statusOverflow: 0,
+  miniBars: [],
   ...extra,
 });
 
@@ -125,5 +129,56 @@ describe("createBossStack", () => {
     expect(button.getAttribute("aria-label")).toBe("Expand");
     button.click();
     expect(onCollapse).toHaveBeenCalledWith("a", false);
+  });
+});
+
+describe("boss bar extras", () => {
+  const status = (name: string, extra = {}) => ({
+    id: name,
+    name,
+    img: `${name}.webp`,
+    stacks: 0,
+    tooltip: `${name}\n<b>x</b>`,
+    ...extra,
+  });
+  const extras = {
+    shield: 0.25,
+    statuses: [status("Bless"), status("Poison", { stacks: 3 })],
+    statusOverflow: 2,
+    miniBars: [
+      { id: "leg", label: "Legendary", fraction: 2 / 3, pips: { filled: 2, total: 3 } },
+      { id: "ac", label: "Armour", fraction: 0.5, pips: null, numbers: { value: 5, max: 10 } },
+    ],
+  };
+
+  it("draws the shield after the fill, pips, bars and statuses with text-only tooltips", () => {
+    make().update([view("a", extras)], BLOCK, 1);
+    const shield = overlay.querySelector<HTMLElement>(".bb5e-boss__shield")!;
+    expect([
+      shield.hidden,
+      shield.style.getPropertyValue("--bb5e-at"),
+      shield.style.getPropertyValue("--bb5e-shield"),
+    ]).toEqual([false, "0.5", "0.25"]);
+    const minis = [...overlay.querySelectorAll<HTMLElement>(".bb5e-mini")];
+    expect(minis[0]!.querySelectorAll(".bb5e-mini__pip--on")).toHaveLength(2);
+    expect(minis[0]!.querySelectorAll(".bb5e-mini__pip")).toHaveLength(3);
+    expect(minis[1]!.querySelector(".bb5e-mini__numbers")!.textContent).toBe("5 / 10");
+    const icons = [...overlay.querySelectorAll<HTMLElement>(".bb5e-status")];
+    expect(icons.map((icon) => icon.dataset.tooltipText)).toEqual(["Bless\n<b>x</b>", "Poison\n<b>x</b>"]);
+    expect(overlay.querySelector("b")).toBeNull();
+    expect(icons[1]!.querySelector(".bb5e-status__stacks")!.textContent).toBe("3");
+    expect(overlay.querySelector(".bb5e-statuses__more")!.textContent).toBe("+2");
+  });
+
+  it("keeps the same status elements on a repeated render and hides empty parts", () => {
+    const stack = make();
+    stack.update([view("a", extras)], BLOCK, 1);
+    const first = overlay.querySelector(".bb5e-status");
+    stack.update([view("a", extras)], BLOCK, 1);
+    expect(overlay.querySelector(".bb5e-status")).toBe(first);
+    stack.update([view("a")], BLOCK, 1);
+    expect(overlay.querySelector<HTMLElement>(".bb5e-boss__shield")!.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLElement>(".bb5e-statuses")!.hidden).toBe(true);
+    expect(overlay.querySelector<HTMLElement>(".bb5e-minibars")!.hidden).toBe(true);
   });
 });

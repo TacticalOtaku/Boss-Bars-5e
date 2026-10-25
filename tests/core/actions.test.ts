@@ -31,3 +31,27 @@ describe("parseAction", () => {
     }
   });
 });
+
+describe("parseAction — counters and custom statuses", () => {
+  it("accepts a counter value and a status toggle", () => {
+    expect(
+      parseAction({ type: "setCounter", sceneId: id, instanceId: id, barId: "armour", value: 3, x: 1 }),
+    ).toEqual({ type: "setCounter", sceneId: id, instanceId: id, barId: "armour", value: 3 });
+    expect(
+      parseAction({ type: "toggleStatus", sceneId: id, instanceId: id, statusId: "rage", active: false }),
+    ).toEqual({ type: "toggleStatus", sceneId: id, instanceId: id, statusId: "rage", active: false });
+  });
+
+  it("rejects bad values, ids and flags", () => {
+    for (const raw of [
+      { type: "setCounter", sceneId: id, instanceId: id, barId: "a", value: -1 },
+      { type: "setCounter", sceneId: id, instanceId: id, barId: "a", value: 1.5 },
+      { type: "setCounter", sceneId: id, instanceId: id, barId: "a", value: 10000 },
+      { type: "setCounter", sceneId: id, instanceId: id, barId: "a b", value: 1 },
+      { type: "toggleStatus", sceneId: id, instanceId: id, statusId: "rage", active: "yes" },
+      { type: "toggleStatus", sceneId: id, instanceId: "x", statusId: "rage", active: true },
+    ]) {
+      expect(parseAction(raw)).toBeNull();
+    }
+  });
+});

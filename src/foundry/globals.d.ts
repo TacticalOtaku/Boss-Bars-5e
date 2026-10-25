@@ -22,8 +22,33 @@ declare global {
     type: string;
     isToken: boolean;
     token: TokenDocument | null;
-    system: { attributes?: { hp?: Record<string, unknown> } };
+    system: {
+      attributes?: { hp?: Record<string, unknown> };
+      resources?: Record<string, { value?: unknown; max?: unknown } | undefined>;
+    };
     statuses: Set<string>;
+    appliedEffects: EffectDocument[];
+    items: FoundryCollection<ItemDocument>;
+  }
+
+  interface EffectDocument {
+    id: string;
+    name: string;
+    img: string | null;
+    description?: string;
+    statuses: Set<string>;
+    showIcon: number;
+    isTemporary: boolean;
+    flags: FlagBag;
+    duration: { remaining?: number; label?: string };
+  }
+
+  interface ItemDocument {
+    id: string;
+    name: string;
+    img: string;
+    hasLimitedUses?: boolean;
+    system: { uses?: { value?: unknown; max?: unknown } };
   }
 
   interface TokenDocument {
@@ -44,6 +69,8 @@ declare global {
 
   interface CombatDocument {
     combatants: FoundryCollection<{ sceneId: string; tokenId: string; defeated: boolean }>;
+    /** The round and turn before the last change (set before updateCombat fires). */
+    previous?: { round?: number };
   }
 
   interface UserDocument {
@@ -61,6 +88,7 @@ declare global {
     render(options?: boolean | Record<string, unknown>): Promise<this>;
     close(options?: Record<string, unknown>): Promise<this>;
     bringToFront(): void;
+    changeTab(tab: string, group: string): void;
     _prepareContext(options: Record<string, unknown>): Promise<Record<string, unknown>>;
     _onFirstRender(context: Record<string, unknown>, options: Record<string, unknown>): Promise<void>;
     _onRender(context: Record<string, unknown>, options: Record<string, unknown>): Promise<void>;
@@ -100,16 +128,20 @@ declare global {
   const CONFIG: {
     queries: Record<string, (data: unknown, context: { user: UserDocument }) => unknown>;
     specialStatusEffects: { DEFEATED: string };
+    statusEffects: Iterable<{ id: string; name: string; img: string }>;
   };
 
   const foundry: {
     utils: {
       randomID(): string;
       hasProperty(object: object, key: string): boolean;
+      getProperty(object: object, key: string): unknown;
+      expandObject(object: Record<string, unknown>): Record<string, unknown>;
       escapeHTML(value: string): string;
     };
     applications: {
       instances: Map<string, ApplicationV2Instance>;
+      ux: { FormDataExtended: new (form: HTMLFormElement) => { object: Record<string, unknown> } };
       api: {
         ApplicationV2: new (options?: Record<string, unknown>) => ApplicationV2Instance;
         HandlebarsApplicationMixin<T extends new (...args: never[]) => ApplicationV2Instance>(base: T): T;

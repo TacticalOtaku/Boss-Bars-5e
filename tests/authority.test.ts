@@ -22,7 +22,7 @@ function collection<T>(entries: [string, T][]) {
 }
 
 function makeScene(instances: unknown, displayMode = "token") {
-  const actor = { id: ACTOR, flags: flags(displayMode) };
+  const actor: { id: string; flags: FlagBag } = { id: ACTOR, flags: flags(displayMode) };
   const token = (id: string) => [id, { id, actorId: ACTOR, baseActor: actor }] as [string, object];
   const scene = {
     id: SCENE,
@@ -147,5 +147,65 @@ describe("pruneScenes", () => {
     stubWorld({ isGM: true, isActiveGM: true });
     pruneScenes([scene as unknown as SceneDocument]);
     await vi.waitFor(() => expect(items().map((i) => i.tokenId ?? i.actorId)).toEqual([TOKEN, TOKEN2]));
+  });
+});
+
+describe("counters and custom statuses", () => {
+  const INSTANCE = "Inst000000000001";
+  beforeEach(() => {
+    scene = makeScene({ dataVersion: 2, items: [{ id: INSTANCE, kind: "boss", tokenId: TOKEN, order: 1 }] });
+    scene.actor.flags["boss-bars-5e"] = {
+      profile: {
+        dataVersion: 2,
+        kind: "boss",
+        displayMode: "token",
+        miniBars: [
+          { id: "armour", source: { type: "counter", max: 4 } },
+          { id: "leg", source: { type: "legact" } },
+        ],
+        statuses: { custom: [{ id: "rage", name: "Rage" }] },
+      },
+    };
+    stubWorld({ isGM: true, isActiveGM: true });
+  });
+  const item = () => (items()[0] ?? {}) as { counters?: object; customStatuses?: string[] };
+
+  it("sets a counter clamped to the profile's maximum", async () => {
+    await requestWrite({
+      type: "setCounter",
+      sceneId: SCENE,
+      instanceId: INSTANCE,
+      barId: "armour",
+      value: 9,
+    });
+    expect(item().counters).toEqual({ armour: 4 });
+  });
+
+  it("refuses counters that are not counter mini-bars of the profile", async () => {
+    for (const barId of ["leg", "nope"]) {
+      await expect(
+        requestWrite({ type: "setCounter", sceneId: SCENE, instanceId: INSTANCE, barId, value: 1 }),
+      ).rejects.toThrow("Invalid");
+    }
+  });
+
+  it("toggles only the profile's own custom statuses", async () => {
+    await requestWrite({
+      type: "toggleStatus",
+      sceneId: SCENE,
+      instanceId: INSTANCE,
+      statusId: "rage",
+      active: true,
+    });
+    expect(item().customStatuses).toEqual(["rage"]);
+    await expect(
+      requestWrite({
+        type: "toggleStatus",
+        sceneId: SCENE,
+        instanceId: INSTANCE,
+        statusId: "fake",
+        active: true,
+      }),
+    ).rejects.toThrow("Invalid");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TokenState } from "../../src/core/aggregate";
-import type { BossProfile, EliteProfile } from "../../src/core/profile";
+import { DEFAULT_AUTO_SHOW, type BossProfile, type EliteProfile } from "../../src/core/profile";
 import { defaultRanks } from "../../src/core/ranks";
 import { buildViews, type SubjectInput, type Viewer } from "../../src/core/view";
 
@@ -13,7 +13,9 @@ const token = (id: string, extra: Partial<TokenState> = {}): TokenState => ({
   defeated: false,
   ...extra,
 });
+const stage4 = { autoShow: DEFAULT_AUTO_SHOW, statuses: { hidden: [], custom: [] }, miniBars: [] };
 const bossProfile: BossProfile = {
+  ...stage4,
   dataVersion: 2,
   kind: "boss",
   playerName: "",
@@ -23,6 +25,7 @@ const bossProfile: BossProfile = {
   size: 110,
 };
 const eliteProfile = (rank: string, extra: Partial<EliteProfile> = {}): EliteProfile => ({
+  ...stage4,
   dataVersion: 2,
   kind: "elite",
   playerName: "",
@@ -166,5 +169,68 @@ describe("buildViews — elite column", () => {
       canCollapse: false,
       collapsed: false,
     });
+  });
+});
+
+describe("buildViews — statuses, mini-bars and shield", () => {
+  const effect = (name: string) => ({
+    id: name,
+    name,
+    img: `${name}.webp`,
+    description: "",
+    statuses: [],
+    showIcon: 2,
+    temporary: false,
+    autoCreated: false,
+    stacks: 0,
+    duration: "",
+  });
+  const custom = [{ id: "rage", name: "Rage", img: "rage.webp", description: "" }];
+  const miniBars = [
+    { id: "leg", label: "L", view: "pips" as const, players: true, source: { type: "legact" as const } },
+    {
+      id: "gm",
+      label: "G",
+      view: "bar" as const,
+      players: false,
+      source: { type: "counter" as const, max: 3 },
+    },
+  ];
+  const tokens = [
+    token("b", {
+      effects: Array.from({ length: 12 }, (_, i) => effect(`E${i}`)),
+      bars: { leg: { value: 1, max: 3 } },
+    }),
+  ];
+
+  it("gives a boss up to 10 statuses, its switched-on custom statuses, mini-bars and the shield", () => {
+    const boss = subject("Boss", { ...bossProfile, statuses: { hidden: ["E0"], custom }, miniBars }, tokens);
+    boss.instance.customStatuses = ["rage"];
+    const view = buildViews([boss], ranks, gm, 12).bosses[0]!;
+    expect(view.statuses).toHaveLength(10);
+    expect(view.statuses[0]?.name).toBe("E1");
+    expect(view.statusOverflow).toBe(2);
+    expect(view.miniBars.map((bar) => bar.id)).toEqual(["leg", "gm"]);
+    expect(view.shield).toBe(5 / 120);
+  });
+
+  it("shows players only their mini-bars, without numbers, and the shield as a share", () => {
+    const boss = subject("Boss", { ...bossProfile, miniBars }, tokens);
+    const view = buildViews([boss], ranks, player, 12).bosses[0]!;
+    expect(view.miniBars).toEqual([
+      { id: "leg", label: "L", fraction: 1 / 3, pips: { filled: 1, total: 3 } },
+    ]);
+    expect(view.shield).toBe(5 / 120);
+  });
+
+  it("gives an elite statuses and mini-bars only as its rank allows, never custom statuses", () => {
+    const profile = { statuses: { hidden: [], custom }, miniBars };
+    const captain = subject("C", eliteProfile("captain", profile), tokens);
+    captain.instance.customStatuses = ["rage"];
+    const fighter = subject("F", eliteProfile("fighter", profile), tokens);
+    const [c, f] = buildViews([captain, fighter], ranks, gm, 12).elites;
+    expect([c?.statuses.length, c?.statusOverflow, c?.miniBars.length]).toEqual([4, 8, 2]);
+    expect(c?.statuses.some((status) => status.name === "Rage")).toBe(false);
+    expect([f?.statuses.length, f?.miniBars.length]).toEqual([0, 0]);
   });
 });
