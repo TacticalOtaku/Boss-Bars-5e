@@ -1,0 +1,82 @@
+/* Stand chrome only; the module's own styles come from styles/boss-bars-5e.scss. */
+body {
+  --z-index-app: 30;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #1b1d22;
+  color: #d8dbe2;
+  font:
+    14px system-ui,
+    sans-serif;
+}
+
+.stand-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid #333842;
+}
+
+.stand-note {
+  opacity: 0.6;
+}
+
+.stand-viewport {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+#interface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  background: #2b2f38;
+  outline: 1px solid #555c6b;
+}
+
+.mock {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #6b7385;
+  color: #8d95a7;
+}
+
+.mock--controls {
+  top: 16px;
+  left: 16px;
+  width: 72px;
+  height: 480px;
+}
+
+.mock--navigation {
+  top: 16px;
+  left: 104px;
+  width: 200px;
+  height: 120px;
+}
+
+.mock--sidebar {
+  top: 0;
+  right: 0;
+  width: 312px;
+  height: 100%;
+}
+
+.mock--hotbar {
+  bottom: 16px;
+  left: 50%;
+  width: 560px;
+  height: 52px;
+  translate: -50% 0;
+}
+
+#boss-bars-5e {
+  outline: 2px solid #e0a43a;
+  outline-offset: -2px;
+}

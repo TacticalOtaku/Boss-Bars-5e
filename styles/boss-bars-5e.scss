@@ -1,0 +1,8 @@
+// The overlay covers the whole #interface (not #ui-middle) and only its blocks take pointer events.
+// Theme tokens live on this root, never on :root.
+#boss-bars-5e {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-index-app);
+  pointer-events: none;
+}

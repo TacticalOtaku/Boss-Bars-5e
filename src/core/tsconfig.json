@@ -1,0 +1,9 @@
+{
+  // Pure core: no DOM, no Foundry globals. Anything browser- or Foundry-bound fails to typecheck here.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": []
+  },
+  "include": ["."]
+}
