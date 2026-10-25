@@ -1,6 +1,7 @@
 import "../styles/boss-bars-5e.scss";
 import { PLAYER_SCREENS } from "../src/core/screens";
-import { buildViews, type SubjectInput } from "../src/core/view";
+import { DEFAULT_LAYOUT, type Direction } from "../src/core/layout";
+import { buildViews, ELITE_COLUMN_ID, type SubjectInput } from "../src/core/view";
 import { createBossStack } from "../src/ui/boss-stack";
 import { createEliteColumn } from "../src/ui/elite-column";
 import { mountOverlay } from "../src/ui/overlay";
@@ -32,7 +33,14 @@ const fresh = () => ({
   bosses: [structuredClone(FIXTURE_BOSSES[0]!)],
   elites: structuredClone(FIXTURE_ELITES),
 });
-const state = { gm: true, uiScale: 1, limit: 12, collapsed: new Set<string>(), ...fresh() };
+const state = {
+  gm: true,
+  uiScale: 1,
+  limit: 12,
+  bossDir: "down" as Direction,
+  collapsed: new Set<string>(),
+  ...fresh(),
+};
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const overlay = mountOverlay(host);
@@ -45,13 +53,23 @@ const stack = createBossStack(overlay, {
   },
   reducedMotion,
 });
-const column = createEliteColumn(overlay, reducedMotion);
+const column = createEliteColumn(overlay, {
+  reducedMotion,
+  collapse: {
+    labels: { title: "Элита", collapse: "Свернуть", expand: "Развернуть" },
+    onToggle(collapsed) {
+      if (collapsed) state.collapsed.add(ELITE_COLUMN_ID);
+      else state.collapsed.delete(ELITE_COLUMN_ID);
+      render();
+    },
+  },
+});
 
 function render(): void {
-  const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true };
+  const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true, mayCollapseElites: true };
   const views = buildViews([...state.bosses, ...state.elites], FIXTURE_RANKS, viewer, state.limit);
-  stack.update(views.bosses, state.uiScale);
-  column.update(views.elites, views.eliteOverflow, state.uiScale);
+  stack.update(views.bosses, { ...DEFAULT_LAYOUT.bosses, dir: state.bossDir }, state.uiScale);
+  column.update(views.elites, views, DEFAULT_LAYOUT.elites, state.uiScale);
 }
 
 const firstHp = () => state.bosses[0]?.tokens[0]?.hp;
@@ -83,6 +101,7 @@ const ACTIONS: Record<string, () => void> = {
   "Урон элите": () => state.elites.forEach((elite) => hurt(elite, 0.2)),
   "Лимит 12 / 3": () => (state.limit = state.limit === 12 ? 3 : 12),
   "ГМ / игрок": () => (state.gm = !state.gm),
+  "Боссы: вниз / в ряд": () => (state.bossDir = state.bossDir === "down" ? "row" : "down"),
   "uiScale 0.8 / 1": () => (state.uiScale = state.uiScale === 1 ? 0.8 : 1),
   Сброс: () => {
     Object.assign(state, fresh());

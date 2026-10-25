@@ -5,10 +5,9 @@ import { readProfile } from "../core/profile";
 import { buildViews, type HudViews, type SubjectInput } from "../core/view";
 import { hasDefeatedStatus, readHp } from "../integrations/dnd5e/actor";
 import { logger } from "../logger";
-import { collapsedIds, currentRanks, playersMayCollapse } from "./settings";
-
-/** shortcut: fixed until the layout panel (stage 3) makes it a setting. */
-const ELITE_LIMIT = 12;
+import type { Layout } from "../core/layout";
+import { currentLayout } from "./layout";
+import { collapsedIds, currentRanks } from "./settings";
 
 /**
  * Everything that can change what a bar or card shows. HP is read from the data on every update (ADR 0001); items
@@ -41,7 +40,7 @@ export interface BossHud {
   subscribe(listener: () => void): () => void;
 }
 
-export function startStore(render: (views: HudViews, uiScale: number) => void): BossHud {
+export function startStore(render: (views: HudViews, layout: Layout, uiScale: number) => void): BossHud {
   const listeners = new Set<() => void>();
   const warned = new Set<string>();
   let pending = false;
@@ -50,7 +49,8 @@ export function startStore(render: (views: HudViews, uiScale: number) => void): 
     pending = true;
     queueMicrotask(() => {
       pending = false;
-      render(collectViews(warned), uiScale());
+      const layout = currentLayout(canvas?.scene);
+      render(collectViews(warned, layout), layout, uiScale());
       for (const listener of listeners) listener();
     });
   };
@@ -65,7 +65,7 @@ export function startStore(render: (views: HudViews, uiScale: number) => void): 
 }
 
 /** The CSS --ui-scale resets to 1 when the OS theme changes; the setting is reliable (research/foundry-ui §1). */
-function uiScale(): number {
+export function uiScale(): number {
   const scale = (game.settings.get("core", "uiConfig") as { uiScale?: number } | undefined)?.uiScale;
   return typeof scale === "number" && scale > 0 ? scale : 1;
 }
@@ -121,8 +121,13 @@ function subjectOf(scene: SceneDocument, instance: Instance): SubjectInput | nul
 }
 
 /** Bars and cards of the viewed scene. One broken instance is skipped (warned once) and never hides the others. */
-function collectViews(warned: Set<string>): HudViews {
-  const empty: HudViews = { bosses: [], elites: [], eliteOverflow: 0 };
+function collectViews(warned: Set<string>, layout: Layout): HudViews {
+  const empty: HudViews = {
+    bosses: [],
+    elites: [],
+    eliteOverflow: 0,
+    column: { canCollapse: false, collapsed: false, total: 0 },
+  };
   const scene = canvas?.scene;
   if (!scene) return empty;
   const read = readInstances(scene.flags[MODULE_ID]?.instances);
@@ -141,7 +146,8 @@ function collectViews(warned: Set<string>): HudViews {
   const viewer = {
     isGM: game.user.isGM,
     collapsed: collapsedIds(scene.id),
-    mayCollapse: playersMayCollapse(),
+    mayCollapse: layout.bosses.collapse,
+    mayCollapseElites: layout.elites.collapse,
   };
-  return buildViews(subjects, currentRanks(), viewer, ELITE_LIMIT);
+  return buildViews(subjects, currentRanks(), viewer, layout.elites.max);
 }

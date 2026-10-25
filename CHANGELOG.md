@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+- Layout mode (GM, from the "Active bosses" panel): drag the boss stack and the elite column on your own screen;
+  they snap to the centre and edges and anchor to the nearest of 9 screen points by thirds. Arrows nudge the selected
+  block (Shift: 10 px), Escape leaves.
+- "Layout" panel: offsets, direction (down, up, in a row for bosses), visible cards, "players may collapse", world or
+  scene layer (a scene overrides whole blocks, "Reset to world"), a mini-map of a player's screen 1366×768…3440×1440.
+  Edits are a draft until saved.
+- Blocks covering Foundry's UI (scene controls, navigation, players, hotbar, sidebar; notifications and the dnd5e
+  calendar dashed; Carousel Combat Tracker) or going past the screen edge are highlighted; nothing is moved for you.
+- Blocks are placed by anchor + offset × uiScale in pure CSS, so players on other resolutions or with the camera
+  dock see them at the same anchors.
+- Players may collapse the elite column to an "Elites · N" chip (per scene). The "Players may collapse boss bars"
+  module setting moved into the layout (its value is carried over).
+
 ## 0.3.0
 
 - Elite profile: the profile window switches between boss and elite; an elite picks a rank and shows a live card.

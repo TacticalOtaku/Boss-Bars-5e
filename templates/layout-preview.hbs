@@ -1,0 +1,14 @@
+<section class="bb5e-layout__preview">
+  <label>{{localize "BB5E.Layout.Preview"}}
+    <select data-preview>{{#each screens}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>
+  </label>
+  {{#if map}}
+  <div class="bb5e-minimap" style="width: {{map.w}}px; height: {{map.h}}px" aria-hidden="true">
+    {{#each map.zones}}<div class="bb5e-minimap__zone{{#if soft}} bb5e-minimap__zone--soft{{/if}}" style="left: {{x}}px; top: {{y}}px; width: {{w}}px; height: {{h}}px" title="{{label}}"></div>{{/each}}
+    {{#each map.blocks}}<div class="bb5e-minimap__block{{#if warn}} bb5e-minimap__block--warn{{/if}}" style="left: {{x}}px; top: {{y}}px; width: {{w}}px; height: {{h}}px">{{label}}</div>{{/each}}
+  </div>
+  {{/if}}
+  {{#if warnings.length}}
+  <ul class="bb5e-layout__warnings" role="status">{{#each warnings}}<li>{{this}}</li>{{/each}}</ul>
+  {{/if}}
+</section>

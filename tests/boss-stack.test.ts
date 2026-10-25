@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_LAYOUT } from "../src/core/layout";
 import type { BossBarView } from "../src/core/view";
 import { createBossStack } from "../src/ui/boss-stack";
 
@@ -17,6 +18,7 @@ const view = (id: string, extra: Partial<BossBarView> = {}): BossBarView => ({
   ...extra,
 });
 
+const BLOCK = DEFAULT_LAYOUT.bosses;
 let overlay: HTMLElement;
 const onCollapse = vi.fn();
 const make = () =>
@@ -36,15 +38,15 @@ beforeEach(() => {
 describe("createBossStack", () => {
   it("shows ×N only for a bar bound to an actor", () => {
     const stack = make();
-    stack.update([view("a", { count: 3 })], 1);
+    stack.update([view("a", { count: 3 })], BLOCK, 1);
     const count = overlay.querySelector<HTMLElement>(".bb5e-boss__count")!;
     expect([count.hidden, count.textContent]).toEqual([false, "×3"]);
-    stack.update([view("a")], 1);
+    stack.update([view("a")], BLOCK, 1);
     expect(count.hidden).toBe(true);
   });
 
   it("renders texts as text and keeps HP numbers out of a player's bar", () => {
-    make().update([view("a", { label: "<img src=x onerror=alert(1)>", title: "Пожиратель" })], 1);
+    make().update([view("a", { label: "<img src=x onerror=alert(1)>", title: "Пожиратель" })], BLOCK, 1);
     const bar = bars()[0]!;
     expect(bar.querySelector(".bb5e-boss__name")?.textContent).toBe("<img src=x onerror=alert(1)>");
     expect(bar.querySelectorAll("img[onerror]")).toHaveLength(0);
@@ -55,8 +57,8 @@ describe("createBossStack", () => {
 
   it("leaves a running trail alone when the same fill is rendered again", async () => {
     const stack = make();
-    stack.update([view("a", { fraction: 1 })], 1);
-    stack.update([view("a", { fraction: 0.4 })], 1);
+    stack.update([view("a", { fraction: 1 })], BLOCK, 1);
+    stack.update([view("a", { fraction: 0.4 })], BLOCK, 1);
     const trail = overlay.querySelector<HTMLElement>(".bb5e-boss__trail")!;
     const changes: string[] = [];
     new MutationObserver((records) => records.forEach((r) => changes.push(String(r.attributeName)))).observe(
@@ -65,14 +67,14 @@ describe("createBossStack", () => {
         attributes: true,
       },
     );
-    stack.update([view("a", { fraction: 0.4 })], 1);
+    stack.update([view("a", { fraction: 0.4 })], BLOCK, 1);
     await Promise.resolve();
     expect(changes).toEqual([]);
     expect(trail.style.transform).toBe("scaleX(0.4)");
   });
 
   it("shows numbers to the GM and an empty fill when defeated", () => {
-    make().update([view("a", { numbers: { value: 30, max: 60, temp: 4 }, defeated: true })], 1);
+    make().update([view("a", { numbers: { value: 30, max: 60, temp: 4 }, defeated: true })], BLOCK, 1);
     const bar = bars()[0]!;
     expect(bar.querySelector(".bb5e-boss__numbers")?.textContent).toBe("30 / 60 +4");
     expect(bar.classList.contains("bb5e-boss--defeated")).toBe(true);
@@ -81,10 +83,10 @@ describe("createBossStack", () => {
 
   it("keeps the stack in show order; a hidden bar leaves after the shown ones and can come back", () => {
     const stack = make();
-    stack.update([view("a"), view("b")], 1.25);
-    stack.update([view("b"), view("c")], 1.25);
+    stack.update([view("a"), view("b")], BLOCK, 1.25);
+    stack.update([view("b"), view("c")], BLOCK, 1.25);
     expect(bars().map((bar) => bar.dataset.instanceId)).toEqual(["b", "c", "a"]);
-    stack.update([view("a"), view("b"), view("c")], 1.25);
+    stack.update([view("a"), view("b"), view("c")], BLOCK, 1.25);
     expect(bars().map((bar) => bar.dataset.instanceId)).toEqual(["a", "b", "c"]);
     expect(overlay.querySelector<HTMLElement>(".bb5e-stack")?.style.getPropertyValue("--bb5e-ui-scale")).toBe(
       "1.25",
@@ -96,8 +98,8 @@ describe("createBossStack", () => {
     Object.defineProperty(Element.prototype, "animate", { value: undefined, configurable: true });
     try {
       const stack = make();
-      stack.update([view("a"), view("b")], 1);
-      stack.update([view("b")], 1);
+      stack.update([view("a"), view("b")], BLOCK, 1);
+      stack.update([view("b")], BLOCK, 1);
       expect(bars().map((bar) => bar.dataset.instanceId)).toEqual(["b"]);
     } finally {
       Object.defineProperty(Element.prototype, "animate", { value: animate, configurable: true });
@@ -106,17 +108,17 @@ describe("createBossStack", () => {
 
   it("swaps the portrait between image and video", () => {
     const stack = make();
-    stack.update([view("a")], 1);
-    stack.update([view("a", { portrait: { src: "boss.webm", video: true } })], 1);
+    stack.update([view("a")], BLOCK, 1);
+    stack.update([view("a", { portrait: { src: "boss.webm", video: true } })], BLOCK, 1);
     expect(overlay.querySelector(".bb5e-boss__portrait video")?.getAttribute("src")).toBe("boss.webm");
     expect(overlay.querySelector(".bb5e-boss__portrait img")).toBeNull();
   });
 
   it("offers collapsing only when allowed and reports the new state", () => {
     const stack = make();
-    stack.update([view("a")], 1);
+    stack.update([view("a")], BLOCK, 1);
     expect(overlay.querySelector<HTMLButtonElement>(".bb5e-boss__collapse")?.hidden).toBe(true);
-    stack.update([view("a", { canCollapse: true, collapsed: true })], 1);
+    stack.update([view("a", { canCollapse: true, collapsed: true })], BLOCK, 1);
     const button = overlay.querySelector<HTMLButtonElement>(".bb5e-boss__collapse")!;
     expect(button.hidden).toBe(false);
     expect(button.getAttribute("aria-expanded")).toBe("false");

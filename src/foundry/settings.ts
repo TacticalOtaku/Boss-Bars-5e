@@ -11,14 +11,20 @@ export function registerSettings(onChange: () => void, openRanks: () => void): v
     default: {},
     onChange,
   });
-  // shortcut: lives in the module settings until the layout panel takes it over in stage 3.
+  // Stages 1–2 only: now a field of the layout blocks; it still seeds the boss stack until the first layout save.
   game.settings.register(MODULE_ID, "playersMayCollapse", {
-    name: "BB5E.Setting.PlayersMayCollapse.Name",
-    hint: "BB5E.Setting.PlayersMayCollapse.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
+    onChange,
+  });
+  // World layout (spec §2); scenes override whole blocks with a flag.
+  game.settings.register(MODULE_ID, "layout", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {},
     onChange,
   });
   // Empty until the GM saves: the translated default ranks apply meanwhile.
@@ -61,10 +67,6 @@ export function defaultRankList(): Rank[] {
 export function currentRanks(): Rank[] {
   const read = readRanks(game.settings.get(MODULE_ID, "ranks"), defaultRankList());
   return read.status === "ok" ? read.value.items : defaultRankList();
-}
-
-export function playersMayCollapse(): boolean {
-  return game.settings.get(MODULE_ID, "playersMayCollapse") === true;
 }
 
 function collapsedByScene(): Record<string, string[]> {

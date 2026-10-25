@@ -1,19 +1,46 @@
 // Elite column and card, layout A rows in the "Classic RPG" look (mock-up prototype/hud-variants, variant A).
-// Until the layout mode (stage 3): left, vertically centred, right after the scene controls column.
 
 .bb5e-column {
-  position: absolute;
-  top: 50%;
-  left: calc(104px * var(--bb5e-ui-scale, 1));
-  translate: 0 -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   width: 14.375em;
   font-size: calc(16px * var(--bb5e-ui-scale, 1));
+
+  // Up: the column grows upwards from its anchor, the first card nearest to it.
+  &[data-dir="up"],
+  &[data-dir="up"] .bb5e-column__cards {
+    flex-direction: column-reverse;
+  }
 }
 
 .bb5e-column__cards {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.375em;
-  justify-items: start;
+  align-items: flex-start;
+  width: 100%;
+}
+
+// Player-side collapse: "▾" above the cards, or the "Elites · N ▸" chip when collapsed.
+.bb5e-column__toggle {
+  margin-bottom: 0.25em;
+  padding: 0.125em 0.5em;
+  width: auto;
+  height: auto;
+  border: 1px solid rgb(201 164 92 / 60%);
+  border-radius: 0.25em;
+  background: rgb(0 0 0 / 55%);
+  color: var(--bb5e-gold);
+  font-size: 0.75em;
+  line-height: 1.4;
+  cursor: pointer;
+  pointer-events: auto;
+
+  &:focus-visible {
+    outline: 2px solid var(--bb5e-gold);
+    outline-offset: 1px;
+  }
 }
 
 .bb5e-column__more {

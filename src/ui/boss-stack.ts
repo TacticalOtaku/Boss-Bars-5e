@@ -1,4 +1,6 @@
+import type { Block } from "../core/layout";
 import type { BossBarView } from "../core/view";
+import { positionBlock } from "./blocks";
 import { formatNumbers, part, setPortrait } from "./dom";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 
@@ -111,8 +113,9 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
 
   const list = createKeyedList(stack, createBar, updateBar, options.reducedMotion);
   return {
-    update(views: BossBarView[], uiScale: number) {
-      stack.style.setProperty("--bb5e-ui-scale", String(uiScale));
+    element: stack,
+    update(views: BossBarView[], block: Block, uiScale: number) {
+      positionBlock(stack, block, uiScale);
       list.update(views);
     },
   };
