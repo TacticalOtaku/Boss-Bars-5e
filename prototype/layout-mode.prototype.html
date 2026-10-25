@@ -1,0 +1,272 @@
+<!doctype html>
+<!--
+  PROTOTYPE — выбросить после решения тикета «Режим раскладки: как ГМ двигает элементы на экране» (#11).
+  Три способа, которыми ГМ двигает стек боссов и колонку элиты, переключаются ?variant=A|B|C, стрелками внизу или ← →.
+  Сцена — схема Foundry 14.367 в размерах экрана игрока (переключатель «Экран игрока»); раскладка задаётся на экране ГМа 1920×1080.
+  Переключатель «Модель координат» показывает, куда уезжают элементы на чужом экране при % и при «якорь + отступ».
+  Только вид: ни Foundry, ни сохранения.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout mode prototype</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b0b0e; color: #e8e2d6; font: 13px "Segoe UI", system-ui, sans-serif; overflow: hidden; height: 100vh; }
+  #wrap { position: absolute; left: 0; top: 0; right: 300px; bottom: 0; display: grid; place-items: center; }
+  #stage { position: relative; transform-origin: center; background: radial-gradient(ellipse at 55% 45%, #3b4a37, #141a11); overflow: hidden; outline: 1px solid #fff2; }
+  #stage::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(#0003 1px, transparent 1px), linear-gradient(90deg, #0003 1px, transparent 1px); background-size: 64px 64px; }
+  .fv { position: absolute; background: #1b1a20e6; border: 1px solid #44404d; border-radius: 6px; color: #9b96a6; font-size: 11px; padding: 4px 6px; }
+  .fv.soft { background: #ffffff08; border-style: dashed; color: #fff6; }
+  body:not(.chrome) .fv.soft { display: none; }
+  .block { position: absolute; border: 2px dashed #e5c06a; background: #e5c06a14; color: #f1e5c8; border-radius: 6px; cursor: grab; user-select: none; }
+  .block.bad { border-color: #ff5a4f; background: #ff5a4f22; }
+  .block.scene { border-style: solid; }
+  .block .lbl { position: absolute; left: 6px; top: 4px; font-weight: 600; font-size: 12px; text-shadow: 0 1px 2px #000; }
+  .block .sub { position: absolute; left: 6px; bottom: 4px; font: 10px monospace; color: #fffa; }
+  .block .warn { position: absolute; right: 6px; top: 4px; font-size: 10px; color: #ffb3ad; text-align: right; max-width: 60%; }
+  .block .mock { position: absolute; inset: 22px 8px 18px; display: grid; gap: 4px; align-content: start; opacity: .6; pointer-events: none; }
+  .block .mock i { display: block; height: 10px; background: #c23b33; border-radius: 2px; }
+  body.drag .block { cursor: grabbing; }
+  .guide { position: absolute; background: #4fd1ff; pointer-events: none; opacity: 0; }
+  .guide.v { width: 1px; top: 0; bottom: 0; } .guide.h { height: 1px; left: 0; right: 0; }
+  .guide.on { opacity: .9; }
+  .anchor-dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #4fd1ff; box-shadow: 0 0 0 3px #4fd1ff44; pointer-events: none; }
+  .zone { position: absolute; border: 2px dashed #4fd1ff66; background: #4fd1ff0d; border-radius: 8px; color: #4fd1ffcc; font-size: 11px; padding: 4px 8px; pointer-events: none; }
+  .zone.hot { background: #4fd1ff2a; border-color: #4fd1ff; }
+  .C-only { display: none; } body.vC .C-only { display: block; }
+
+  #panel { position: fixed; right: 0; top: 0; bottom: 0; width: 300px; background: #16151b; border-left: 1px solid #2e2b36; padding: 12px; overflow-y: auto; }
+  #panel h3 { margin: 0 0 8px; font-size: 14px; } #panel h4 { margin: 14px 0 6px; font-size: 12px; color: #c9a45c; text-transform: uppercase; letter-spacing: .06em; }
+  #panel label { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+  #panel select, #panel input[type=number] { background: #24222b; color: #eee; border: 1px solid #3a3644; border-radius: 4px; padding: 3px 5px; font: inherit; }
+  #panel input[type=number] { width: 64px; }
+  #panel button { background: #2a2833; color: #eee; border: 1px solid #3a3644; border-radius: 4px; padding: 3px 8px; cursor: pointer; font: inherit; }
+  #panel button.on { background: #c9a45c; color: #111; border-color: #c9a45c; }
+  .seg { display: inline-flex; } .seg button { border-radius: 0; } .seg button:first-child { border-radius: 4px 0 0 4px; } .seg button:last-child { border-radius: 0 4px 4px 0; }
+  .grid9 { display: inline-grid; grid-template-columns: repeat(3, 26px); gap: 3px; }
+  .grid9 button { width: 26px; height: 22px; padding: 0; }
+  .nudge { display: inline-grid; grid-template-columns: repeat(3, 26px); gap: 3px; margin-left: 10px; vertical-align: top; }
+  .nudge button { width: 26px; height: 22px; padding: 0; }
+  .bbox { border: 1px solid #2e2b36; border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+  .bbox.sel { border-color: #c9a45c; }
+  .muted { color: #8a8595; font-size: 11px; }
+  #state { white-space: pre-wrap; background: #0f0e13; border-radius: 4px; padding: 6px; font: 10px monospace; color: #9fd0a0; }
+  #switcher { position: fixed; bottom: 14px; left: calc((100% - 300px) / 2); transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 10px; background: #ff3d7f; color: #fff; font: 600 13px system-ui; padding: 6px 10px; border-radius: 999px; box-shadow: 0 6px 20px #000a; }
+  #switcher button { background: #fff3; color: #fff; border: 0; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 15px; }
+</style>
+</head>
+<body class="chrome">
+<div id="wrap"><div id="stage"></div></div>
+
+<div id="panel">
+  <h3>Режим раскладки</h3>
+  <div class="muted" id="vdesc"></div>
+
+  <h4>Слой</h4>
+  <div class="seg" id="layer"><button data-v="world" class="on">Мир</button><button data-v="scene">Сцена «Логово дракона»</button></div>
+  <div class="muted">На слое сцены блок, который вы двигаете, переопределяется целиком. Сплошная рамка — переопределён.</div>
+
+  <h4>Экран игрока</h4>
+  <select id="res">
+    <option value="1920x1080">1920×1080 (как у ГМа)</option>
+    <option value="1366x768">1366×768 (ноутбук)</option>
+    <option value="1600x900">1600×900</option>
+    <option value="2560x1440">2560×1440</option>
+    <option value="3440x1440">3440×1440 (ультраширокий)</option>
+  </select>
+  <label><input type="checkbox" id="chrome" checked> Показать занятое Foundry и модулями</label>
+  <label><input type="checkbox" id="carousel"> Carousel Combat Tracker сверху</label>
+
+  <h4>Модель координат</h4>
+  <div class="seg" id="model"><button data-v="anchor" class="on">Якорь + отступ</button><button data-v="pct">% экрана</button></div>
+  <div class="muted">Раскладка задаётся на 1920×1080. Переключите экран игрока, чтобы увидеть разницу.</div>
+
+  <div id="blocks"></div>
+  <h4>Состояние</h4>
+  <div id="state"></div>
+</div>
+<div id="switcher"><button id="prev" aria-label="Предыдущий вариант">←</button><span id="vlabel"></span><button id="next" aria-label="Следующий вариант">→</button></div>
+
+<script>
+const VARIANTS = {
+  A: ["Свободное перетаскивание", "Тащите блок куда угодно. При отпускании блок цепляется к ближайшему из 9 якорей экрана, видны направляющие центра и краёв."],
+  B: ["Сетка якорей", "Блок не тащится. Якорь выбирается в сетке 3×3, отступ — стрелками (8 px, с Shift 32 px) или числами."],
+  C: ["Зоны", "Экран заранее разбит на свободные от Foundry зоны. Тащите блок в зону: он встаёт в неё. Тонкий сдвиг — Shift + перетаскивание."],
+};
+const GM = { W: 1920, H: 1080 };
+const BLOCKS = {
+  bosses: { name: "Стек боссов", w: 620, h: 150, rows: 2 },
+  elites: { name: "Колонка элиты", w: 230, h: 320, rows: 6 },
+};
+// якорь: [доля по x, доля по y]; блок выравнивается той же точкой
+const ANCH = { tl: [0, 0], tc: [.5, 0], tr: [1, 0], ml: [0, .5], mc: [.5, .5], mr: [1, .5], bl: [0, 1], bc: [.5, 1], br: [1, 1] };
+const ANCH_NAME = { tl: "↖", tc: "↑", tr: "↗", ml: "←", mc: "•", mr: "→", bl: "↙", bc: "↓", br: "↘" };
+const S = {
+  variant: "A", layer: "world", model: "anchor", res: "1920x1080", sel: "bosses",
+  world: { bosses: { a: "tc", dx: 0, dy: 16, collapse: true, dir: "down" }, elites: { a: "tl", dx: 104, dy: 214, collapse: true, dir: "down", max: 6 } },
+  scene: {},
+};
+const eff = k => S.scene[k] ?? S.world[k];
+const dims = () => { const [W, H] = S.res.split("x").map(Number); return { W, H }; };
+
+// занятое Foundry 14.367 (размеры в px не масштабируются с экраном) и соседними модулями
+function chrome(W, H) {
+  const r = [
+    { n: "Контролы сцены", x: 16, y: 16, w: 72, h: 190 },
+    { n: "Навигация сцен", x: 104, y: 16, w: 200, h: 96 },
+    { n: "Игроки", x: 16, y: H - 90, w: 200, h: 74 },
+    { n: "Хотбар", x: W / 2 - 280, y: H - 64, w: 560, h: 52 },
+    { n: "Сайдбар", x: W - 312, y: 0, w: 312, h: H },
+    { n: "Уведомления (появляются)", x: W * .2, y: H * .1, w: W * .6, h: 56, soft: true },
+    { n: "Календарь dnd5e (если включён)", x: W / 2 - 140, y: 16, w: 280, h: 40, soft: true },
+  ];
+  if (document.getElementById("carousel").checked) r.push({ n: "Carousel Combat Tracker", x: W * .2, y: 0, w: W * .6, h: 110 });
+  return r;
+}
+// зоны варианта C — свободные от Foundry прямоугольники
+function zones(W, H) {
+  return [
+    { id: "top", n: "Верх по центру", x: W * .2 + 10, y: 10, w: W * .6 - 20, h: 200, a: "tc", dx: 0, dy: 16 },
+    { id: "bottom", n: "Над хотбаром", x: W / 2 - 400, y: H - 300, w: 800, h: 220, a: "bc", dx: 0, dy: -80 },
+    { id: "left", n: "Под навигацией", x: 96, y: 124, w: 260, h: H - 240, a: "tl", dx: 104, dy: 214 },
+    { id: "right", n: "У сайдбара", x: W - 312 - 270, y: 124, w: 260, h: H - 240, a: "tr", dx: -324, dy: 214 },
+  ];
+}
+// позиция блока на экране W×H
+function place(k, W, H) {
+  const L = eff(k), b = BLOCKS[k], [fx, fy] = ANCH[L.a];
+  if (S.model === "pct") {
+    const gx = fx * GM.W - fx * b.w + L.dx, gy = fy * GM.H - fy * b.h + L.dy;
+    return { x: gx / GM.W * W, y: gy / GM.H * H };
+  }
+  return { x: fx * W - fx * b.w + L.dx, y: fy * H - fy * b.h + L.dy };
+}
+const inter = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+function setBlock(k, patch) {
+  const target = S.layer === "scene" ? (S.scene[k] ??= structuredClone(S.world[k])) : S.world[k];
+  Object.assign(target, patch);
+}
+// из абсолютной позиции (на текущем экране) — в якорь + отступ
+function toAnchor(k, x, y, W, H, forceA) {
+  const b = BLOCKS[k];
+  const cx = x + b.w / 2, cy = y + b.h / 2;
+  const a = forceA ?? (["t", "m", "b"][Math.min(2, Math.floor(cy / H * 3))] + ["l", "c", "r"][Math.min(2, Math.floor(cx / W * 3))]);
+  const [fx, fy] = ANCH[a];
+  return { a, dx: Math.round(x - (fx * W - fx * b.w)), dy: Math.round(y - (fy * H - fy * b.h)) };
+}
+
+function render() {
+  const { W, H } = dims(), st = document.getElementById("stage");
+  const avail = { w: innerWidth - 300 - 40, h: innerHeight - 90 }, sc = Math.min(avail.w / W, avail.h / H);
+  st.style.width = W + "px"; st.style.height = H + "px"; st.style.transform = `scale(${sc})`; st.dataset.scale = sc;
+  const ch = chrome(W, H);
+  let html = ch.map(c => `<div class="fv ${c.soft ? "soft" : ""}" style="left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px">${c.n}</div>`).join("");
+  if (S.variant === "C") html += zones(W, H).map(z => `<div class="zone" data-z="${z.id}" style="left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px">${z.n}</div>`).join("");
+  html += `<div class="guide v" id="gv" style="left:${W / 2}px"></div><div class="guide h" id="gh" style="top:${H / 2}px"></div>`;
+  for (const k of Object.keys(BLOCKS)) {
+    const b = BLOCKS[k], p = place(k, W, H), L = eff(k);
+    const rect = { x: p.x, y: p.y, w: b.w, h: b.h };
+    const hits = ch.filter(c => !c.soft && inter(rect, c)).map(c => c.n);
+    const off = p.x < 0 || p.y < 0 || p.x + b.w > W || p.y + b.h > H;
+    const [fx, fy] = ANCH[L.a];
+    html += `<div class="anchor-dot" style="left:${fx * W}px;top:${fy * H}px"></div>`;
+    html += `<div class="block ${hits.length || off ? "bad" : ""} ${S.scene[k] ? "scene" : ""}" data-k="${k}" style="left:${p.x}px;top:${p.y}px;width:${b.w}px;height:${b.h}px">
+      <span class="lbl">${b.name}${S.scene[k] ? " · сцена" : ""}</span>
+      <span class="warn">${[off ? "за краем экрана" : "", hits.length ? "перекрывает: " + hits.join(", ") : ""].filter(Boolean).join("<br>")}</span>
+      <div class="mock">${Array.from({ length: b.rows }, () => "<i></i>").join("")}</div>
+      <span class="sub">${ANCH_NAME[L.a]} ${L.a} ${L.dx >= 0 ? "+" : ""}${L.dx}, ${L.dy >= 0 ? "+" : ""}${L.dy}</span></div>`;
+  }
+  st.innerHTML = html;
+  document.body.className = `${document.getElementById("chrome").checked ? "chrome" : ""} v${S.variant}`;
+  document.getElementById("vlabel").textContent = `${S.variant} (${VARIANTS[S.variant][0]})`;
+  document.getElementById("vdesc").textContent = VARIANTS[S.variant][1];
+  renderPanel();
+  document.getElementById("state").textContent = JSON.stringify({ variant: S.variant, layer: S.layer, model: S.model, playerScreen: S.res, world: S.world, sceneOverrides: S.scene }, null, 1);
+}
+
+function renderPanel() {
+  document.getElementById("blocks").innerHTML = Object.entries(BLOCKS).map(([k, b]) => {
+    const L = eff(k);
+    const grid = S.variant === "B" ? `<div style="margin:6px 0"><span class="grid9">${Object.keys(ANCH).map(a => `<button data-k="${k}" data-anchor="${a}" class="${L.a === a ? "on" : ""}">${ANCH_NAME[a]}</button>`).join("")}</span>
+      <span class="nudge"><span></span><button data-k="${k}" data-n="0,-1">↑</button><span></span><button data-k="${k}" data-n="-1,0">←</button><span></span><button data-k="${k}" data-n="1,0">→</button><span></span><button data-k="${k}" data-n="0,1">↓</button><span></span></span></div>` : "";
+    return `<div class="bbox ${S.sel === k ? "sel" : ""}"><h4 style="margin-top:0">${b.name}${S.scene[k] ? " — переопределён на сцене" : ""}</h4>
+      ${grid}
+      <label>Отступ X <input type="number" data-k="${k}" data-f="dx" value="${L.dx}"> Y <input type="number" data-k="${k}" data-f="dy" value="${L.dy}"></label>
+      <label>Направление <select data-k="${k}" data-f="dir">${(k === "bosses" ? ["down", "up", "row"] : ["down", "up"]).map(d => `<option ${L.dir === d ? "selected" : ""} value="${d}">${{ down: "вниз", up: "вверх", row: "в ряд" }[d]}</option>`).join("")}</select></label>
+      ${k === "elites" ? `<label>Видно карточек <input type="number" min="1" max="20" data-k="${k}" data-f="max" value="${L.max}"></label>` : ""}
+      <label><input type="checkbox" data-k="${k}" data-f="collapse" ${L.collapse ? "checked" : ""}> Игроки могут сворачивать</label>
+      ${S.scene[k] ? `<button data-reset="${k}">Сбросить к миру</button>` : ""}</div>`;
+  }).join("");
+}
+
+document.getElementById("panel").addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.parentElement.id === "layer") { S.layer = t.dataset.v; [...t.parentElement.children].forEach(b => b.classList.toggle("on", b === t)); }
+  if (t.parentElement.id === "model") { S.model = t.dataset.v; [...t.parentElement.children].forEach(b => b.classList.toggle("on", b === t)); }
+  if (t.dataset.anchor) { const k = t.dataset.k, { W, H } = dims(), p = place(k, W, H); setBlock(k, { a: t.dataset.anchor, dx: 0, dy: 0 }); void p; }
+  if (t.dataset.n) { const [x, y] = t.dataset.n.split(",").map(Number), step = e.shiftKey ? 32 : 8, L = eff(t.dataset.k); setBlock(t.dataset.k, { dx: L.dx + x * step, dy: L.dy + y * step }); }
+  if (t.dataset.reset) delete S.scene[t.dataset.reset];
+  render();
+});
+document.getElementById("panel").addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "res") S.res = t.value;
+  else if (t.dataset.f) setBlock(t.dataset.k, { [t.dataset.f]: t.type === "checkbox" ? t.checked : t.type === "number" ? Number(t.value) : t.value });
+  render();
+});
+
+// перетаскивание (A — свободно, C — в зоны; B — нет)
+let drag = null;
+document.getElementById("stage").addEventListener("pointerdown", e => {
+  const el = e.target.closest(".block"); if (!el) return;
+  S.sel = el.dataset.k; renderPanel();
+  if (S.variant === "B") return;
+  const sc = Number(document.getElementById("stage").dataset.scale);
+  drag = { k: el.dataset.k, el, sx: e.clientX, sy: e.clientY, x0: parseFloat(el.style.left), y0: parseFloat(el.style.top), sc, fine: e.shiftKey };
+  el.setPointerCapture(e.pointerId); document.body.classList.add("drag");
+});
+addEventListener("pointermove", e => {
+  if (!drag) return;
+  const { W, H } = dims(), b = BLOCKS[drag.k];
+  let x = drag.x0 + (e.clientX - drag.sx) / drag.sc, y = drag.y0 + (e.clientY - drag.sy) / drag.sc;
+  if (S.variant === "A") { // прилипание к центру и краям
+    const cx = x + b.w / 2, cy = y + b.h / 2, snap = 12;
+    const gv = Math.abs(cx - W / 2) < snap, gh = Math.abs(cy - H / 2) < snap;
+    if (gv) x = W / 2 - b.w / 2; if (gh) y = H / 2 - b.h / 2;
+    if (Math.abs(x) < snap) x = 0; if (Math.abs(y) < snap) y = 0;
+    if (Math.abs(x + b.w - W) < snap) x = W - b.w; if (Math.abs(y + b.h - H) < snap) y = H - b.h;
+    document.getElementById("gv").classList.toggle("on", gv); document.getElementById("gh").classList.toggle("on", gh);
+  }
+  if (S.variant === "C" && !drag.fine) {
+    const cx = x + b.w / 2, cy = y + b.h / 2;
+    drag.zone = zones(W, H).find(z => cx > z.x && cx < z.x + z.w && cy > z.y && cy < z.y + z.h);
+    document.querySelectorAll(".zone").forEach(z => z.classList.toggle("hot", z.dataset.z === drag.zone?.id));
+  }
+  drag.el.style.left = x + "px"; drag.el.style.top = y + "px"; drag.x = x; drag.y = y;
+});
+addEventListener("pointerup", () => {
+  if (!drag) return;
+  const { W, H } = dims();
+  if (drag.x !== undefined) {
+    if (S.variant === "C" && !drag.fine) { if (drag.zone) setBlock(drag.k, { a: drag.zone.a, dx: drag.zone.dx, dy: drag.zone.dy }); }
+    else if (S.variant === "C") { const L = eff(drag.k); setBlock(drag.k, toAnchor(drag.k, drag.x, drag.y, W, H, L.a)); }
+    else setBlock(drag.k, toAnchor(drag.k, drag.x, drag.y, W, H));
+  }
+  drag = null; document.body.classList.remove("drag"); render();
+});
+for (const id of ["chrome", "carousel"]) document.getElementById(id).onchange = render;
+
+let v = new URLSearchParams(location.search).get("variant"); if (VARIANTS[v]) S.variant = v;
+const keys = Object.keys(VARIANTS);
+function step(d) { S.variant = keys[(keys.indexOf(S.variant) + d + keys.length) % keys.length]; try { history.replaceState(null, "", `?variant=${S.variant}`); } catch {} render(); }
+document.getElementById("prev").onclick = () => step(-1);
+document.getElementById("next").onclick = () => step(1);
+addEventListener("keydown", e => { if (e.target.closest("input,textarea,select,[contenteditable]")) return; if (e.key === "ArrowLeft") step(-1); if (e.key === "ArrowRight") step(1); });
+addEventListener("resize", render);
+render();
+</script>
+</body>
+</html>
