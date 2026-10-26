@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  hideAll,
   hideInstance,
   INSTANCES_VERSION,
   moveInstance,
@@ -104,7 +103,7 @@ describe("instance reducers", () => {
     expect(showInstance(two, "elite", { actorId: "x" }, "c")).toBe(two);
   });
 
-  it("hides one, all, or whatever fails a check", () => {
+  it("hides one, or whatever fails a check", () => {
     const state = showInstance(
       showInstance(empty, "boss", { tokenId: "t1" }, "a"),
       "boss",
@@ -113,7 +112,6 @@ describe("instance reducers", () => {
     );
     expect(hideInstance(state, "a").items.map((i) => i.id)).toEqual(["b"]);
     expect(hideInstance(state, "zzz")).toBe(state);
-    expect(hideAll(state).items).toEqual([]);
     expect(pruneInstances(state, (i) => i.tokenId !== "t2").items.map((i) => i.id)).toEqual(["a"]);
     expect(pruneInstances(state, () => true)).toBe(state);
   });

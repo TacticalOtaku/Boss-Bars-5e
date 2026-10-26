@@ -246,10 +246,6 @@ export function hideInstance(state: InstanceState, id: string): InstanceState {
   return pruneInstances(state, (item) => item.id !== id);
 }
 
-export function hideAll(state: InstanceState): InstanceState {
-  return state.items.length ? { ...state, items: [] } : state;
-}
-
 /** Keeps the items that pass; returns the same state when nothing is removed, so callers can skip the write. */
 export function pruneInstances(state: InstanceState, keep: (item: Instance) => boolean): InstanceState {
   const items = state.items.filter(keep);

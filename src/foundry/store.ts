@@ -142,18 +142,13 @@ export function subjectOf(scene: SceneDocument, instance: Instance): SubjectInpu
   };
 }
 
-/** Bars and cards of the viewed scene. One broken instance is skipped (warned once) and never hides the others. */
-function collectViews(warned: Set<string>, layout: Layout): HudViews {
-  const empty: HudViews = {
-    bosses: [],
-    elites: [],
-    eliteOverflow: 0,
-    column: { canCollapse: false, collapsed: false, total: 0 },
-  };
-  const scene = canvas?.scene;
-  if (!scene) return empty;
+/**
+ * The subjects of a scene's instances, each in its look. One broken instance is skipped (warned once) and never
+ * hides the others.
+ */
+export function sceneSubjects(scene: SceneDocument, warned = new Set<string>()): SubjectInput[] {
   const read = readInstances(scene.flags[MODULE_ID]?.instances);
-  if (read.status !== "ok") return empty;
+  if (read.status !== "ok") return [];
   const subjects: SubjectInput[] = [];
   const ranks = currentRanks();
   for (const instance of read.value.items) {
@@ -173,6 +168,22 @@ function collectViews(warned: Set<string>, layout: Layout): HudViews {
       logger.warn("Bar or card skipped", instance.id, error);
     }
   }
+  return subjects;
+}
+
+/** Bars and cards of the viewed scene. */
+function collectViews(warned: Set<string>, layout: Layout): HudViews {
+  const scene = canvas?.scene;
+  if (!scene) {
+    return {
+      bosses: [],
+      elites: [],
+      eliteOverflow: 0,
+      column: { canCollapse: false, collapsed: false, total: 0 },
+    };
+  }
+  const subjects = sceneSubjects(scene, warned);
+  const ranks = currentRanks();
   const viewer = {
     isGM: game.user.isGM,
     collapsed: collapsedIds(scene.id),

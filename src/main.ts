@@ -2,11 +2,13 @@ import "../styles/boss-bars-5e.scss";
 import type { LayoutHost } from "./apps/layout-panel";
 import { MODULE_ID } from "./constants";
 import { ELITE_COLUMN_ID } from "./core/view";
+import { createApi, listenEffects, type ApiHost } from "./foundry/api";
 import { pruneScenes, registerAuthority, syncPhases } from "./foundry/authority";
 import { startCombatWatch } from "./foundry/combat";
 import { startMusicWatch } from "./foundry/music";
 import { startQuoteWatch } from "./foundry/quotes";
 import { registerEntryPoints } from "./foundry/entry-points";
+import { startHookEvents } from "./foundry/hooks";
 import { registerSettings, setCollapsed } from "./foundry/settings";
 import { startStore, uiScale, type BossHud } from "./foundry/store";
 import { logger } from "./logger";
@@ -19,6 +21,7 @@ import { mountOverlay } from "./ui/overlay";
 
 let hud: BossHud | null = null;
 let layoutHost: LayoutHost | null = null;
+let playEffect: ApiHost["play"] = () => undefined;
 
 /** GM windows are separate chunks: players never download them. */
 function loadFailed(error: unknown): void {
@@ -30,26 +33,30 @@ const openRanks = () =>
   void import("./apps/ranks-editor").then(({ openRanksEditor }) => openRanksEditor(), loadFailed);
 const openLibrary = () => void import("./apps/library").then(({ openLibrary: open }) => open(), loadFailed);
 const openLayout = () =>
-  void import("./apps/layout-panel").then(
-    ({ openLayoutPanel }) => layoutHost && openLayoutPanel(layoutHost),
-    loadFailed,
-  );
+  import("./apps/layout-panel").then(({ openLayoutPanel }) => {
+    if (layoutHost) openLayoutPanel(layoutHost);
+  }, loadFailed);
+const openProfile = (actor: ActorDocument) =>
+  import("./apps/profile-editor").then(({ openProfileEditor }) => openProfileEditor(actor), loadFailed);
+const openPanel = () =>
+  import("./apps/active-bosses").then(({ openActiveBosses }) => {
+    if (hud) openActiveBosses(hud, { openRanks, openLayout, openLibrary });
+  }, loadFailed);
+
+const apiHost: ApiHost = {
+  play: (message) => playEffect(message),
+  openEditor: openProfile,
+  openPanel,
+  openLayout,
+};
+const api = createApi(apiHost);
 
 Hooks.once("init", () => {
   registerSettings(() => hud?.refresh(), openRanks, openLibrary);
   registerAuthority();
-  registerEntryPoints({
-    openProfile: (actor) =>
-      void import("./apps/profile-editor").then(
-        ({ openProfileEditor }) => openProfileEditor(actor),
-        loadFailed,
-      ),
-    openPanel: () =>
-      void import("./apps/active-bosses").then(
-        ({ openActiveBosses }) => hud && openActiveBosses(hud, { openRanks, openLayout, openLibrary }),
-        loadFailed,
-      ),
-  });
+  registerEntryPoints({ openProfile: (actor) => void openProfile(actor), openPanel: () => void openPanel() });
+  const module = game.modules.get(MODULE_ID);
+  if (module) module.api = api;
 });
 
 // The module root, from this script's own URL (scripts/boss-bars-5e.js): right under a route prefix or a CDN.
@@ -101,6 +108,15 @@ Hooks.once("ready", () => {
     column.update(views.elites, views, layout.elites, scale);
   });
   layoutHost = { host, overlay, blocks: { bosses: stack.element, elites: column.element }, hud, uiScale };
+  // API effects play on the viewed scene's HUD only.
+  playEffect = ({ sceneId, instanceId, effect }) => {
+    if (canvas?.scene?.id !== sceneId) return;
+    stack.play(instanceId, effect);
+    column.play(instanceId, effect);
+  };
+  listenEffects(apiHost);
+  // Public hooks: the baseline is taken before the first recompute.
+  startHookEvents(hud);
   // Before the first recompute: its defeat check hides what fell while no page was watching.
   startCombatWatch(hud);
   // Boss phases follow HP on the active GM; one that returns catches up on its first recompute.
@@ -119,4 +135,5 @@ Hooks.once("ready", () => {
       pruneScenes(game.scenes.contents);
     }
   });
+  Hooks.callAll(`${MODULE_ID}.ready`, api);
 });

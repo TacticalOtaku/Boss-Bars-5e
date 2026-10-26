@@ -96,6 +96,7 @@ function setup(bossHp: number, formTokens: TokenDocument[] | null, instance: obj
   vi.stubGlobal("CONFIG", { queries: {}, specialStatusEffects: { DEFEATED: "dead" } });
   vi.stubGlobal("ui", { notifications: { warn, error: vi.fn() } });
   vi.stubGlobal("foundry", { utils: { randomID: () => "NewInst000000001" } });
+  vi.stubGlobal("Hooks", { call: () => true });
 }
 
 type Item = { id: string; tokenId?: string; actorId?: string; source?: string; phase?: object };
@@ -176,6 +177,6 @@ describe("show and manual phases", () => {
     expect(items()[0]?.phase).toEqual({ id: "p2", mark: 70 });
     await expect(
       requestWrite({ type: "setPhase", sceneId: SCENE, instanceId: INSTANCE, phaseId: "nope" }),
-    ).rejects.toThrow("Invalid");
+    ).rejects.toThrow("NoSuchPhase");
   });
 });

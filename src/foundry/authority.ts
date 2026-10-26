@@ -3,7 +3,6 @@ import { parseAction, type WriteAction } from "../core/actions";
 import { aggregate } from "../core/aggregate";
 import { hpFraction } from "../core/hp";
 import {
-  hideAll,
   hideInstance,
   moveInstance,
   pruneInstances,
@@ -59,14 +58,17 @@ export async function requestWrite(action: WriteAction): Promise<void> {
   await gm.query(QUERY, action, { timeout: 10_000 });
 }
 
+/** The i18n key a refused write carries (its message), or the generic one. */
+export const errorKey = (error: unknown) =>
+  error instanceof Error && error.message.startsWith("BB5E.") ? error.message : "BB5E.Error.WriteFailed";
+
 /** For UI buttons: a refused write becomes a localized notification. */
 export async function writeOrNotify(action: WriteAction): Promise<boolean> {
   try {
     await requestWrite(action);
     return true;
   } catch (error) {
-    const key =
-      error instanceof Error && error.message.startsWith("BB5E.") ? error.message : "BB5E.Error.WriteFailed";
+    const key = errorKey(error);
     logger.error("Write refused", action, error);
     ui.notifications.error(key, { localize: true });
     return false;
@@ -92,13 +94,19 @@ async function apply(action: WriteAction): Promise<void> {
     const profile = readProfile(token?.baseActor?.flags[MODULE_ID]?.profile);
     if (!token || profile.status !== "ok") throw new WriteError("BB5E.Error.NoProfile");
     const byActor = profile.value.displayMode === "actor" && token.actorId;
+    const target = byActor ? { actorId: byActor } : { tokenId: token.id };
+    const shownAlready = next.items.some((item) =>
+      byActor ? item.actorId === byActor : item.tokenId === token.id,
+    );
+    if (shownAlready) return;
+    const info = { sceneId: scene.id, tokenId: token.id, actorId: token.actorId, kind: profile.value.kind };
+    if (Hooks.call(`${MODULE_ID}.preShow`, info) === false) throw new WriteError("BB5E.Error.Cancelled");
     // After a display mode change, the bar bound the other way is replaced rather than doubled.
     next = pruneInstances(next, (item) =>
       byActor
         ? !(item.tokenId && scene.tokens.get(item.tokenId)?.actorId === token.actorId)
         : !(item.actorId && item.actorId === token.actorId),
     );
-    const target = byActor ? { actorId: byActor } : { tokenId: token.id };
     const id = foundry.utils.randomID();
     next = showInstance(next, profile.value.kind, target, id);
     // A wounded boss appears in the phase its HP calls for, with no effect (decision 7).
@@ -106,9 +114,12 @@ async function apply(action: WriteAction): Promise<void> {
     const step = shown ? phaseStepOf(scene, shown) : null;
     if (shown && step) next = applyStep(scene, next, shown, step);
   } else if (action.type === "hide") {
+    const item = next.items.find((each) => each.id === action.instanceId);
+    if (item && !mayHide(scene, item)) throw new WriteError("BB5E.Error.Cancelled");
     next = hideInstance(next, action.instanceId);
   } else if (action.type === "hideAll") {
-    next = hideAll(next);
+    // Bars a module keeps (preHide returns false) stay shown.
+    next = pruneInstances(next, (item) => !mayHide(scene, item));
   } else if (action.type === "setPhase" || action.type === "bindToken") {
     next = applyPhaseAction(scene, next, action);
   } else if (action.type === "say") {
@@ -118,6 +129,10 @@ async function apply(action: WriteAction): Promise<void> {
   }
   if (next !== read.value) await scene.setFlag(MODULE_ID, "instances", next);
 }
+
+/** `preHide`, on the active GM before a hide is written: a module returning false keeps the bar. */
+const mayHide = (scene: SceneDocument, item: Instance) =>
+  Hooks.call(`${MODULE_ID}.preHide`, { id: item.id, sceneId: scene.id, kind: item.kind }) !== false;
 
 function instanceProfile(scene: SceneDocument, item: Instance): Profile | null {
   const profile = readProfile(profileActorOf(scene, item)?.flags[MODULE_ID]?.profile);
@@ -177,11 +192,12 @@ function applyPhaseAction(
   action: Extract<WriteAction, { type: "setPhase" | "bindToken" }>,
 ): InstanceState {
   const item = state.items.find((each) => each.id === action.instanceId);
-  const profile = item ? phasedProfile(scene, item) : null;
-  if (!item || !profile) throw new WriteError("BB5E.Error.Invalid");
+  if (!item) throw new WriteError("BB5E.Error.NoInstance");
+  const profile = phasedProfile(scene, item);
+  if (!profile) throw new WriteError("BB5E.Error.NoSuchPhase");
   if (action.type === "setPhase") {
     const step = pickPhase(profile.phases, action.phaseId, fractionOf(scene, item));
-    if (!step) throw new WriteError("BB5E.Error.Invalid");
+    if (!step) throw new WriteError("BB5E.Error.NoSuchPhase");
     return applyStep(scene, state, item, step);
   }
   const token = scene.tokens.get(action.tokenId);
@@ -231,12 +247,13 @@ function applySay(
   action: Extract<WriteAction, { type: "say" }>,
 ): InstanceState {
   const item = state.items.find((each) => each.id === action.instanceId);
-  const profile = item ? instanceProfile(scene, item) : null;
-  if (!item || profile?.kind !== "boss") throw new WriteError("BB5E.Error.Invalid");
+  if (!item) throw new WriteError("BB5E.Error.NoInstance");
+  const profile = instanceProfile(scene, item);
+  if (profile?.kind !== "boss") throw new WriteError("BB5E.Error.Invalid");
   const context = quoteContext(scene, state, item);
   if (!action.quoteId) return setQuote(state, item.id, freeQuote(action.text ?? "", context));
   const quote = profile.quotes.find((each) => each.id === action.quoteId);
-  if (!quote) throw new WriteError("BB5E.Error.Invalid");
+  if (!quote) throw new WriteError("BB5E.Error.NoQuote");
   const pick = speak(quote, item.quoteState?.[quote.id], context);
   return setQuote(
     state,
@@ -299,16 +316,17 @@ function applyInstanceEdit(
   action: Extract<WriteAction, { type: "setCounter" | "toggleStatus" }>,
 ): InstanceState {
   const item = state.items.find((each) => each.id === action.instanceId);
-  const profile = item ? instanceProfile(scene, item) : null;
+  if (!item) throw new WriteError("BB5E.Error.NoInstance");
+  const profile = instanceProfile(scene, item);
   if (!profile) throw new WriteError("BB5E.Error.Invalid");
   if (action.type === "setCounter") {
     const source = profile.miniBars.find((bar) => bar.id === action.barId)?.source;
-    if (source?.type !== "counter") throw new WriteError("BB5E.Error.Invalid");
+    if (source?.type !== "counter") throw new WriteError("BB5E.Error.NoCounter");
     return setCounter(state, action.instanceId, action.barId, Math.min(source.max, action.value));
   }
   const known =
     profile.kind === "boss" && profile.statuses.custom.some((status) => status.id === action.statusId);
-  if (!known) throw new WriteError("BB5E.Error.Invalid");
+  if (!known) throw new WriteError("BB5E.Error.NoSuchStatus");
   return toggleStatus(state, action.instanceId, action.statusId, action.active);
 }
 

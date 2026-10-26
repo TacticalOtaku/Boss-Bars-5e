@@ -22,6 +22,9 @@ interface Target {
   seen: boolean;
   /** The canvas holds a frame: only then does the CSS fill hide, so the bar never shows empty. */
   live: boolean;
+  /** The meter's size in CSS px, from the ResizeObserver: 0 while hidden or not laid out yet. */
+  width: number;
+  height: number;
   onLive(live: boolean): void;
 }
 
@@ -31,8 +34,7 @@ const MAX_HEIGHT = 128;
 
 /** The canvas fills its parent (the meter); it stays display:none until its first frame, so measure the parent. */
 const box = (canvas: HTMLCanvasElement) => canvas.parentElement ?? canvas;
-const visible = (canvas: HTMLCanvasElement) =>
-  canvas.isConnected && box(canvas).clientWidth > 0 && box(canvas).clientHeight > 0;
+const visible = (target: Target) => target.canvas.isConnected && target.width > 0 && target.height > 0;
 
 /**
  * The page's single WebGL2 context for live fills (ADR 0002): each frame is rendered off screen at the bar's size
@@ -53,6 +55,27 @@ class LiveRenderer {
   #frame = 0;
   #recheck: ReturnType<typeof setTimeout> | undefined;
   #last = 0;
+  /**
+   * Meter sizes arrive after layout: reading them in the frame loop, after HP effects touched the DOM, forced a
+   * layout per frame (stage 11 budget check).
+   */
+  readonly #boxes = new Map<Element, Target>();
+  readonly #sizes = new ResizeObserver((entries) => {
+    // All sizes are read before any draw: a draw toggles a class, and a read after it would lay out again.
+    const resized = entries.flatMap((entry) => {
+      const target = this.#boxes.get(entry.target);
+      if (!target) return [];
+      target.width = entry.target.clientWidth;
+      target.height = entry.target.clientHeight;
+      target.dirty = true;
+      return [target];
+    });
+    // Until the canvas has a frame it is drawn at once: the bar should not wait a loop turn on its CSS fill.
+    for (const target of resized) {
+      if (!target.live && !this.#lost && visible(target)) this.#draw(target, shaderTime(performance.now()));
+    }
+    this.#wake();
+  });
 
   constructor(gl: WebGL2RenderingContext, reduced: () => boolean) {
     this.#gl = gl;
@@ -96,9 +119,13 @@ class LiveRenderer {
       dirty: true,
       seen: false,
       live: false,
+      width: 0,
+      height: 0,
       onLive,
     };
     this.#targets.add(target);
+    this.#boxes.set(box(canvas), target);
+    this.#sizes.observe(box(canvas));
     return {
       setLook: (type, colors) => {
         target.type = type;
@@ -112,12 +139,10 @@ class LiveRenderer {
         if (fill !== target.fill) target.dirty = true;
         target.fill = fill;
         // Until the canvas has a frame it is drawn at once: the bar should not wait a loop turn on its CSS fill.
-        if (!target.live && !this.#lost && visible(canvas)) this.#draw(target, shaderTime(performance.now()));
+        if (!target.live && !this.#lost && visible(target)) this.#draw(target, shaderTime(performance.now()));
         this.#wake();
       },
-      detach: () => {
-        this.#targets.delete(target);
-      },
+      detach: () => this.#forget(target),
     };
   }
 
@@ -132,9 +157,9 @@ class LiveRenderer {
     const reduced = this.#reduced();
     for (const target of this.#targets) {
       if (target.canvas.isConnected) target.seen = true;
-      else if (target.seen) this.#targets.delete(target);
+      else if (target.seen) this.#forget(target);
     }
-    const shown = [...this.#targets].filter((target) => visible(target.canvas));
+    const shown = [...this.#targets].filter(visible);
     if (!shown.length) return;
     const catchingUp = shown.some((target) => target.drawn !== target.fill);
     const interval = frameInterval(catchingUp, reduced);
@@ -158,6 +183,12 @@ class LiveRenderer {
       }
     }
     this.#wake();
+  }
+
+  #forget(target: Target) {
+    this.#targets.delete(target);
+    this.#boxes.delete(box(target.canvas));
+    this.#sizes.unobserve(box(target.canvas));
   }
 
   #program(type: LiveFill) {
@@ -204,8 +235,8 @@ class LiveRenderer {
       return;
     }
     const scale = devicePixelRatio || 1;
-    const width = Math.min(MAX_WIDTH, Math.max(1, Math.round(box(canvas).clientWidth * scale)));
-    const height = Math.min(MAX_HEIGHT, Math.max(1, Math.round(box(canvas).clientHeight * scale)));
+    const width = Math.min(MAX_WIDTH, Math.max(1, Math.round(target.width * scale)));
+    const height = Math.min(MAX_HEIGHT, Math.max(1, Math.round(target.height * scale)));
     const gl = this.#gl;
     // The shared canvas only grows: drawing a smaller bar uses its lower left corner.
     if (this.#canvas.width < width) this.#canvas.width = width;

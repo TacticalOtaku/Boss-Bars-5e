@@ -1,4 +1,5 @@
-import { hpChange, isLow } from "../core/look/effects";
+import type { HudEffect } from "../core/actions";
+import { hpChange, isLow, type HpChange } from "../core/look/effects";
 import { isLiveFill } from "../core/look/live";
 import { ash, sparks, type Particle } from "../core/look/particles";
 import type { Block } from "../core/layout";
@@ -60,6 +61,9 @@ interface Bar extends KeyedItem {
   /** undefined until the first render: the first phase seen plays no effect. */
   phaseKey: string | null | undefined;
 }
+
+/** How long `playEffect("defeat")` shows the defeat banner, ms. */
+const DEFEAT_BANNER_MS = 2000;
 
 /** The boss stack: one DOM bar per view, drawn in its look. All texts go in as text, never as HTML. */
 export function createBossStack(overlay: HTMLElement, options: StackOptions) {
@@ -168,8 +172,11 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       bar.trail.style.transform = `scaleX(${shown})`;
       bar.el.style.setProperty("--bb5e-t", String(shown));
     }
-    if (quiet) return;
-    const change = hpChange(previous, shown, view.look.effects.bigThreshold);
+    if (!quiet) playHp(bar, view, hpChange(previous, shown, view.look.effects.bigThreshold), shown);
+  }
+
+  /** HP effects of a change: sparks from the fill's edge on damage, then the look's flash, shake, crack, wave. */
+  function playHp(bar: Bar, view: BossBarView, change: HpChange, shown: number) {
     if (change?.kind === "damage" && view.look.effects.sparks && options.particles) {
       const rect = bar.meter.getBoundingClientRect();
       const at = { x: rect.left + rect.width * shown, y: rect.top + rect.height / 2 };
@@ -329,8 +336,45 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       bar.banner.hidden = false;
     },
   });
+  /** `api.playEffect`: the look's effects on a shown bar, as if it happened; nothing else changes. */
+  function play(id: string, effect: HudEffect) {
+    const shown = list.get(id);
+    if (!shown) return;
+    const { item: bar, view } = shown;
+    const { look } = view;
+    const fill = bar.shown ?? 0;
+    const reduced = options.reducedMotion();
+    if (effect === "damage" || effect === "heal") {
+      // A quarter of the bar, from where the fill is.
+      const [from, to] = effect === "damage" ? [fill + 0.25, fill] : [fill - 0.25, fill];
+      playHp(bar, view, hpChange(from, to, look.effects.bigThreshold), fill);
+    } else if (effect === "phase") {
+      const targets = {
+        meter: bar.meter,
+        fill: bar.fill,
+        flash: bar.flash,
+        crack: bar.crack,
+        banner: bar.phaseBanner,
+      };
+      playPhaseChange(look, targets, fill, bar.phase.textContent ?? "", null, reduced);
+    } else {
+      if (look.motion.defeat === "dissolve" && options.particles) {
+        options.particles.emit(ash(bar.el.getBoundingClientRect(), look.fill.colors));
+      }
+      bar.banner.textContent = look.motion.bannerText || options.labels.defeated;
+      bar.banner.hidden = false;
+      const fade = bar.banner.animate?.(
+        [{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }],
+        DEFEAT_BANNER_MS,
+      );
+      if (fade) fade.onfinish = () => (bar.banner.hidden = true);
+      else bar.banner.hidden = true;
+    }
+  }
+
   return {
     element: stack,
+    play,
     update(views: BossBarView[], block: Block, uiScale: number) {
       positionBlock(stack, block, uiScale);
       list.update(views);

@@ -1,6 +1,6 @@
 {
   "name": "boss-bars-5e",
-  "version": "0.11.0",
+  "version": "1.0.0",
   "private": true,
   "description": "RPG boss bars and elite cards for important D&D 5e enemies in Foundry VTT.",
   "author": "TacticalOtaku",
@@ -27,7 +27,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "deploy": "node tools/deploy.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build && node tools/size.mjs",
     "package": "node tools/package.mjs",
     "release": "npm run check && npm run package"
   },

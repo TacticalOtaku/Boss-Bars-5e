@@ -72,3 +72,25 @@ export function parseAction(raw: unknown): WriteAction | null {
       return null;
   }
 }
+
+/** Effects `api.playEffect` plays on every client, changing no data; elite cards play only damage and heal. */
+export const HUD_EFFECTS = ["damage", "heal", "phase", "defeat"] as const;
+export type HudEffect = (typeof HUD_EFFECTS)[number];
+export const isHudEffect = (value: unknown): value is HudEffect => HUD_EFFECTS.includes(value as HudEffect);
+
+/** A GM's effect sent through the module socket. */
+export interface EffectMessage {
+  type: "effect";
+  sceneId: string;
+  instanceId: string;
+  effect: HudEffect;
+}
+
+/** Socket payload check on the receiving client (the sender's GM role is checked there too). */
+export function parseEffect(raw: unknown): EffectMessage | null {
+  if (!isRecord(raw) || raw.type !== "effect") return null;
+  const { sceneId, instanceId, effect } = raw;
+  return isDocumentId(sceneId) && isDocumentId(instanceId) && isHudEffect(effect)
+    ? { type: "effect", sceneId, instanceId, effect }
+    : null;
+}
