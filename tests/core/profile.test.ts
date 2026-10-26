@@ -14,13 +14,27 @@ const stage4 = { autoShow: DEFAULT_AUTO_SHOW, statuses: { hidden: [], custom: []
 /** Stage 5 boss fields: no look chosen yet. */
 const stage5 = { look: null, overrides: {} };
 /** Stage 6 boss fields: no phases. */
-const stage6 = { phases: [], fillMode: "segments", playerTicks: true, quotes: [] } as const;
-/** Stage 6 editor input: no phases. */
-const stage6Input: Pick<ProfileInput, "phases" | "fillMode" | "playerTicks" | "quotes"> = {
+const stage6 = {
   phases: [],
   fillMode: "segments",
   playerTicks: true,
   quotes: [],
+  music: null,
+  musicPriority: 0,
+  musicFade: 2000,
+} as const;
+/** Stage 6 editor input: no phases. */
+const stage6Input: Pick<
+  ProfileInput,
+  "phases" | "fillMode" | "playerTicks" | "quotes" | "music" | "musicPriority" | "musicFade"
+> = {
+  phases: [],
+  fillMode: "segments",
+  playerTicks: true,
+  quotes: [],
+  music: null,
+  musicPriority: 0,
+  musicFade: 2000,
 };
 
 const boss = {

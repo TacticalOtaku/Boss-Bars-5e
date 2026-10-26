@@ -37,6 +37,16 @@
           <input type="text" name="phases.{{index}}.enter.playerName" value="{{enter.playerName}}" maxlength="{{@root.limits.text}}" placeholder="{{localize "BB5E.Profile.PlayerName.Label"}}" aria-label="{{localize "BB5E.Profile.PlayerName.Label"}}">
           <input type="text" name="phases.{{index}}.enter.title" value="{{enter.title}}" maxlength="{{@root.limits.text}}" placeholder="{{localize "BB5E.Profile.TitleField.Label"}}" aria-label="{{localize "BB5E.Profile.TitleField.Label"}}">
           <file-picker name="phases.{{index}}.enter.portrait" type="imagevideo" value="{{enter.portrait}}" aria-label="{{localize "BB5E.Profile.Portrait.Label"}}"></file-picker>
+          <label class="bb5e-phase__override">{{localize "BB5E.Music.Source"}}
+            <select name="phases.{{index}}.enter.music">
+              <option value="">{{localize "BB5E.Phases.AsBefore"}}</option>
+              {{#each music.groups}}
+              <optgroup label="{{name}}">
+                {{#each options}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+              </optgroup>
+              {{/each}}
+            </select>
+          </label>
           {{#each overrides}}
           <label class="bb5e-phase__override">{{label}}
             <select name="phases.{{../index}}.enter.overrides.{{category}}">

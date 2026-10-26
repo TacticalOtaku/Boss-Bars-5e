@@ -2,8 +2,8 @@
 
 RPG boss bars and elite cards for important enemies in Foundry VTT (D&D 5e).
 
-**Status: early development.** Version 0.8.0 shows boss bars and an elite column with looks, statuses, mini-bars,
-boss phases and boss quotes; the GM places both on screen in a layout mode.
+**Status: early development.** Version 0.9.0 shows boss bars and an elite column with looks, statuses, mini-bars,
+boss phases, quotes and music; the GM places both on screen in a layout mode.
 
 - Foundry VTT 14 (verified 14.367), dnd5e 5.3.3; Midi QOL 14 is supported, not required.
 - Languages: English, Russian.

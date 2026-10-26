@@ -32,6 +32,7 @@
         "Statuses": "Statuses",
         "Phases": "Phases",
         "Quotes": "Quotes",
+        "Music": "Music",
         "AutoShow": "Auto-show"
       },
       "Kind": {
@@ -117,6 +118,18 @@
       "Say": "Say",
       "ChooseQuote": "Quote of the profile",
       "OwnText": "Own line"
+    },
+    "Music": {
+      "Hint": "The boss's music: when the first boss with music is shown, whatever plays fades out and resumes after the fight from where it stopped. Only the scene the players stand on counts.",
+      "Source": "Music",
+      "None": "None",
+      "WholePlaylist": "Whole playlist (its own mode)",
+      "SourceHint": "A track, or a whole playlist played in its own mode. Volume comes from the track.",
+      "Priority": "Priority",
+      "PriorityHint": "With several bosses the highest priority plays; then the larger bar, then the one shown first.",
+      "Fade": "Transition, seconds",
+      "FadeHint": "How long the music fades out and in.",
+      "EliteHint": "Music is for bosses only."
     },
     "Quotes": {
       "Hint": "Lines the boss says over its bar; everyone sees them. Crit and miss work only when the attacker targeted the boss before rolling.",
@@ -223,7 +236,9 @@
       "NoPhase": "Choose one of this boss's phases.",
       "NoStatus": "Write a status id or an effect name.",
       "CooldownRange": "The cooldown must be 0 to 99 rounds.",
-      "DurationRange": "The time must be empty (automatic) or 1 to 20 seconds."
+      "DurationRange": "The time must be empty (automatic) or 1 to 20 seconds.",
+      "PriorityRange": "The priority must be a whole number from 0 to 100.",
+      "FadeRange": "The transition must be 0 to 10 seconds."
     },
     "Column": {
       "Title": "Elites",

@@ -4,6 +4,7 @@ import { MODULE_ID } from "./constants";
 import { ELITE_COLUMN_ID } from "./core/view";
 import { pruneScenes, registerAuthority, syncPhases } from "./foundry/authority";
 import { startCombatWatch } from "./foundry/combat";
+import { startMusicWatch } from "./foundry/music";
 import { startQuoteWatch } from "./foundry/quotes";
 import { registerEntryPoints } from "./foundry/entry-points";
 import { registerSettings, setCollapsed } from "./foundry/settings";
@@ -104,6 +105,8 @@ Hooks.once("ready", () => {
   hud.subscribe(() => syncPhases(game.scenes.contents));
   // Boss quotes: the active GM decides and writes the quote on screen into the instance.
   startQuoteWatch(hud);
+  // Boss music: the active GM switches the world's playlists after the leading boss.
+  startMusicWatch(hud);
   hud.refresh();
 
   // Automatic clean-up, active GM only: deleted tokens and removed profiles take their bars and cards along.
