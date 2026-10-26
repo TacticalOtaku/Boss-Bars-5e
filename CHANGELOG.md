@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0
+
+- Boss music (profile tab "Music"): a track or a whole playlist (played in its own mode), a priority and a
+  transition length (2 s by default); a phase can bring its own music ("On entering the phase"), which then stays.
+- When the first boss with music is shown on the scene the players stand on, whatever plays fades out and is
+  remembered with its place; the boss's music fades in. With several bosses the highest priority plays (then the
+  larger bar, then the one shown first); a change of leader or a phase with music crossfades.
+- When the last boss with music leaves (hidden, defeated, off the active scene), its music fades out and the
+  remembered tracks resume from where they stopped. A hidden boss does not start its music.
+- The module only touches what it started or stopped itself: tracks the GM starts or stops during the fight are left
+  alone. Transitions change a track's `fade` only for the transition and put the original back, after a reload too.
+- New hidden world setting `music` (data version 1) keeps what the module changed; profiles stay at version 2.
+
 ## 0.8.0
 
 - Boss quotes (profile tab "Quotes", up to 30): a line over the bar when the bar is shown, a phase begins, HP falls

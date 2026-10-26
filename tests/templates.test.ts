@@ -81,6 +81,9 @@ const context = {
       below: 50,
       actors: [{ id: "a", name: "<b>A</b>", selected: true }],
       enter: { playerName: '"><b>N</b>', title: '"><b>T</b>', portrait: '"><b>p</b>' },
+      music: {
+        groups: [{ name: '"><b>G</b>', options: [{ value: "v", label: "<b>L</b>", selected: true }] }],
+      },
       overrides: [
         { category: "frame", label: "<b>F</b>", options: [{ id: "p", name: "<b>P</b>", selected: true }] },
       ],
@@ -90,6 +93,8 @@ const context = {
   scale: [{ at: 0.5, text: "<b>S</b>" }],
   scaleLabel: '"><b>L</b>',
   refill: true,
+  music: { groups: [{ name: '"><b>G</b>', options: [{ value: "v", label: "<b>L</b>", selected: true }] }] },
+  musicFadeSeconds: 2,
   hasPhases: true,
   isElite: true,
   byActor: true,

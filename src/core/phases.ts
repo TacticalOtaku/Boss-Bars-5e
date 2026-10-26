@@ -1,4 +1,5 @@
 import type { Category } from "./look/schema";
+import type { MusicSource } from "./music";
 import type { BossProfile, Phase, PhaseEnter } from "./profile";
 
 /** A boss instance's phase (spec §6): the current phase and the highest % HP since it began. */
@@ -86,6 +87,11 @@ export function phaseChanges(phases: readonly Phase[], index: number): PhaseEnte
     if (own) overrides = { ...overrides, ...own };
   }
   return Object.keys(overrides).length ? { ...changes, overrides } : changes;
+}
+
+/** The boss's music now: the last phase music up to the shown phase, else the profile's (decision 6 of stage 8). */
+export function musicOf(profile: BossProfile, state: PhaseState | undefined): MusicSource | null {
+  return phaseChanges(profile.phases, shownIndex(profile.phases, state)).music ?? profile.music;
 }
 
 /** Phases of the HP pool around the index: from the start or a form to the next form. */

@@ -1,4 +1,5 @@
 import { LOOK_ID, readOverrides, type Category } from "./look/schema";
+import { MUSIC_LIMITS, readMusicSource, type MusicSource } from "./music";
 import { quoteErrors, readQuotes, type Quote } from "./quotes";
 import { isDocumentId, isRecord, migrate, PROFILE_ID, text, type ReadResult } from "./schema";
 
@@ -74,6 +75,8 @@ export interface PhaseEnter {
   portrait?: string;
   /** Look categories, the phase change effect ("motion") among them. */
   overrides?: Partial<Record<Category, string>>;
+  /** The music from this phase on (stage 8). */
+  music?: MusicSource;
 }
 
 export interface Phase {
@@ -103,6 +106,12 @@ export interface BossProfile extends ProfileBase {
   /** Players see the threshold ticks. */
   playerTicks: boolean;
   quotes: Quote[];
+  /** null — no music of its own. */
+  music: MusicSource | null;
+  /** The leading boss's music plays: highest priority first. */
+  musicPriority: number;
+  /** Transition length, ms. */
+  musicFade: number;
 }
 
 export interface EliteProfile extends ProfileBase {
@@ -128,6 +137,9 @@ export interface ProfileInput {
   fillMode: FillMode;
   playerTicks: boolean;
   quotes: Quote[];
+  music: MusicSource | null;
+  musicPriority: number;
+  musicFade: number;
 }
 
 export const PROFILE_LIMITS = {
@@ -186,6 +198,9 @@ export function defaultProfile(kind: ProfileKind = "boss"): Profile {
         fillMode: "segments",
         playerTicks: true,
         quotes: [],
+        music: null,
+        musicPriority: 0,
+        musicFade: MUSIC_LIMITS.fadeDefault,
       }
     : { ...base, ...stage4, kind, rank: "" };
 }
@@ -263,6 +278,8 @@ function readEnter(raw: unknown): PhaseEnter {
   if (typeof raw.title === "string") enter.title = text(raw.title, PROFILE_LIMITS.text);
   if (typeof raw.portrait === "string") enter.portrait = text(raw.portrait, PROFILE_LIMITS.path);
   if (raw.overrides !== undefined) enter.overrides = readOverrides(raw.overrides);
+  const music = readMusicSource(raw.music);
+  if (music) enter.music = music;
   return enter;
 }
 
@@ -359,6 +376,9 @@ export function readProfile(raw: unknown): ReadResult<Profile> {
       fillMode: value.fillMode === "refill" ? "refill" : "segments",
       playerTicks: value.playerTicks !== false,
       quotes: readQuotes(value.quotes),
+      music: readMusicSource(value.music),
+      musicPriority: Math.round(clamp(value.musicPriority, 0, MUSIC_LIMITS.priorityMax, 0)),
+      musicFade: Math.round(clamp(value.musicFade, 0, MUSIC_LIMITS.fadeMax, MUSIC_LIMITS.fadeDefault)),
     },
   };
 }
@@ -436,6 +456,15 @@ export function profileErrors(input: ProfileInput): Record<string, string> {
       if (tooLong(status.img, PROFILE_LIMITS.path)) errors[`${at}.img`] = "BB5E.Error.TooLong";
     });
     phaseErrors(input.phases, errors);
+    if (!(
+      Number.isInteger(input.musicPriority) &&
+      input.musicPriority >= 0 &&
+      input.musicPriority <= MUSIC_LIMITS.priorityMax
+    )) {
+      errors.musicPriority = "BB5E.Error.PriorityRange";
+    }
+    if (!(input.musicFade >= 0 && input.musicFade <= MUSIC_LIMITS.fadeMax))
+      errors.musicFade = "BB5E.Error.FadeRange";
     quoteErrors(
       input.quotes,
       input.phases.map((phase) => phase.id),

@@ -85,6 +85,9 @@ const boss = {
   fillMode: "segments" as const,
   playerTicks: true,
   quotes: [],
+  music: null,
+  musicPriority: 0,
+  musicFade: 2000,
 };
 const elite = (rank: string) => ({ kind: "elite", rank }) as const;
 

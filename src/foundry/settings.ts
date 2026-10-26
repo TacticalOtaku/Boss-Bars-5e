@@ -40,6 +40,14 @@ export function registerSettings(onChange: () => void, openRanks: () => void, op
     },
   });
   // Empty until the GM saves: the translated default ranks apply meanwhile.
+  // What the boss music changed in the world's playlists (core/music snapshot); the active GM writes it.
+  game.settings.register(MODULE_ID, "music", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {},
+  });
+
   game.settings.register(MODULE_ID, "ranks", {
     scope: "world",
     config: false,

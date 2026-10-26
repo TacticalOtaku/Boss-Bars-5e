@@ -80,6 +80,30 @@ declare global {
     previous?: { round?: number };
   }
 
+  interface PlaylistSoundDocument {
+    id: string;
+    name: string;
+    playing: boolean;
+    pausedTime: number | null;
+    /** Fade length (ms); null — the playlist's. */
+    fade: number | null;
+    parent: PlaylistDocument;
+    /** This client's audio, when loaded. */
+    sound?: { currentTime?: number } | null;
+  }
+
+  interface PlaylistDocument {
+    id: string;
+    name: string;
+    playing: boolean;
+    /** CONST.PLAYLIST_MODES: -1 soundboard, 0 sequential, 1 shuffle, 2 simultaneous. */
+    mode: number;
+    sounds: FoundryCollection<PlaylistSoundDocument>;
+    /** Sound ids in playback order. */
+    playbackOrder: string[];
+    update(data: Record<string, unknown>): Promise<unknown>;
+  }
+
   interface ChatMessageDocument {
     id: string;
     flags?: unknown;
@@ -120,7 +144,9 @@ declare global {
     modules: Map<string, { active: boolean; version: string }>;
     user: UserDocument;
     users: FoundryCollection<UserDocument> & { activeGM: UserDocument | null };
-    scenes: FoundryCollection<SceneDocument>;
+    /** `active`: the scene the players stand on. */
+    scenes: FoundryCollection<SceneDocument> & { active?: SceneDocument | null };
+    playlists: FoundryCollection<PlaylistDocument>;
     actors: FoundryCollection<ActorDocument>;
     combats: FoundryCollection<CombatDocument>;
     settings: {

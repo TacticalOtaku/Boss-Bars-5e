@@ -18,6 +18,7 @@ import {
 import { CATEGORIES, isCategory, type Category } from "../core/look/schema";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { QUOTE_LIMITS, speak, type Quote, type QuoteTrigger } from "../core/quotes";
+import { readMusicSource, type MusicSource } from "../core/music";
 import { isRecord } from "../core/schema";
 import { phaseViewOf } from "../core/view";
 import { CATEGORY_LABELS } from "./look-labels";
@@ -115,6 +116,7 @@ const TAB_OF: [RegExp, string][] = [
   [/^statuses/, "statuses"],
   [/^phases/, "phases"],
   [/^quotes/, "quotes"],
+  [/^music/, "music"],
   [/^autoShow/, "autoShow"],
 ];
 
@@ -138,6 +140,37 @@ function sourceOf(raw: Record<string, unknown>): MiniBarSource {
     default:
       return { type: "temp" };
   }
+}
+
+/** Music in a select: "playlist:<id>" or "sound:<playlist id>:<sound id>"; "" — none (or "as before"). */
+const musicValue = (source: MusicSource | null | undefined) =>
+  !source
+    ? ""
+    : source.type === "playlist"
+      ? `playlist:${source.playlistId}`
+      : `sound:${source.playlistId}:${source.soundId}`;
+function musicFrom(value: string): MusicSource | null {
+  const [type, playlistId, soundId] = value.split(":");
+  return readMusicSource({ type, playlistId, soundId });
+}
+
+/** The world's playlists as option groups: the whole playlist, then each track. */
+function musicChoices(selected: MusicSource | null | undefined) {
+  const current = musicValue(selected);
+  return {
+    groups: game.playlists.contents
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((playlist) => ({
+        name: playlist.name,
+        options: [
+          { value: `playlist:${playlist.id}`, label: game.i18n.localize("BB5E.Music.WholePlaylist") },
+          ...playlist.sounds.contents.map((sound) => ({
+            value: `sound:${playlist.id}:${sound.id}`,
+            label: sound.name,
+          })),
+        ].map((option) => ({ ...option, selected: option.value === current })),
+      })),
+  };
 }
 
 /** A newer version's trigger rides along as JSON in a hidden field and is written back unchanged. */
@@ -177,6 +210,8 @@ function enterOf(raw: unknown): PhaseEnter {
     if (isCategory(category) && typeof id === "string" && id) overrides[category] = id;
   }
   if (Object.keys(overrides).length) enter.overrides = overrides;
+  const music = musicFrom(str(value.music));
+  if (music) enter.music = music;
   return enter;
 }
 
@@ -228,6 +263,9 @@ function inputOf(data: Record<string, unknown>): ProfileInput {
     fillMode: data.fillMode === "refill" ? "refill" : "segments",
     playerTicks: data.playerTicks === true,
     quotes: entries(data.quotes).map(quoteOf),
+    music: musicFrom(str(data.music)),
+    musicPriority: data.musicPriority === null ? Number.NaN : Number(data.musicPriority),
+    musicFade: data.musicFade === null ? Number.NaN : Math.round(Number(data.musicFade) * 1000),
   };
 }
 
@@ -309,6 +347,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     statuses: { template: `${TEMPLATES}/profile-statuses.hbs` },
     phases: { template: `${TEMPLATES}/profile-phases.hbs` },
     quotes: { template: `${TEMPLATES}/profile-quotes.hbs` },
+    music: { template: `${TEMPLATES}/profile-music.hbs` },
     autoShow: { template: `${TEMPLATES}/profile-autoshow.hbs` },
     footer: { template: `${TEMPLATES}/editor-footer.hbs` },
   };
@@ -321,6 +360,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         { id: "statuses", icon: "fa-solid fa-circle-half-stroke", label: "BB5E.Profile.Tab.Statuses" },
         { id: "phases", icon: "fa-solid fa-layer-group", label: "BB5E.Profile.Tab.Phases" },
         { id: "quotes", icon: "fa-solid fa-comment", label: "BB5E.Profile.Tab.Quotes" },
+        { id: "music", icon: "fa-solid fa-music", label: "BB5E.Profile.Tab.Music" },
         { id: "autoShow", icon: "fa-solid fa-eye", label: "BB5E.Profile.Tab.AutoShow" },
       ],
       initial: "main",
@@ -411,6 +451,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       statusesFull: values.statuses.custom.length >= PROFILE_LIMITS.custom,
       refill: values.fillMode === "refill",
       ...this.#phasesContext(Array.isArray(values.phases) ? (values.phases as Phase[]) : []),
+      music: musicChoices(readMusicSource(values.music)),
+      musicFadeSeconds: (Number(values.musicFade) || 0) / 1000,
       ...this.#quotesContext(
         Array.isArray(values.quotes) ? (values.quotes as Quote[]) : [],
         Array.isArray(values.phases) ? (values.phases as Phase[]) : [],
@@ -453,6 +495,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             selected: trigger.type === "form" && trigger.actorId === actor.id,
           })),
           enter: phase.enter,
+          music: musicChoices(phase.enter.music),
           overrides: CATEGORIES.map((category) => ({
             category,
             label: game.i18n.localize(CATEGORY_LABELS[category]),
@@ -713,6 +756,9 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             fillMode: input.fillMode,
             playerTicks: input.playerTicks,
             quotes: input.quotes,
+            music: input.music,
+            musicPriority: input.musicPriority,
+            musicFade: input.musicFade,
           }
         : { rank: input.rank };
     // Written whole: a merge would keep removed overrides and entries.
