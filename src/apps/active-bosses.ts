@@ -30,6 +30,9 @@ interface Row {
   phases: { id: string; label: string; selected: boolean }[];
   /** The form waits for a token: "Bind selected token". */
   waiting: boolean;
+  /** A shown boss can say a profile quote or the GM's own line. */
+  canSay: boolean;
+  quotes: { id: string; label: string }[];
 }
 
 function rowOf(
@@ -79,6 +82,11 @@ function rowOf(
       selected: index === current,
     })),
     waiting: Boolean(instance?.phase?.waiting),
+    canSay: Boolean(instance) && profile.kind === "boss",
+    quotes:
+      instance && profile.kind === "boss"
+        ? profile.quotes.map((quote) => ({ id: quote.id, label: quote.texts[0]?.slice(0, 48) ?? quote.id }))
+        : [],
   };
 }
 
@@ -139,6 +147,8 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleStatus: ActiveBosses.#onToggleStatus,
       setPhase: ActiveBosses.#onSetPhase,
       bindToken: ActiveBosses.#onBindToken,
+      sayQuote: ActiveBosses.#onSayQuote,
+      sayText: ActiveBosses.#onSayText,
       hideAll: ActiveBosses.#onHideAll,
       openRanks: ActiveBosses.#onOpenRanks,
       openLayout: ActiveBosses.#onOpenLayout,
@@ -175,6 +185,25 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
       anyRows: rows.length > 0,
       anyShown: rows.some((row) => row.instanceId),
     };
+  }
+
+  /** Own lines being typed survive the re-render every HUD recompute brings. */
+  #drafts = new Map<string, string>();
+
+  override async _preRender(context: Record<string, unknown>, options: Record<string, unknown>) {
+    await super._preRender(context, options);
+    for (const input of this.element?.querySelectorAll<HTMLInputElement>("[data-say-text]") ?? []) {
+      const id = input.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
+      if (id) this.#drafts.set(id, input.value);
+    }
+  }
+
+  override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
+    await super._onRender(context, options);
+    for (const input of this.element.querySelectorAll<HTMLInputElement>("[data-say-text]")) {
+      const id = input.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
+      input.value = (id && this.#drafts.get(id)) || "";
+    }
   }
 
   override async _onFirstRender(context: Record<string, unknown>, options: Record<string, unknown>) {
@@ -236,6 +265,28 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
       return ui.notifications.warn("BB5E.Panel.NoSelection", { localize: true });
     }
     await writeOrNotify({ type: "bindToken", sceneId: scene.id, instanceId, tokenId: token.id });
+  }
+
+  static async #onSayQuote(this: ActiveBosses, _event: Event, target: HTMLElement) {
+    const scene = canvas?.scene;
+    const row = target.closest<HTMLElement>("[data-instance-id]");
+    const quoteId = row?.querySelector<HTMLSelectElement>("[data-say-quote]")?.value;
+    const instanceId = row?.dataset.instanceId;
+    if (scene && instanceId && quoteId)
+      await writeOrNotify({ type: "say", sceneId: scene.id, instanceId, quoteId });
+  }
+
+  static async #onSayText(this: ActiveBosses, _event: Event, target: HTMLElement) {
+    const scene = canvas?.scene;
+    const row = target.closest<HTMLElement>("[data-instance-id]");
+    const input = row?.querySelector<HTMLInputElement>("[data-say-text]");
+    const instanceId = row?.dataset.instanceId;
+    const text = input?.value.trim() ?? "";
+    if (!scene || !instanceId || !input || !text) return;
+    if (await writeOrNotify({ type: "say", sceneId: scene.id, instanceId, text })) {
+      this.#drafts.delete(instanceId);
+      input.value = "";
+    }
   }
 
   static async #onHideAll(this: ActiveBosses) {

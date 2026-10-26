@@ -1,4 +1,5 @@
 import { PROFILE_ID, PROFILE_LIMITS } from "./profile";
+import { QUOTE_LIMITS } from "./quotes";
 import { isDocumentId, isRecord } from "./schema";
 
 /** Writes to scene instances; only the active GM applies them, after checking them again. */
@@ -10,7 +11,9 @@ export type WriteAction =
   | { type: "toggleStatus"; sceneId: string; instanceId: string; statusId: string; active: boolean }
   | { type: "setPhase"; sceneId: string; instanceId: string; phaseId: string }
   /** A waiting form takes the token the GM selected. */
-  | { type: "bindToken"; sceneId: string; instanceId: string; tokenId: string };
+  | { type: "bindToken"; sceneId: string; instanceId: string; tokenId: string }
+  /** A profile quote, or the GM's own text. */
+  | { type: "say"; sceneId: string; instanceId: string; quoteId?: string; text?: string };
 
 /** Payload check at the trust boundary (queries from other GMs): returns a clean copy or null. */
 export function parseAction(raw: unknown): WriteAction | null {
@@ -52,6 +55,17 @@ export function parseAction(raw: unknown): WriteAction | null {
       const { instanceId, tokenId } = raw;
       return isDocumentId(instanceId) && isDocumentId(tokenId)
         ? { type: "bindToken", sceneId, instanceId, tokenId }
+        : null;
+    }
+    case "say": {
+      const { instanceId, quoteId, text } = raw;
+      if (!isDocumentId(instanceId)) return null;
+      if (typeof quoteId === "string" && PROFILE_ID.test(quoteId)) {
+        return { type: "say", sceneId, instanceId, quoteId };
+      }
+      const said = typeof text === "string" ? text.trim() : "";
+      return said && said.length <= QUOTE_LIMITS.text
+        ? { type: "say", sceneId, instanceId, text: said }
         : null;
     }
     default:

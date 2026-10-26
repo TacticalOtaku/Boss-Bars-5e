@@ -11,6 +11,7 @@ import {
   rebindInstances,
   setCounter,
   setPhaseState,
+  setQuote,
   showInstance,
   toggleStatus,
   type Instance,
@@ -18,6 +19,8 @@ import {
   type InstanceTarget,
 } from "../core/instances";
 import { nextPhase, pickPhase, type PhaseStep } from "../core/phases";
+import { freeQuote, pickQuote, speak, type QuoteContext, type QuoteEvent } from "../core/quotes";
+import { playerLabels, type SubjectInput } from "../core/view";
 import { readProfile, type BossProfile, type Profile } from "../core/profile";
 import { logger } from "../logger";
 import { profileActorOf, subjectOf } from "./store";
@@ -108,6 +111,8 @@ async function apply(action: WriteAction): Promise<void> {
     next = hideAll(next);
   } else if (action.type === "setPhase" || action.type === "bindToken") {
     next = applyPhaseAction(scene, next, action);
+  } else if (action.type === "say") {
+    next = applySay(scene, next, action);
   } else {
     next = applyInstanceEdit(scene, next, action);
   }
@@ -184,6 +189,85 @@ function applyPhaseAction(
   if (!item.phase?.waiting || !token || !source) throw new WriteError("BB5E.Error.Invalid");
   const target = item.actorId && token.actorId ? { actorId: token.actorId } : { tokenId: token.id };
   return moveInstance(state, item.id, target, source, { id: item.phase.id, mark: 100 });
+}
+
+/** The fight a boss is in: the started combat holding one of its tokens (id, round), else this showing (decision 5). */
+function fightOf(scene: SceneDocument, item: Instance): Pick<QuoteContext, "fight" | "round"> {
+  const tokenIds = item.tokenId
+    ? [item.tokenId]
+    : scene.tokens.filter((token) => token.actorId === item.actorId).map((token) => token.id);
+  const combat = game.combats.find(
+    (each) =>
+      each.started &&
+      each.combatants.some(
+        (combatant) => combatant.sceneId === scene.id && tokenIds.includes(combatant.tokenId),
+      ),
+  );
+  return combat ? { fight: combat.id, round: combat.round } : { fight: item.id, round: null };
+}
+
+/** `{name}`: the bar's label as players see it, numbered among the scene's bars (decision 12). */
+function playerNameOf(scene: SceneDocument, state: InstanceState, item: Instance): string {
+  const subjects = state.items.flatMap((each): SubjectInput[] => {
+    const subject = subjectOf(scene, each);
+    return subject ? [subject] : [];
+  });
+  return playerLabels(subjects).get(item.id) ?? "";
+}
+
+function quoteContext(scene: SceneDocument, state: InstanceState, item: Instance): QuoteContext {
+  return {
+    ...fightOf(scene, item),
+    now: Date.now(),
+    name: playerNameOf(scene, state, item),
+    random: Math.random,
+  };
+}
+
+/** The GM says a profile quote (its pool and cursor, no cooldown) or their own text; either shows at once. */
+function applySay(
+  scene: SceneDocument,
+  state: InstanceState,
+  action: Extract<WriteAction, { type: "say" }>,
+): InstanceState {
+  const item = state.items.find((each) => each.id === action.instanceId);
+  const profile = item ? instanceProfile(scene, item) : null;
+  if (!item || profile?.kind !== "boss") throw new WriteError("BB5E.Error.Invalid");
+  const context = quoteContext(scene, state, item);
+  if (!action.quoteId) return setQuote(state, item.id, freeQuote(action.text ?? "", context));
+  const quote = profile.quotes.find((each) => each.id === action.quoteId);
+  if (!quote) throw new WriteError("BB5E.Error.Invalid");
+  const pick = speak(quote, item.quoteState?.[quote.id], context);
+  return setQuote(
+    state,
+    item.id,
+    { ...pick.shown, priority: Math.max(1, pick.shown.priority) },
+    quote.id,
+    pick.state,
+  );
+}
+
+/**
+ * Quote events of one boss (from the data, the chat or the tracker), active GM only. The flag is read again inside
+ * the queue: cooldowns and cursors written there keep a reload from repeating a quote.
+ */
+export function applyQuoteEvents(scene: SceneDocument, instanceId: string, events: QuoteEvent[]): void {
+  if (!game.user.isActiveGM || !events.length) return;
+  void enqueue(async () => {
+    const read = sceneInstances(scene);
+    if (read.status !== "ok") return;
+    const item = read.value.items.find((each) => each.id === instanceId);
+    const profile = item ? instanceProfile(scene, item) : null;
+    if (!item || profile?.kind !== "boss" || !profile.quotes.length) return;
+    const context = quoteContext(scene, read.value, item);
+    const pick = pickQuote(profile.quotes, events, item.quoteState ?? {}, item.quote, context);
+    if (!pick) return;
+    await scene.setFlag(
+      MODULE_ID,
+      "instances",
+      setQuote(read.value, item.id, pick.shown, pick.quoteId, pick.state),
+    );
+  }).catch((error) => logger.error("Quote failed", scene.id, error));
 }
 
 /**

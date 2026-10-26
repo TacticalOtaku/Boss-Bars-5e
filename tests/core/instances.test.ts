@@ -9,6 +9,7 @@ import {
   rebindInstances,
   setCounter,
   setPhaseState,
+  setQuote,
   showInstance,
   toggleStatus,
 } from "../../src/core/instances";
@@ -227,5 +228,45 @@ describe("phases and forms", () => {
         () => "n",
       ),
     ).toBe(state);
+  });
+});
+
+describe("quotes in the instance", () => {
+  it("reads the quote state and the quote on screen, dropping bad entries", () => {
+    const raw = {
+      dataVersion: 3,
+      items: [
+        {
+          id: "a",
+          kind: "boss",
+          tokenId: "t1",
+          order: 1,
+          quoteState: {
+            roar: { fight: "c1", round: 2, done: true, cursor: 1 },
+            "bad id": { fight: "x" },
+            q: {},
+          },
+          quote: { key: "roar-1", text: "x".repeat(300), priority: 1, at: 5, duration: 99 },
+        },
+        { id: "b", kind: "boss", tokenId: "t2", order: 2, quote: { key: "k", text: "t", priority: "1" } },
+      ],
+    };
+    const read = readInstances(raw);
+    expect(read.status === "ok" && read.value.items).toEqual([
+      expect.objectContaining({
+        quoteState: { roar: { fight: "c1", round: 2, done: true, cursor: 1 } },
+        quote: { key: "roar-1", text: "x".repeat(200), priority: 1, at: 5, duration: 20 },
+      }),
+      { id: "b", kind: "boss", tokenId: "t2", order: 2 },
+    ]);
+  });
+
+  it("puts a quote on screen with its quote's state", () => {
+    const state = { dataVersion: 3, items: [{ id: "a", kind: "boss" as const, tokenId: "t1", order: 1 }] };
+    const shown = { key: "k", text: "t", priority: 0, at: 1, duration: 3 };
+    expect(setQuote(state, "a", shown, "roar", { fight: "c1", cursor: 1 }).items[0]).toMatchObject({
+      quote: shown,
+      quoteState: { roar: { fight: "c1", cursor: 1 } },
+    });
   });
 });

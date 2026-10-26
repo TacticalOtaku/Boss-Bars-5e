@@ -77,6 +77,8 @@ export interface PhaseView {
 
 export interface BossBarView extends CommonView {
   title: string;
+  /** The quote on screen: shown while `until` (ms, the active GM's clock) is ahead. */
+  quote: { key: string; text: string; until: number } | null;
   phase: PhaseView | null;
   /** Threshold ticks as shares of the bar ("segments" fill); empty for players when the profile hides them. */
   ticks: number[];
@@ -135,16 +137,12 @@ const shieldOf = (hp: HpData | null) =>
  * everyone, elites sorted by rank then show order and cut at `eliteLimit`. `peaks` keeps temp HP peaks of
  * mini-bars between calls.
  */
-export function buildViews(
-  subjects: SubjectInput[],
-  ranks: Rank[],
-  viewer: Viewer,
-  eliteLimit: number,
-  peaks = new Map<string, number>(),
-): HudViews {
-  const baseLabel = (subject: SubjectInput) =>
-    phaseEnterOf(subject).playerName || subject.profile.playerName || subject.name;
-  const labels = numberLabels(
+const baseLabel = (subject: SubjectInput) =>
+  phaseEnterOf(subject).playerName || subject.profile.playerName || subject.name;
+
+/** Bar and card labels, equal names numbered the same way for everyone (also `{name}` in quotes). */
+export function playerLabels(subjects: SubjectInput[]): Map<string, string> {
+  return numberLabels(
     subjects.map((subject) => ({
       id: subject.instance.id,
       label: baseLabel(subject),
@@ -152,6 +150,16 @@ export function buildViews(
       order: subject.instance.order,
     })),
   );
+}
+
+export function buildViews(
+  subjects: SubjectInput[],
+  ranks: Rank[],
+  viewer: Viewer,
+  eliteLimit: number,
+  peaks = new Map<string, number>(),
+): HudViews {
+  const labels = playerLabels(subjects);
   const bosses: BossBarView[] = [];
   const elites: { view: EliteCardView; rank: number; order: number }[] = [];
   for (const subject of [...subjects].sort((a, b) => a.instance.order - b.instance.order)) {
@@ -208,6 +216,13 @@ export function buildViews(
       bosses.push({
         ...common,
         title: enter.title || profile.title,
+        quote: instance.quote
+          ? {
+              key: instance.quote.key,
+              text: instance.quote.text,
+              until: instance.quote.at + instance.quote.duration * 1000,
+            }
+          : null,
         phase: phaseViewOf(phases, phaseAt),
         ticks: ticks ? phaseTicks(phases, phaseAt) : [],
         size: profile.size,

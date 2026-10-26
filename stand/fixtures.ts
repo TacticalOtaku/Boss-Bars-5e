@@ -84,6 +84,7 @@ const boss = {
   phases: [],
   fillMode: "segments" as const,
   playerTicks: true,
+  quotes: [],
 };
 const elite = (rank: string) => ({ kind: "elite", rank }) as const;
 
@@ -103,6 +104,44 @@ export const FIXTURE_BOSSES: SubjectInput[] = [
           label: "Пепельная ярость",
           trigger: { type: "hp", below: 33 },
           enter: { title: "Пепел и пламя" },
+        },
+      ],
+      quotes: [
+        {
+          id: "hit",
+          trigger: { type: "damage", percent: 25 },
+          texts: ["Это всё, на что вы способны?"],
+          order: "random",
+          cooldown: 0,
+          once: false,
+          duration: null,
+        },
+        {
+          id: "rage",
+          trigger: { type: "phase", phaseId: "ash" },
+          texts: ["{name} пробуждает пепел!"],
+          order: "random",
+          cooldown: 0,
+          once: false,
+          duration: null,
+        },
+        {
+          id: "heal",
+          trigger: { type: "heal" },
+          texts: ["Пламя возвращается."],
+          order: "random",
+          cooldown: 0,
+          once: false,
+          duration: null,
+        },
+        {
+          id: "say",
+          trigger: { type: "manual" },
+          texts: ["Пепел помнит ваши имена…", "Вы сгорите, как и все до вас."],
+          order: "cycle",
+          cooldown: 0,
+          once: false,
+          duration: null,
         },
       ],
       miniBars: BOSS_BARS,

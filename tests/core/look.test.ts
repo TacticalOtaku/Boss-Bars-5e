@@ -20,7 +20,7 @@ import {
 import { lookStyle } from "../../src/core/look/style";
 
 describe("readParams", () => {
-  it("keeps fitting values and replaces the rest with defaults", () => {
+  it("keeps fitting values, replaces the rest with defaults and keeps unknown keys", () => {
     const params = readParams("fill", {
       type: "flame",
       colors: ["#ABCDEF", "red", "#00000080", 5, "#111111", "#222222", "#333333", "#444444"],
@@ -34,7 +34,8 @@ describe("readParams", () => {
     expect(params.byHp).toBe(false);
     expect(params.segmentEvery).toBe(50);
     expect(params.texture).toBe("");
-    expect(params).not.toHaveProperty("extra");
+    // A newer version's parameter is kept for the next write.
+    expect(params).toHaveProperty("extra", 1);
   });
 
   it("gives the Classic RPG defaults for an empty preset", () => {
@@ -122,7 +123,7 @@ describe("readLibrary and import", () => {
       status: "ok",
       value: { dataVersion: LIBRARY_VERSION, looks: [], presets: [] },
     });
-    expect(readLibrary({ dataVersion: 3, looks: [], presets: [] }).status).toBe("newer");
+    expect(readLibrary({ dataVersion: 4, looks: [], presets: [] }).status).toBe("newer");
     expect(readLibrary({ dataVersion: 1, looks: {} }).status).toBe("invalid");
   });
 

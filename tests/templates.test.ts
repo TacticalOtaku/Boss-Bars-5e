@@ -31,6 +31,8 @@ const panelRow = {
   customs: [{ id: "s", name: "<b>S</b>", img: "s.webp", active: true }],
   phases: [{ id: "p", label: "<b>P</b>", selected: true }],
   waiting: true,
+  canSay: true,
+  quotes: [{ id: "q", label: "<b>Q</b>" }],
 };
 /** A context that switches every optional branch on, with markup in every user-written text. */
 const context = {

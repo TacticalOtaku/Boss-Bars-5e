@@ -1,9 +1,18 @@
 import { hpChange, isLow } from "../core/look/effects";
 import type { Block } from "../core/layout";
+import { QUOTE_LIMITS } from "../core/quotes";
 import type { BossBarView } from "../core/view";
 import { positionBlock } from "./blocks";
 import { formatNumbers, part, setPortrait } from "./dom";
-import { enterFrames, leaveDuration, leaveFrames, playHpChange, playPhaseChange, typeName } from "./effects";
+import {
+  enterFrames,
+  leaveDuration,
+  leaveFrames,
+  playHpChange,
+  playPhaseChange,
+  showQuote,
+  typeName,
+} from "./effects";
 import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 import { applyHpColor, applyLook } from "./look";
@@ -36,6 +45,9 @@ interface Bar extends KeyedItem {
   statuses: HTMLElement;
   banner: HTMLElement;
   phaseBanner: HTMLElement;
+  quote: HTMLElement;
+  quoteKey: string | null;
+  quoteTimer: ReturnType<typeof setTimeout> | undefined;
   view: BossBarView | null;
   shown: number | null;
   /** undefined until the first render: the first phase seen plays no effect. */
@@ -84,6 +96,10 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     banner.hidden = true;
     const phaseBanner = part("div", "bb5e-banner bb5e-banner--phase", el);
     phaseBanner.hidden = true;
+    // The quote is read out by screen readers when it appears.
+    const quote = part("p", "bb5e-boss__quote", el);
+    quote.setAttribute("aria-live", "polite");
+    quote.hidden = true;
     const bar: Bar = {
       el,
       portrait,
@@ -105,6 +121,9 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       statuses,
       banner,
       phaseBanner,
+      quote,
+      quoteKey: null,
+      quoteTimer: undefined,
       view: null,
       shown: null,
       phaseKey: undefined,
@@ -157,6 +176,20 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     );
   }
 
+  /**
+   * A new quote shows for what is left of its time; one seen before is left alone, so repeated renders and other
+   * HP hooks never restart it. shortcut: the end time is the active GM's clock, a skewed client clock shortens or
+   * stretches it (capped at the quote's maximum); sync clocks if that ever matters.
+   */
+  function updateQuote(bar: Bar, quote: BossBarView["quote"]) {
+    if (!quote || quote.key === bar.quoteKey) return;
+    bar.quoteKey = quote.key;
+    const left = Math.min(quote.until - Date.now(), QUOTE_LIMITS.durationMax * 1000);
+    if (left <= 0) return;
+    clearTimeout(bar.quoteTimer);
+    bar.quoteTimer = showQuote(bar.quote, quote.text, left, options.reducedMotion());
+  }
+
   /** Threshold ticks; elements are reused, so an unchanged render touches nothing. */
   function renderTicks(bar: Bar, ticks: number[]) {
     const { children } = bar.ticks;
@@ -204,6 +237,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     applyHpColor(bar.fill, look, shown);
     setFill(bar, view, shown, phaseChanged);
     renderTicks(bar, view.ticks);
+    updateQuote(bar, view.quote);
     if (phaseChanged) {
       playPhaseChange(
         look,

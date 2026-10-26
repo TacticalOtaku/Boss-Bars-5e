@@ -4,6 +4,7 @@ import { resolveLook } from "../core/look/resolve";
 import { CATEGORIES, isCategory, LIBRARY_VERSION, readLibrary, type Category } from "../core/look/schema";
 import { phaseChanges, phaseTicks } from "../core/phases";
 import { readProfile, type Phase } from "../core/profile";
+import { autoDuration, speak, type Quote } from "../core/quotes";
 import { isRecord } from "../core/schema";
 import { phaseViewOf } from "../core/view";
 import { logger } from "../logger";
@@ -56,6 +57,8 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The profile's phases and the one the preview shows ("Next phase"). */
   #phases: Phase[] = [];
   #phaseAt = 0;
+  /** The profile's quotes for "Quote" (a sample line when there are none). */
+  #quotes: Quote[] = [];
   #dirty = false;
   #confirming = false;
 
@@ -67,6 +70,7 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       this.#look = profile.value.look;
       this.#overrides = { ...profile.value.overrides };
       this.#phases = profile.value.phases;
+      this.#quotes = profile.value.quotes;
     }
   }
 
@@ -165,7 +169,20 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render();
   }
 
-  /** Test console: damage, healing, the next phase, defeat and reset play on the preview only. */
+  /** A random quote of the profile (or the sample line) over the preview bar. */
+  #sampleQuote(): PreviewState["quote"] {
+    const now = Date.now();
+    const quote = this.#quotes[Math.floor(Math.random() * this.#quotes.length)];
+    if (!quote) {
+      const text = loc("BB5E.Workshop.SampleQuote");
+      return { key: `sample-${now}`, text, until: now + autoDuration(text) * 1000 };
+    }
+    const context = { fight: "preview", round: null, now, name: this.actor.name, random: Math.random };
+    const { shown } = speak(quote, undefined, context, loc("BB5E.Quotes.SampleAttacker"));
+    return { key: shown.key, text: shown.text, until: now + shown.duration * 1000 };
+  }
+
+  /** Test console: damage, healing, the next phase, a quote, defeat and reset play on the preview only. */
   static async #onConsole(this: Workshop, _event: Event, target: HTMLElement) {
     const state = this.#preview;
     switch (target.dataset.step) {
@@ -180,6 +197,9 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         break;
       case "phase":
         this.#phaseAt = (this.#phaseAt + 1) % Math.max(1, this.#phases.length);
+        break;
+      case "quote":
+        state.quote = this.#sampleQuote();
         break;
       case "defeat":
         state.defeated = true;

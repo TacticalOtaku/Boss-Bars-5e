@@ -11,6 +11,7 @@ const view = (id: string, extra: Partial<BossBarView> = {}): BossBarView => ({
   title: "",
   phase: null,
   ticks: [],
+  quote: null,
   portrait: { src: "boss.webp", video: false },
   size: 100,
   fraction: 0.5,
@@ -238,5 +239,28 @@ describe("boss bar phases", () => {
     expect(targets).not.toContain(wave);
     expect(overlay.querySelector<HTMLElement>(".bb5e-banner--phase")?.textContent).toBe("Ярость");
     animate.mockRestore();
+  });
+});
+
+describe("boss bar quotes", () => {
+  it("shows a new quote for what is left of its time and leaves a seen one alone", () => {
+    // Without Web Animations the line hides right when its time is up.
+    const animate = Element.prototype.animate;
+    Object.defineProperty(Element.prototype, "animate", { value: undefined, configurable: true });
+    vi.useFakeTimers();
+    const stack = make();
+    const quote = { key: "q1", text: "<b>Пепел</b>", until: Date.now() + 2000 };
+    stack.update([view("a", { quote })], BLOCK, 1);
+    const line = overlay.querySelector<HTMLElement>(".bb5e-boss__quote")!;
+    expect([line.hidden, line.textContent, line.querySelector("b")]).toEqual([false, "<b>Пепел</b>", null]);
+    line.textContent = "untouched";
+    stack.update([view("a", { quote })], BLOCK, 1);
+    expect(line.textContent).toBe("untouched");
+    vi.advanceTimersByTime(2500);
+    expect(line.hidden).toBe(true);
+    stack.update([view("a", { quote: { key: "old", text: "x", until: Date.now() - 1 } })], BLOCK, 1);
+    expect(line.hidden).toBe(true);
+    vi.useRealTimers();
+    Object.defineProperty(Element.prototype, "animate", { value: animate, configurable: true });
   });
 });

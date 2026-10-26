@@ -21,6 +21,7 @@ const bossProfile: BossProfile = {
   phases: [],
   fillMode: "segments",
   playerTicks: true,
+  quotes: [],
   dataVersion: 2,
   kind: "boss",
   playerName: "",

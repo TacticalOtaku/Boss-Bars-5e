@@ -17,6 +17,7 @@ import {
 } from "../core/profile";
 import { CATEGORIES, isCategory, type Category } from "../core/look/schema";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
+import { QUOTE_LIMITS, speak, type Quote, type QuoteTrigger } from "../core/quotes";
 import { isRecord } from "../core/schema";
 import { phaseViewOf } from "../core/view";
 import { CATEGORY_LABELS } from "./look-labels";
@@ -49,11 +50,71 @@ const TRIGGERS = [
 ] as const;
 const KNOWN_TRIGGERS = new Set(["start", "hp", "form", "manual"]);
 
+/** Quote triggers in the editor's order (spec §7); labels are literal keys. */
+const QUOTE_TRIGGERS = [
+  { value: "appear", label: "BB5E.Quotes.Trigger.Appear" },
+  { value: "phase", label: "BB5E.Quotes.Trigger.Phase" },
+  { value: "below", label: "BB5E.Quotes.Trigger.Below" },
+  { value: "damage", label: "BB5E.Quotes.Trigger.Damage" },
+  { value: "heal", label: "BB5E.Quotes.Trigger.Heal" },
+  { value: "turn", label: "BB5E.Quotes.Trigger.Turn" },
+  { value: "status", label: "BB5E.Quotes.Trigger.Status" },
+  { value: "crit", label: "BB5E.Quotes.Trigger.Crit" },
+  { value: "miss", label: "BB5E.Quotes.Trigger.Miss" },
+  { value: "defeat", label: "BB5E.Quotes.Trigger.Defeat" },
+  { value: "manual", label: "BB5E.Quotes.Trigger.Manual" },
+] as const;
+const KNOWN_QUOTE_TRIGGERS = new Set<string>(QUOTE_TRIGGERS.map((each) => each.value));
+/** Which parameter field each quote trigger shows. */
+const QUOTE_GROUP: Record<string, string> = {
+  phase: "phase",
+  below: "percent",
+  damage: "percent",
+  status: "status",
+};
+
+function quoteTriggerOf(raw: Record<string, unknown>): QuoteTrigger {
+  const percent = raw.percent === null ? Number.NaN : Number(raw.percent);
+  switch (raw.trigger) {
+    case "phase":
+      return { type: "phase", phaseId: str(raw.phaseId) };
+    case "below":
+    case "damage":
+      return { type: raw.trigger, percent };
+    case "status":
+      return { type: "status", status: str(raw.status).trim() };
+    case "newer":
+      return (newerTrigger(str(raw.newer)) as QuoteTrigger | null) ?? { type: "manual" };
+    default:
+      return KNOWN_QUOTE_TRIGGERS.has(str(raw.trigger))
+        ? { type: raw.trigger as "appear" }
+        : { type: "manual" };
+  }
+}
+
+/** A quote row of the form: the pool comes one variant per line. */
+function quoteOf(raw: Record<string, unknown>): Quote {
+  const duration = str(raw.duration).trim();
+  return {
+    id: str(raw.id) || foundry.utils.randomID(),
+    trigger: quoteTriggerOf(raw),
+    texts: str(raw.texts)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+    order: raw.order === "cycle" ? "cycle" : "random",
+    cooldown: raw.cooldown === null ? Number.NaN : Number(raw.cooldown),
+    once: raw.once === true,
+    duration: duration ? Number(duration) : null,
+  };
+}
+
 /** Tab of each field-name prefix, to bring the first invalid field into view. */
 const TAB_OF: [RegExp, string][] = [
   [/^miniBars/, "miniBars"],
   [/^statuses/, "statuses"],
   [/^phases/, "phases"],
+  [/^quotes/, "quotes"],
   [/^autoShow/, "autoShow"],
 ];
 
@@ -166,6 +227,7 @@ function inputOf(data: Record<string, unknown>): ProfileInput {
     })),
     fillMode: data.fillMode === "refill" ? "refill" : "segments",
     playerTicks: data.playerTicks === true,
+    quotes: entries(data.quotes).map(quoteOf),
   };
 }
 
@@ -218,6 +280,25 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         if (phase) input.phases.splice(Math.max(0, Math.min(input.phases.length, to)), 0, phase);
       }),
       playPhase: ProfileEditor.#onPlayPhase,
+      addQuote: ProfileEditor.#edit((input) => {
+        if (input.quotes.length >= QUOTE_LIMITS.quotes) return;
+        input.quotes.push({
+          id: foundry.utils.randomID(),
+          trigger: { type: "appear" },
+          texts: [],
+          order: "random",
+          cooldown: 0,
+          once: false,
+          duration: null,
+        });
+      }),
+      removeQuote: ProfileEditor.#edit((input, index) => input.quotes.splice(index, 1)),
+      moveQuote: ProfileEditor.#edit((input, index, target) => {
+        const to = index + Number(target.dataset.delta);
+        const [quote] = input.quotes.splice(index, 1);
+        if (quote) input.quotes.splice(Math.max(0, Math.min(input.quotes.length, to)), 0, quote);
+      }),
+      playQuote: ProfileEditor.#onPlayQuote,
     },
   };
 
@@ -227,6 +308,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     miniBars: { template: `${TEMPLATES}/profile-minibars.hbs` },
     statuses: { template: `${TEMPLATES}/profile-statuses.hbs` },
     phases: { template: `${TEMPLATES}/profile-phases.hbs` },
+    quotes: { template: `${TEMPLATES}/profile-quotes.hbs` },
     autoShow: { template: `${TEMPLATES}/profile-autoshow.hbs` },
     footer: { template: `${TEMPLATES}/editor-footer.hbs` },
   };
@@ -238,6 +320,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         { id: "miniBars", icon: "fa-solid fa-bars-progress", label: "BB5E.Profile.Tab.MiniBars" },
         { id: "statuses", icon: "fa-solid fa-circle-half-stroke", label: "BB5E.Profile.Tab.Statuses" },
         { id: "phases", icon: "fa-solid fa-layer-group", label: "BB5E.Profile.Tab.Phases" },
+        { id: "quotes", icon: "fa-solid fa-comment", label: "BB5E.Profile.Tab.Quotes" },
         { id: "autoShow", icon: "fa-solid fa-eye", label: "BB5E.Profile.Tab.AutoShow" },
       ],
       initial: "main",
@@ -328,6 +411,10 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       statusesFull: values.statuses.custom.length >= PROFILE_LIMITS.custom,
       refill: values.fillMode === "refill",
       ...this.#phasesContext(Array.isArray(values.phases) ? (values.phases as Phase[]) : []),
+      ...this.#quotesContext(
+        Array.isArray(values.quotes) ? (values.quotes as Quote[]) : [],
+        Array.isArray(values.phases) ? (values.phases as Phase[]) : [],
+      ),
     };
   }
 
@@ -389,6 +476,42 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
+  /** The "Quotes" tab: a row per quote; a phase trigger picks one of the phases on the form. */
+  #quotesContext(quotes: Quote[], phases: Phase[]) {
+    const phaseName = (phase: Phase, index: number) =>
+      phase.label || game.i18n.format("BB5E.Phase.Default", { n: romanNumeral(index + 1) });
+    return {
+      quotes: quotes.map((quote, index) => {
+        const { trigger } = quote;
+        const newer = !KNOWN_QUOTE_TRIGGERS.has(trigger.type);
+        return {
+          index,
+          id: quote.id,
+          first: index === 0,
+          last: index === quotes.length - 1,
+          triggers: [
+            ...QUOTE_TRIGGERS.map((each) => ({ ...each, selected: each.value === trigger.type })),
+            ...(newer ? [{ value: "newer", label: "BB5E.Phases.Trigger.Newer", selected: true }] : []),
+          ],
+          newer: newer ? JSON.stringify(trigger) : "",
+          phases: phases.map((phase, at) => ({
+            id: phase.id,
+            name: phaseName(phase, at),
+            selected: trigger.type === "phase" && trigger.phaseId === phase.id,
+          })),
+          percent: trigger.type === "below" || trigger.type === "damage" ? trigger.percent : 50,
+          status: trigger.type === "status" ? trigger.status : "",
+          texts: quote.texts.join("\n"),
+          cycle: quote.order === "cycle",
+          cooldown: quote.cooldown,
+          once: quote.once,
+          duration: quote.duration ?? "",
+        };
+      }),
+      quotesFull: quotes.length >= QUOTE_LIMITS.quotes,
+    };
+  }
+
   override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
     await super._onRender(context, options);
     this.#setDirty(this.#dirty);
@@ -403,7 +526,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         const target = event.target as HTMLInputElement;
         if (target.name === "kind") this.#syncKind();
         else if (target.name.endsWith(".source.type")) this.#onSourceChange(target);
-        else if (/^phases\.\d+\.trigger$/.test(target.name)) this.#syncTriggers();
+        else if (/^(phases|quotes)\.\d+\.trigger$/.test(target.name)) this.#syncTriggers();
         else this.#updatePreview();
       });
     }
@@ -438,7 +561,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  /** Each phase row shows the fields of its trigger only. */
+  /** Each phase and quote row shows the fields of its trigger only. */
   #syncTriggers() {
     for (const row of this.element.querySelectorAll<HTMLElement>("[data-phase-index]")) {
       const type = row.querySelector<HTMLInputElement>('[name$=".trigger"]')?.value;
@@ -446,6 +569,43 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         group.hidden = group.dataset.triggerGroup !== type;
       }
     }
+    for (const row of this.element.querySelectorAll<HTMLElement>("[data-quote-index]")) {
+      const type = row.querySelector<HTMLInputElement>('[name$=".trigger"]')?.value ?? "";
+      for (const group of row.querySelectorAll<HTMLElement>("[data-quote-group]")) {
+        group.hidden = group.dataset.quoteGroup !== QUOTE_GROUP[type];
+      }
+    }
+  }
+
+  /** ▶: the quote on the tab's preview, `{attacker}` filled with a sample name. Nothing is written. */
+  static async #onPlayQuote(this: ProfileEditor, _event: Event, target: HTMLElement) {
+    const host = this.element.querySelector<HTMLElement>(".bb5e-quote-preview");
+    const input = this.#formInput();
+    const quote = input.quotes[Number(target.dataset.index)];
+    if (!host || !quote?.texts.length) return;
+    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
+    const boss = read.status === "ok" && read.value.kind === "boss" ? read.value : null;
+    const name = input.playerName.trim() || this.actor.name;
+    const now = Date.now();
+    const { shown } = speak(
+      quote,
+      undefined,
+      { fight: "preview", round: null, now, name, random: Math.random },
+      game.i18n.localize("BB5E.Quotes.SampleAttacker"),
+    );
+    previewBoss(
+      host,
+      styleFor(sourcesOf(currentLibrary()), boss?.look ?? null, boss?.overrides),
+      {
+        fraction: 0.74,
+        defeated: false,
+        shown: true,
+        title: input.title,
+        img: input.portrait || this.actor.img,
+        quote: { key: shown.key, text: shown.text, until: now + shown.duration * 1000 },
+      },
+      name,
+    );
   }
 
   /**
@@ -552,6 +712,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             phases: input.phases,
             fillMode: input.fillMode,
             playerTicks: input.playerTicks,
+            quotes: input.quotes,
           }
         : { rank: input.rank };
     // Written whole: a merge would keep removed overrides and entries.

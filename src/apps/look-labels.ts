@@ -20,6 +20,7 @@ export const PARAM_LABELS: Record<string, string> = {
   "layoutBar.bar": "BB5E.Param.BarShape",
   "layoutBar.name": "BB5E.Param.NamePlace",
   "layoutBar.extras": "BB5E.Param.ExtrasPlace",
+  "layoutBar.quote": "BB5E.Param.QuotePlace",
   "layoutBar.width": "BB5E.Param.Width",
   "layoutBar.height": "BB5E.Param.Height",
   "layoutCard.icon": "BB5E.Param.Icon",

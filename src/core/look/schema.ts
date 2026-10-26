@@ -52,6 +52,8 @@ export const PARAMS = {
     bar: e(["thick", "thin", "segmented", "ring"]),
     name: e(["above", "inside", "below"]),
     extras: e(["below", "above", "side", "portrait"]),
+    /** Where the boss's quote shows (stage 7). */
+    quote: e(["above", "below", "side"]),
     width: n(16, 80, 38.75, 0.25),
     height: n(0.25, 3, 1.125, 0.125),
   },
@@ -197,8 +199,8 @@ export interface Library {
   presets: Preset[];
 }
 
-/** v2: phase change parameters and segments "phases" (0.6.0 would drop them on its next edit). */
-export const LIBRARY_VERSION = 2;
+/** v2: phase change parameters, segments "phases"; v3: layoutBar.quote. Older versions dropped unknown parameters. */
+export const LIBRARY_VERSION = 3;
 /** Import limit (decision 4). */
 export const IMPORT_MAX_BYTES = 256 * 1024;
 export const LOOK_ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -238,13 +240,17 @@ function readParam(param: Param, raw: unknown): unknown {
   }
 }
 
-/** Every parameter of the category, each one checked; unknown keys are dropped. */
+/**
+ * Every parameter of the category, each one checked. Unknown keys (a newer version's parameters) are kept for the
+ * next write; nothing reads them, so they never reach CSS.
+ */
 export function readParams<C extends Category>(category: C, raw: unknown): Params<C> {
   const value = isRecord(raw) ? raw : {};
   const params = PARAMS[category] as Record<string, Param>;
-  return Object.fromEntries(
-    Object.entries(params).map(([key, param]) => [key, readParam(param, value[key])]),
-  ) as Params<C>;
+  return {
+    ...value,
+    ...Object.fromEntries(Object.entries(params).map(([key, param]) => [key, readParam(param, value[key])])),
+  } as Params<C>;
 }
 
 export function readPreset(raw: unknown): Preset | null {
@@ -284,7 +290,7 @@ export function readLibrary(raw: unknown, builtInIds: ReadonlySet<string> = new 
   };
   if (!isRecord(raw) || raw.dataVersion === undefined) return empty;
   if (!Array.isArray(raw.looks) || !Array.isArray(raw.presets)) return { status: "invalid" };
-  const migrated = migrate(raw, LIBRARY_VERSION, { 1: (value) => value });
+  const migrated = migrate(raw, LIBRARY_VERSION, { 1: (value) => value, 2: (value) => value });
   if (migrated.status !== "ok") return migrated;
   const own = <T extends { id: string }>(item: T | null): item is T =>
     item !== null && !builtInIds.has(item.id);

@@ -1,5 +1,6 @@
 import { LOOK_ID, readOverrides, type Category } from "./look/schema";
-import { isDocumentId, isRecord, migrate, text, type ReadResult } from "./schema";
+import { quoteErrors, readQuotes, type Quote } from "./quotes";
+import { isDocumentId, isRecord, migrate, PROFILE_ID, text, type ReadResult } from "./schema";
 
 export const PROFILE_VERSION = 2;
 
@@ -101,6 +102,7 @@ export interface BossProfile extends ProfileBase {
   fillMode: FillMode;
   /** Players see the threshold ticks. */
   playerTicks: boolean;
+  quotes: Quote[];
 }
 
 export interface EliteProfile extends ProfileBase {
@@ -125,6 +127,7 @@ export interface ProfileInput {
   phases: Phase[];
   fillMode: FillMode;
   playerTicks: boolean;
+  quotes: Quote[];
 }
 
 export const PROFILE_LIMITS = {
@@ -156,8 +159,7 @@ export const DEFAULT_AUTO_SHOW: AutoShow = {
   delay: 3,
 };
 
-/** Mini-bar and custom status ids reach DOM attributes and flag keys. */
-export const PROFILE_ID = /^[A-Za-z0-9_-]{1,32}$/;
+export { PROFILE_ID };
 /** Only prepared `system.` data, no prototype walks. */
 export const FIELD_PATH = /^system(\.(?!(?:__proto__|constructor|prototype)(?:\.|$))[A-Za-z0-9_]+)+$/;
 
@@ -183,6 +185,7 @@ export function defaultProfile(kind: ProfileKind = "boss"): Profile {
         phases: [],
         fillMode: "segments",
         playerTicks: true,
+        quotes: [],
       }
     : { ...base, ...stage4, kind, rank: "" };
 }
@@ -355,6 +358,7 @@ export function readProfile(raw: unknown): ReadResult<Profile> {
       phases: readPhases(value.phases),
       fillMode: value.fillMode === "refill" ? "refill" : "segments",
       playerTicks: value.playerTicks !== false,
+      quotes: readQuotes(value.quotes),
     },
   };
 }
@@ -432,6 +436,11 @@ export function profileErrors(input: ProfileInput): Record<string, string> {
       if (tooLong(status.img, PROFILE_LIMITS.path)) errors[`${at}.img`] = "BB5E.Error.TooLong";
     });
     phaseErrors(input.phases, errors);
+    quoteErrors(
+      input.quotes,
+      input.phases.map((phase) => phase.id),
+      errors,
+    );
   } else if (!input.rank || input.rank.length > PROFILE_LIMITS.rank) {
     errors.rank = "BB5E.Error.NoRank";
   }

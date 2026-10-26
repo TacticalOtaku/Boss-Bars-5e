@@ -36,3 +36,6 @@ export function isDocumentId(value: unknown): value is string {
 
 export const text = (value: unknown, max: number) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
+
+/** Ids of profile entries (mini-bars, statuses, phases, quotes) reach DOM attributes and flag keys. */
+export const PROFILE_ID = /^[A-Za-z0-9_-]{1,32}$/;
