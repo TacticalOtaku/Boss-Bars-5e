@@ -118,7 +118,8 @@ export const PARAMS = {
     damageFlash: b(true),
     /** Sparks fly from the fill's edge on damage (stage 9; boss bars on the HUD). */
     sparks: b(true),
-    sparkColor: c("#ffcc66"),
+    /** Empty: the frame light. */
+    sparkColor: c("", true),
     scaleByDamage: b(true),
     bigThreshold: n(5, 100, 25),
     bigCrack: b(true),
@@ -127,7 +128,8 @@ export const PARAMS = {
     lowThreshold: n(0, 50, 25),
     lowPulse: b(true),
     lowFlicker: b(false),
-    trailColor: c("#f3e3b0"),
+    /** Empty: the lightest fill colour, lightened. */
+    trailColor: c("", true),
     trailDelay: n(0, 3000, 550, 50),
     trailSpeed: n(100, 3000, 600, 50),
     trailAccumulate: b(true),

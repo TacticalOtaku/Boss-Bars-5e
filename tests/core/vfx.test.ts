@@ -34,6 +34,12 @@ describe("vfxAt — the effect timeline", () => {
     expect(vfxAt([scratch, blow], 800, { reduced: false }).map((each) => each.big)).toEqual([true]);
   });
 
+  it("plays every hit at full strength for a look that does not scale by damage", () => {
+    const scratch = { kind: "damage", at: 0, share: 0.02, x: 0.9, scale: false } as const;
+    const heal = { kind: "heal", at: 0, share: 0.02, x: 0.9, scale: false } as const;
+    expect(vfxAt([scratch, heal], 0, { reduced: false }).map((each) => each.strength)).toEqual([1, 1]);
+  });
+
   it("gives healing, a phase change, defeat and the entrance their own length", () => {
     const events = [
       { kind: "heal", at: 0, share: 0.2, x: 0.7 },

@@ -193,6 +193,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
         share: change.share,
         x: shown,
         big: change.kind === "damage" && change.big && view.look.effects.bigCrack,
+        scale: view.look.effects.scaleByDamage,
       });
     }
     if (change?.kind === "damage" && view.look.effects.sparks && options.particles && !bar.vfx) {

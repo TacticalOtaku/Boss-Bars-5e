@@ -30,11 +30,33 @@ describe("barMaterial — a look as shader uniforms", () => {
     expect(material.colorCount).toBe(4);
     expect(material.frameGlow).toBe(0.35);
     expect([...material.glowColor]).toEqual(rgb("#ff9a3c").map(Math.fround));
-    expect([...material.trail]).toEqual(rgb("#ffd27a").map(Math.fround));
     // Classic defaults it keeps: a #6fb7f0 shield, no shine.
     expect([...material.shield]).toEqual(rgb("#6fb7f0").map(Math.fround));
-    expect([...material.spark]).toEqual(rgb("#ff9a3c").map(Math.fround));
     expect(material).toMatchObject({ shieldOn: 1, edgeGlow: 1, shine: 0 });
+  });
+
+  it("takes spark and trail colours from the look when its HP effect leaves them empty", () => {
+    const close = (actual: Float32Array, expected: number[]) =>
+      expected.forEach((value, index) => expect(actual[index]).toBeCloseTo(value, 3));
+    // Ash and Flame: sparks in its frame light #ff9a3c; the trail is its lightest fill colour #ffe08a,
+    // 35% of the way to white: (255, 234.85, 178.95).
+    const ember = barMaterial(resolveLook("ember", {}, BUILTIN_SOURCES, CLASSIC));
+    close(ember.spark, [1, 154 / 255, 60 / 255]);
+    close(ember.trail, [1, 234.85 / 255, 178.95 / 255]);
+    // Permafrost lists its fill dark last: the lightest is #dff6ff, so the trail is (234.3, 249.25, 255).
+    const frost = barMaterial(resolveLook("frost", {}, BUILTIN_SOURCES, CLASSIC));
+    close(frost.trail, [234.3 / 255, 249.25 / 255, 1]);
+    // A colour the effect states wins.
+    const own = resolveLook("ember", {}, BUILTIN_SOURCES, CLASSIC);
+    const stated = {
+      ...own,
+      hpEffect: {
+        ...own.hpEffect,
+        params: { ...own.hpEffect.params, trailColor: "#00ff00", sparkColor: "#0000ff" },
+      },
+    };
+    expect([...barMaterial(stated).trail]).toEqual([0, 1, 0]);
+    expect([...barMaterial(stated).spark]).toEqual([0, 0, 1]);
   });
 
   it("carries the portrait frame: its shape, colour, width and glow", () => {
@@ -78,12 +100,30 @@ describe("barMaterial — a look as shader uniforms", () => {
     expect(FILL_MOTES[of("celestial").motes]).toBe("sparkles");
   });
 
-  it("tells the shader which hit effects the look plays: sparks, the white flash, big cracks", () => {
+  it("tells the shader which hit effects the look plays: sparks, the white flash, big cracks, the heal wave", () => {
     const of = (id: string) => barMaterial(resolveLook(id, {}, BUILTIN_SOURCES, CLASSIC));
-    expect([...of("classic").hit]).toEqual([1, 1, 1]);
-    // Parchment and Ink: no sparks, no flash, cracks kept; Minimal: none of them.
-    expect([...of("parchment").hit]).toEqual([0, 0, 1]);
-    expect([...of("minimal").hit]).toEqual([0, 1, 0]);
+    expect([...of("classic").hit]).toEqual([1, 1, 1, 0]);
+    // "Quiet" (Parchment and Ink): none of them; "Snappy" (Neon): no big cracks; "Brittle" (Permafrost): the wave.
+    expect([...of("parchment").hit]).toEqual([0, 0, 0, 0]);
+    expect([...of("neon").hit]).toEqual([1, 1, 0, 0]);
+    expect([...of("frost").hit]).toEqual([1, 1, 1, 1]);
+  });
+
+  it("tells the renderer the trail's timing, the low HP signal and the phase refill and palette blend", () => {
+    const of = (id: string) => barMaterial(resolveLook(id, {}, BUILTIN_SOURCES, CLASSIC));
+    // Classic: the trail waits 550 ms and follows in 600 ms, gathering a series of hits; low HP pulses.
+    expect(of("classic")).toMatchObject({ trailDelay: 550, trailSpeed: 600, trailAccumulate: 1, lowMode: 1 });
+    // "Snappy" (Neon): 150 ms, 300 ms, one hit at a time, a flicker; "Chronicle" refills on a phase change.
+    expect(of("neon")).toMatchObject({
+      trailDelay: 150,
+      trailSpeed: 300,
+      trailAccumulate: 0,
+      lowMode: 2,
+      phaseRefill: 1,
+    });
+    // "Quiet" (Minimal): no low HP signal; "Majestic" (Royal Court) blends the palette.
+    expect(of("minimal").lowMode).toBe(0);
+    expect(of("royal")).toMatchObject({ phaseRefill: 1, phasePalette: 1 });
   });
 
   it("tells the shader how a phase change plays: the bright flash and the cracks", () => {

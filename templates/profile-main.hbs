@@ -2,8 +2,10 @@
   <div class="bb5e-card">
     <fieldset class="bb5e-kind">
       <legend>{{localize "BB5E.Profile.Kind.Label"}}</legend>
-      <label><input type="radio" name="kind" value="boss" {{#unless isElite}}checked{{/unless}}> {{localize "BB5E.Profile.Kind.Boss"}}</label>
-      <label><input type="radio" name="kind" value="elite" {{#if isElite}}checked{{/if}}> {{localize "BB5E.Profile.Kind.Elite"}}</label>
+      <div class="bb5e-segs">
+        <label><input type="radio" name="kind" value="boss" {{#unless isElite}}checked{{/unless}}> {{localize "BB5E.Profile.Kind.Boss"}}</label>
+        <label><input type="radio" name="kind" value="elite" {{#if isElite}}checked{{/if}}> {{localize "BB5E.Profile.Kind.Elite"}}</label>
+      </div>
     </fieldset>
     <div class="form-group">
       <label for="{{partId}}-playerName">{{localize "BB5E.Profile.PlayerName.Label"}}</label>
@@ -63,16 +65,6 @@
         </div>
         <p class="hint">{{localize "BB5E.Phases.PlayerTicks.Hint"}}</p>
       </div>
-      <div class="form-group">
-        <label>{{localize "BB5E.Workshop.Look"}}</label>
-        <div class="form-fields">
-          <span class="bb5e-look-name">{{lookName}}</span>
-          <button type="button" data-action="openWorkshop" {{#unless hasProfile}}disabled{{/unless}}>
-            <i class="fa-solid fa-wand-magic-sparkles" inert></i> {{localize "BB5E.Workshop.Open"}}
-          </button>
-        </div>
-        <p class="hint">{{localize "BB5E.Workshop.Hint"}}</p>
-      </div>
     </div>
     <div data-kind-group="elite" {{#unless isElite}}hidden{{/unless}}>
       <div class="form-group">
@@ -85,7 +77,7 @@
         <p class="hint">{{localize "BB5E.Profile.Rank.Hint"}}</p>
         <p class="bb5e-field-error" data-error-for="rank" role="alert" hidden></p>
       </div>
-      <div class="bb5e-preview" aria-label="{{localize "BB5E.Profile.Preview"}}"></div>
+      <div class="bb5e-preview bb5e-card-preview" aria-label="{{localize "BB5E.Profile.Preview"}}"></div>
     </div>
   </div>
 </section>

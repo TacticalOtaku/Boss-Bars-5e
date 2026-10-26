@@ -15,18 +15,32 @@ import {
   type ProfileInput,
   type ProfileKind,
 } from "../core/profile";
-import { CATEGORIES, isCategory, type Category } from "../core/look/schema";
+import { CATEGORIES, isCategory, LIBRARY_VERSION, readLibrary, type Category } from "../core/look/schema";
+import { resolveLook } from "../core/look/resolve";
+import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
-import { QUOTE_LIMITS, speak, type Quote, type QuoteTrigger } from "../core/quotes";
+import { autoDuration, QUOTE_LIMITS, speak, type Quote, type QuoteTrigger } from "../core/quotes";
 import { readMusicSource, type MusicSource } from "../core/music";
 import { isRecord } from "../core/schema";
 import { phaseViewOf } from "../core/view";
 import { CATEGORY_LABELS } from "./look-labels";
 import { rankOf } from "../core/ranks";
 import { currentRanks } from "../foundry/settings";
-import { BUILTIN_LOOKS } from "../core/look/builtin";
-import { currentLibrary, lookFor } from "../foundry/library";
-import { confirmDiscard, displayName, previewBoss, previewCard, sourcesOf, styleFor } from "./shared";
+import { BUILTIN_IDS, CLASSIC } from "../core/look/builtin";
+import { currentLibrary } from "../foundry/library";
+import {
+  confirmDiscard,
+  displayName,
+  freshPreview,
+  playPreview,
+  previewBoss,
+  previewCard,
+  previewSteps,
+  sourcesOf,
+  styleFor,
+  type PreviewState,
+  type PreviewStep,
+} from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
@@ -278,22 +292,21 @@ function newPhase(phases: Phase[]): Phase {
   return { id, label: "", trigger: { type: "hp", below }, enter: {} };
 }
 
-/** Boss or elite profile: "Main", "Mini-bars", "Statuses", "Phases", "Auto-show". It always edits the world actor. */
+/**
+ * Boss or elite profile, a section of the hub (stage 13): "Main", "Look" (the former workshop), "Mini-bars",
+ * "Statuses", "Phases", "Quotes", "Music", "Auto-show". It always edits the world actor.
+ */
 class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
-    classes: ["bb5e-app"],
+    classes: ["bb5e-app", "bb5e-hosted", "standard-form"],
     tag: "form",
-    window: {
-      title: "BB5E.Profile.Title",
-      icon: "fa-solid fa-skull",
-      contentClasses: ["standard-form"],
-      resizable: true,
-    },
-    position: { width: 560, height: "auto" },
+    window: { frame: false, positioned: false },
     form: { handler: ProfileEditor.#onSubmit, closeOnSubmit: false, submitOnChange: false },
     actions: {
       removeProfile: ProfileEditor.#onRemove,
-      openWorkshop: ProfileEditor.#onWorkshop,
+      pickLook: ProfileEditor.#onPickLook,
+      lookPlay: ProfileEditor.#onLookPlay,
+      copyLook: ProfileEditor.#onCopyLook,
       addBar: ProfileEditor.#edit((input) =>
         input.miniBars.push({
           id: foundry.utils.randomID(),
@@ -343,6 +356,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static PARTS = {
     tabs: { template: "templates/generic/tab-navigation.hbs" },
     main: { template: `${TEMPLATES}/profile-main.hbs` },
+    look: { template: `${TEMPLATES}/profile-look.hbs` },
     miniBars: { template: `${TEMPLATES}/profile-minibars.hbs` },
     statuses: { template: `${TEMPLATES}/profile-statuses.hbs` },
     phases: { template: `${TEMPLATES}/profile-phases.hbs` },
@@ -355,13 +369,54 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static TABS = {
     sheet: {
       tabs: [
-        { id: "main", icon: "fa-solid fa-id-card", label: "BB5E.Profile.Tab.Main" },
-        { id: "miniBars", icon: "fa-solid fa-bars-progress", label: "BB5E.Profile.Tab.MiniBars" },
-        { id: "statuses", icon: "fa-solid fa-circle-half-stroke", label: "BB5E.Profile.Tab.Statuses" },
-        { id: "phases", icon: "fa-solid fa-layer-group", label: "BB5E.Profile.Tab.Phases" },
-        { id: "quotes", icon: "fa-solid fa-comment", label: "BB5E.Profile.Tab.Quotes" },
-        { id: "music", icon: "fa-solid fa-music", label: "BB5E.Profile.Tab.Music" },
-        { id: "autoShow", icon: "fa-solid fa-eye", label: "BB5E.Profile.Tab.AutoShow" },
+        {
+          id: "main",
+          icon: "fa-solid fa-id-card",
+          label: "BB5E.Profile.Tab.Main",
+          tooltip: "BB5E.Profile.Tab.Main",
+        },
+        {
+          id: "look",
+          icon: "fa-solid fa-wand-magic-sparkles",
+          label: "BB5E.Profile.Tab.Look",
+          tooltip: "BB5E.Profile.Tab.Look",
+        },
+        {
+          id: "miniBars",
+          icon: "fa-solid fa-bars-progress",
+          label: "BB5E.Profile.Tab.MiniBars",
+          tooltip: "BB5E.Profile.Tab.MiniBars",
+        },
+        {
+          id: "statuses",
+          icon: "fa-solid fa-circle-half-stroke",
+          label: "BB5E.Profile.Tab.Statuses",
+          tooltip: "BB5E.Profile.Tab.Statuses",
+        },
+        {
+          id: "phases",
+          icon: "fa-solid fa-layer-group",
+          label: "BB5E.Profile.Tab.Phases",
+          tooltip: "BB5E.Profile.Tab.Phases",
+        },
+        {
+          id: "quotes",
+          icon: "fa-solid fa-comment",
+          label: "BB5E.Profile.Tab.Quotes",
+          tooltip: "BB5E.Profile.Tab.Quotes",
+        },
+        {
+          id: "music",
+          icon: "fa-solid fa-music",
+          label: "BB5E.Profile.Tab.Music",
+          tooltip: "BB5E.Profile.Tab.Music",
+        },
+        {
+          id: "autoShow",
+          icon: "fa-solid fa-eye",
+          label: "BB5E.Profile.Tab.AutoShow",
+          tooltip: "BB5E.Profile.Tab.AutoShow",
+        },
       ],
       initial: "main",
     },
@@ -373,13 +428,31 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Unsaved form state, kept across the re-render that adding or removing a row needs. */
   #draft: ProfileInput | null = null;
 
-  constructor(actor: ActorDocument) {
+  /** The "Look" tab: the boss's look and overrides (saved with the profile), and its preview. */
+  #look: string | null = null;
+  #overrides: Partial<Record<Category, string>> = {};
+  #preview: PreviewState = freshPreview();
+  #phaseAt = 0;
+
+  constructor(
+    readonly slot: HTMLElement,
+    actor: ActorDocument,
+  ) {
     super({ id: `bb5e-profile-${actor.id}` });
     this.actor = actor;
+    this.#readLook();
   }
 
-  override get title(): string {
-    return `${game.i18n.localize("BB5E.Profile.Title")}: ${this.actor.name}`;
+  /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
+  override async _insertElement(element: HTMLElement) {
+    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
+  }
+
+  #readLook() {
+    const profile = readProfile(this.actor.flags[MODULE_ID]?.profile);
+    const boss = profile.status === "ok" && profile.value.kind === "boss" ? profile.value : null;
+    this.#look = boss?.look ?? null;
+    this.#overrides = { ...boss?.overrides };
   }
 
   /** Edits the current form state and re-renders with it, keeping unsaved edits. */
@@ -423,7 +496,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       byActor: values.displayMode === "actor",
       ranks: ranks.map((rank) => ({ id: rank.id, name: rank.name, selected: rank.id === values.rank })),
       hasProfile: read.status === "ok",
-      lookName: this.#lookName(read.status === "ok" && read.value.kind === "boss" ? read.value.look : null),
+      look: this.#lookContext(),
       limits: PROFILE_LIMITS,
       miniBars: values.miniBars.map((bar, index) => {
         const { source } = bar;
@@ -458,6 +531,122 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         Array.isArray(values.phases) ? (values.phases as Phase[]) : [],
       ),
     };
+  }
+
+  /** The "Look" tab: the looks to pick from and a preset choice per category ("as in the look" by default). */
+  #lookContext() {
+    const sources = sourcesOf(currentLibrary());
+    const current = this.#look ?? CLASSIC.id;
+    const resolved = resolveLook(this.#look, {}, sources, CLASSIC);
+    return {
+      steps: previewSteps(),
+      looks: sources.looks.map((look) => ({
+        id: look.id,
+        name: displayName(look),
+        builtIn: BUILTIN_IDS.has(look.id),
+        selected: look.id === current,
+      })),
+      rows: CATEGORIES.map((category) => ({
+        category,
+        label: game.i18n.localize(CATEGORY_LABELS[category]),
+        inLook: game.i18n.format("BB5E.Workshop.AsInLook", { name: displayName(resolved[category]) }),
+        options: sources.presets
+          .filter((each) => each.category === category)
+          .map((each) => ({
+            id: each.id,
+            name: displayName(each),
+            selected: this.#overrides[category] === each.id,
+          })),
+      })),
+    };
+  }
+
+  /** The look preview: the chosen look and overrides, with the shown phase's changes on top as on the HUD. */
+  #drawLook() {
+    const host = this.element.querySelector<HTMLElement>(".bb5e-look-preview");
+    if (!host || this.#kind() !== "boss") return;
+    const input = this.#formInput();
+    const changes = phaseChanges(input.phases, this.#phaseAt);
+    previewBoss(
+      host,
+      styleFor(sourcesOf(currentLibrary()), this.#look, { ...this.#overrides, ...changes.overrides }),
+      {
+        ...this.#preview,
+        phase: this.#preview.phase ?? phaseViewOf(input.phases, this.#phaseAt),
+        ticks: input.fillMode === "segments" ? phaseTicks(input.phases, this.#phaseAt) : [],
+        title: changes.title || input.title,
+        img: changes.portrait || input.portrait || this.actor.img,
+      },
+      changes.playerName || input.playerName.trim() || this.actor.name,
+    );
+  }
+
+  static async #onPickLook(this: ProfileEditor, _event: Event, target: HTMLElement) {
+    this.#look = target.dataset.id === CLASSIC.id ? null : (target.dataset.id ?? null);
+    this.#draft = this.#formInput();
+    this.#setDirty(true);
+    await this.render({ parts: ["look"] });
+  }
+
+  /** The play buttons; a phase step walks the profile's own phases when it has some. */
+  static #onLookPlay(this: ProfileEditor, _event: Event, target: HTMLElement) {
+    const step = target.dataset.step;
+    const phases = this.#formInput().phases;
+    if (step === "quote") {
+      this.#preview.quote = this.#sampleQuote();
+      this.#drawLook();
+    } else if (step === "phase" && phases.length > 1) {
+      this.#phaseAt = (this.#phaseAt + 1) % phases.length;
+      this.#preview.phase = null;
+      this.#drawLook();
+    } else {
+      if (step === "appear") this.#phaseAt = 0;
+      playPreview(this.#preview, step as PreviewStep, () => this.#drawLook());
+    }
+  }
+
+  /** A random quote of the profile (or the sample line) over the preview bar. */
+  #sampleQuote(): PreviewState["quote"] {
+    const now = Date.now();
+    const quotes = this.#formInput().quotes;
+    const quote = quotes[Math.floor(Math.random() * quotes.length)];
+    if (!quote?.texts.length) {
+      const text = game.i18n.localize("BB5E.Workshop.SampleQuote");
+      return { key: `sample-${now}`, text, until: now + autoDuration(text) * 1000 };
+    }
+    const context = { fight: "preview", round: null, now, name: this.actor.name, random: Math.random };
+    const { shown } = speak(quote, undefined, context, game.i18n.localize("BB5E.Quotes.SampleAttacker"));
+    return { key: shown.key, text: shown.text, until: now + shown.duration * 1000 };
+  }
+
+  /** The current choice (look plus overrides) becomes an own look in the library, then the profile's look. */
+  static async #onCopyLook(this: ProfileEditor) {
+    const library = readLibrary(game.settings.get(MODULE_ID, "library"), BUILTIN_IDS);
+    if (library.status !== "ok") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
+    const sources = sourcesOf(library.value);
+    const resolved = resolveLook(this.#look, this.#overrides, sources, CLASSIC);
+    const id = foundry.utils.randomID();
+    const name = game.i18n
+      .format("BB5E.Library.CopyName", {
+        name: displayName(sources.looks.find((each) => each.id === resolved.id) ?? CLASSIC),
+      })
+      .slice(0, 80);
+    const presets = Object.fromEntries(CATEGORIES.map((category) => [category, resolved[category].id]));
+    try {
+      await game.settings.set(MODULE_ID, "library", {
+        dataVersion: LIBRARY_VERSION,
+        looks: [...library.value.looks, { id, name, presets }],
+        presets: library.value.presets,
+      });
+    } catch (error) {
+      logger.error("Look copy not saved", error);
+      return ui.notifications.error("BB5E.Error.WriteFailed", { localize: true });
+    }
+    this.#look = id;
+    this.#overrides = {};
+    this.#draft = this.#formInput();
+    this.#setDirty(true);
+    await this.render({ parts: ["look"] });
   }
 
   /** The "Phases" tab: rows with triggers, form actors and entry changes, and the HP scale with its thresholds. */
@@ -568,11 +757,23 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         this.#setDirty(true);
         const target = event.target as HTMLInputElement;
         if (target.name === "kind") this.#syncKind();
+        else if (target.name.startsWith("overrides.")) this.#onOverride(target);
         else if (target.name.endsWith(".source.type")) this.#onSourceChange(target);
         else if (/^(phases|quotes)\.\d+\.trigger$/.test(target.name)) this.#syncTriggers();
         else this.#updatePreview();
       });
     }
+  }
+
+  #onOverride(select: HTMLInputElement) {
+    const category = select.name.slice("overrides.".length);
+    if (!isCategory(category)) return;
+    if (select.value) this.#overrides[category] = select.value;
+    else
+      this.#overrides = Object.fromEntries(
+        Object.entries(this.#overrides).filter(([key]) => key !== category),
+      );
+    this.#drawLook();
   }
 
   #field(name: string): string {
@@ -696,7 +897,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   #updatePreview() {
-    const host = this.element.querySelector<HTMLElement>(".bb5e-preview");
+    this.#drawLook();
+    const host = this.element.querySelector<HTMLElement>(".bb5e-card-preview");
     if (!host || this.#kind() !== "elite") return;
     previewCard(host, {
       label: this.#field("playerName").trim() || this.actor.name,
@@ -759,6 +961,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             music: input.music,
             musicPriority: input.musicPriority,
             musicFade: input.musicFade,
+            look: this.#look,
+            overrides: this.#overrides,
           }
         : { rank: input.rank };
     // Written whole: a merge would keep removed overrides and entries.
@@ -786,22 +990,6 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Removing the profile hides this actor's bars and cards on every scene (the active GM prunes them). */
-  /** The look the boss wears now (overrides aside), as the workshop button shows it. */
-  #lookName(id: string | null): string {
-    const look = [...BUILTIN_LOOKS, ...(currentLibrary()?.looks ?? [])].find(
-      (each) => each.id === lookFor(id).id,
-    );
-    return look ? displayName(look) : "";
-  }
-
-  /** Looks are chosen in their own window (decision C of ticket #16), which writes only look and overrides. */
-  static async #onWorkshop(this: ProfileEditor) {
-    void import("./workshop").then(
-      ({ openWorkshop }) => openWorkshop(this.actor),
-      () => ui.notifications.error("BB5E.Error.WindowFailed", { localize: true }),
-    );
-  }
-
   static async #onRemove(this: ProfileEditor) {
     const confirmed = await DialogV2.confirm({
       window: { title: game.i18n.localize("BB5E.Profile.Remove.Title") },
@@ -814,11 +1002,11 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
-export function openProfileEditor(actor: ActorDocument): void {
+/** The hub's profile of one actor; null (with a warning) when a newer version wrote the profile. */
+export function hostProfileEditor(slot: HTMLElement, actor: ActorDocument): ApplicationV2Instance | null {
   if (readProfile(actor.flags[MODULE_ID]?.profile).status === "newer") {
     ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
-    return;
+    return null;
   }
-  const existing = foundry.applications.instances.get(`bb5e-profile-${actor.id}`);
-  void (existing ?? new ProfileEditor(actor)).render({ force: true });
+  return new ProfileEditor(slot, actor);
 }

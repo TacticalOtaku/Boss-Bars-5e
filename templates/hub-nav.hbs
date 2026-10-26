@@ -1,0 +1,10 @@
+<nav class="bb5e-hub__nav" aria-label="{{localize "BB5E.Hub.Title"}}">
+  <p class="bb5e-lbl">{{localize "BB5E.Hub.Sections"}}</p>
+  {{#each sections}}
+  <button type="button" class="bb5e-hub__section" data-action="section" data-section="{{id}}" aria-pressed="{{#if active}}true{{else}}false{{/if}}">
+    <i class="{{icon}}" inert></i>
+    <span class="bb5e-hub__section-label">{{label}}</span>
+    <span class="bb5e-hub__count">{{count}}</span>
+  </button>
+  {{/each}}
+</nav>

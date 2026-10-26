@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0
+
+- **One window.** The Boss Bars hub replaces the separate windows: "On the scene" (the former Active bosses panel),
+  "Profiles" (every profile with a search; drop an actor or take the selected token to set one up), "Elite ranks" and
+  "Look library". The token controls button, the actor sheet menu, the token HUD, the module settings and the API all
+  open it on the right section. Leaving a section with unsaved edits asks first.
+- The look workshop is now the profile's "Look" tab and is saved with the profile.
+- Every preview plays the look's entrance, hit, heal, phase change and defeat, so presets that differ only in motion
+  can be told apart.
+- Motion, HP effects and statuses come as 7 distinct archetypes each instead of 17 near copies; spark and trail
+  colours follow the look (its frame light and its lightest fill colour) unless a preset sets its own. No two built-in
+  presets of a category are the same.
+- Effect settings that the shader ignored now show: trail delay, speed and gathering, scale by damage, the heal wave,
+  a low HP pulse or flicker, the phase refill and palette blend.
+
 ## 1.1.1
 
 - Fixed: opening "Looks and presets" (or the first bar of a session) froze Foundry for seconds, up to a minute on

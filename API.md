@@ -36,8 +36,8 @@ saved the change, so another GM can call them too; they fail if no GM is online.
 | `setCounter(instance, miniBarId, value)` | Sets a counter mini-bar (an integer, clamped to its maximum) |
 | `toggleStatus(instance, statusId, on?)` | Switches a custom status of the boss profile; without `on` it flips |
 | `getActive(sceneId?)` | What this client's HUD shows on the viewed scene (or `sceneId`), see below. Synchronous, read only, also for players |
-| `openEditor(actor)` | Opens the Boss Bars profile of an actor |
-| `openPanel()` | Opens the "Active bosses" panel |
+| `openEditor(actor)` | Opens the hub on the Boss Bars profile of an actor (a new one if it has none) |
+| `openPanel()` | Opens the hub on "On the scene" |
 | `layoutMode(on?)` | Opens (`true`) or closes (`false`) the layout panel, flips it without an argument; resolves to the new state |
 
 Ids of phases, quotes, counters and custom statuses are internal: read them from a GM's `getActive()`.

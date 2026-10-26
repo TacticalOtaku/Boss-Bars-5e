@@ -51,15 +51,15 @@ describe("readParams", () => {
 });
 
 describe("built-in catalog", () => {
-  it("has 17 looks with a preset in every styled category, 9 bar and 4 card layouts, all ids distinct", () => {
+  it("has 17 looks, their own font, frame, fill, portrait and mini-bars, 7 archetypes each for motion, HP effects and statuses, 9 bar and 4 card layouts", () => {
     expect(BUILTIN_LOOKS).toHaveLength(17);
     expect(BUILTIN_LOOKS.slice(0, 1).map((look) => look.id)).toEqual(["classic"]);
     expect(BUILTIN_LOOKS.map((look) => look.id)).toEqual(expect.arrayContaining(["frost", "neon"]));
     const count = (category: string) => BUILTIN_PRESETS.filter((each) => each.category === category).length;
-    for (const category of CATEGORIES) {
-      if (category !== "layoutBar" && category !== "layoutCard")
-        expect([category, count(category)]).toEqual([category, 17]);
-    }
+    for (const category of ["font", "frame", "fill", "portrait", "miniBars"])
+      expect([category, count(category)]).toEqual([category, 17]);
+    for (const category of ["motion", "hpEffect", "statuses"])
+      expect([category, count(category)]).toEqual([category, 7]);
     expect([count("layoutBar"), count("layoutCard")]).toEqual([9, 4]);
     for (const look of BUILTIN_LOOKS) {
       for (const category of CATEGORIES) {
@@ -104,6 +104,17 @@ describe("built-in catalog", () => {
       expect([face.file, existsSync(`fonts/${face.file}`)]).toEqual([face.file, true]);
   });
 
+  it("never ships two presets of a category with the same parameters", () => {
+    for (const category of CATEGORIES) {
+      const seen = new Map<string, string>();
+      for (const each of BUILTIN_PRESETS.filter((preset) => preset.category === category)) {
+        const key = JSON.stringify(each.params);
+        expect([category, each.id, seen.get(key)]).toEqual([category, each.id, undefined]);
+        seen.set(key, each.id);
+      }
+    }
+  });
+
   it("Classic RPG is the parameter defaults", () => {
     const classic = resolveLook("classic", {}, BUILTIN_SOURCES, CLASSIC);
     for (const category of CATEGORIES) expect(classic[category].params).toEqual(readParams(category, {}));
@@ -132,7 +143,7 @@ describe("resolveLook", () => {
       "mine-frame",
       "frost-fill",
       "neon-font",
-      "classic-motion",
+      "motion-classic",
     ]);
   });
 
@@ -209,7 +220,8 @@ describe("lookStyle", () => {
     // Russo One has a single face: no bold, never synthetic.
     expect(style.vars["--bb5e-name-weight"]).toBe("400");
     expect(style.statuses.max).toBe(12);
-    expect(style.motion.defeat).toBe("banner");
+    // Neon types its name in ("Chronicle") and fades out on defeat.
+    expect([style.motion.enter, style.motion.defeat]).toEqual(["type", "fade"]);
   });
 
   it("scales a bar and a card by the layout's size: S, M (default), L, XL", () => {

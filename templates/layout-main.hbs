@@ -1,5 +1,5 @@
 <section class="bb5e-layout">
-  <div class="bb5e-layout__layers" role="radiogroup" aria-label="{{localize "BB5E.Layout.Layer.Label"}}">
+  <div class="bb5e-layout__layers bb5e-segs" role="radiogroup" aria-label="{{localize "BB5E.Layout.Layer.Label"}}">
     <label><input type="radio" name="layer" value="world" {{#if worldLayer}}checked{{/if}}> {{localize "BB5E.Layout.Layer.World"}}</label>
     <label><input type="radio" name="layer" value="scene" {{#unless worldLayer}}checked{{/unless}} {{#unless hasScene}}disabled{{/unless}}> {{localize "BB5E.Layout.Layer.Scene"}}</label>
   </div>

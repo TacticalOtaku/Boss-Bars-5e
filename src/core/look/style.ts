@@ -1,5 +1,5 @@
 import { customFamily, FONTS } from "./fonts";
-import { barMaterial, type BarMaterial } from "./material";
+import { barMaterial, hitColors, type BarMaterial } from "./material";
 import type { ResolvedLook } from "./resolve";
 import type { Params } from "./schema";
 
@@ -60,7 +60,7 @@ export function lookStyle(look: ResolvedLook): LookStyle {
   const font = look.font.params;
   const frame = look.frame.params;
   const fill = look.fill.params;
-  const effects = look.hpEffect.params;
+  const effects = { ...look.hpEffect.params, ...hitColors(look) };
   const portrait = look.portrait.params;
   const mini = look.miniBars.params;
   const status = look.statuses.params;

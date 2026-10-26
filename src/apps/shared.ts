@@ -47,7 +47,7 @@ const bars = new WeakMap<HTMLElement, ReturnType<typeof createBossStack>>();
  */
 export function previewCard(
   host: HTMLElement,
-  card: { label: string; img: string; rank: Rank; look?: LookStyle },
+  card: { label: string; img: string; rank: Rank; look?: LookStyle; fraction?: number; defeated?: boolean },
 ): void {
   let column = cards.get(host);
   if (!column) {
@@ -59,8 +59,8 @@ export function previewCard(
     id: "preview",
     label: card.label,
     portrait: { src: card.img, video: isVideoPath(card.img) },
-    fraction: 0.66,
-    defeated: false,
+    fraction: card.fraction ?? 0.66,
+    defeated: card.defeated ?? false,
     muted: false,
     rank: { name: card.rank.name, color: card.rank.color, size: card.rank.size },
     parts: { name: card.rank.parts.name, fill: card.rank.parts.fill },
@@ -93,6 +93,64 @@ export interface PreviewState {
 }
 
 export const freshPreview = (): PreviewState => ({ fraction: 0.74, defeated: false, shown: true });
+
+/** The play buttons under a preview: each plays the look's own effect through the HUD renderer. */
+export const PREVIEW_STEPS = ["appear", "damage", "heal", "phase", "defeat"] as const;
+export type PreviewStep = (typeof PREVIEW_STEPS)[number];
+
+const STEP_LABELS: Record<PreviewStep, string> = {
+  appear: "BB5E.Preview.Appear",
+  damage: "BB5E.Preview.Damage",
+  heal: "BB5E.Preview.Heal",
+  phase: "BB5E.Preview.Phase",
+  defeat: "BB5E.Preview.Defeat",
+};
+
+/** The play buttons for a template: `{ step, label }`. */
+export const previewSteps = () =>
+  PREVIEW_STEPS.map((step) => ({ step, label: game.i18n.localize(STEP_LABELS[step]) }));
+
+let samplePhase = 1;
+
+/**
+ * Plays one step on a preview; `draw` renders the state. "Appear" replays the entry from a fresh bar, defeat plays
+ * the exit and brings the bar back after its banner, a phase step moves to a sample next phase.
+ */
+export function playPreview(state: PreviewState, step: PreviewStep, draw: () => void): void {
+  switch (step) {
+    case "appear":
+      Object.assign(state, freshPreview(), { shown: false });
+      draw();
+      state.shown = true;
+      break;
+    case "damage":
+      state.fraction = state.fraction > 0.35 ? state.fraction - 0.3 : 0.08;
+      break;
+    case "heal":
+      state.fraction = Math.min(1, state.fraction + 0.25);
+      break;
+    case "phase": {
+      samplePhase = (samplePhase % 4) + 1;
+      const numeral = ["I", "II", "III", "IV"][samplePhase - 1] ?? "II";
+      state.phase = {
+        key: `sample-${samplePhase}-${Date.now()}`,
+        label: game.i18n.format("BB5E.Phase.Default", { n: numeral }),
+        numeral,
+      };
+      break;
+    }
+    case "defeat":
+      state.defeated = true;
+      draw();
+      state.shown = false;
+      setTimeout(() => {
+        Object.assign(state, freshPreview());
+        draw();
+      }, 2600);
+      break;
+  }
+  draw();
+}
 
 /**
  * A boss bar drawn by the HUD renderer in an editor, with sample mini-bars and statuses. Effects play: the preview

@@ -13,8 +13,8 @@ Players see how hurt an enemy is, never its HP numbers.
 
 1. Right-click the skull button on a token's HUD (or use **Boss Bars profile** in the actor sheet's ⋮ menu) and set up a
    profile: boss or elite, the name players see, portrait, one bar per token or one per actor.
-2. Click the skull button to show or hide the bar. The **Active bosses** button in the token controls opens the GM
-   panel for the whole scene.
+2. Click the skull button to show or hide the bar. The **Boss Bars** button in the token controls opens the hub: one
+   window with what is on the scene, every profile, the elite ranks and the look library.
 3. Fight. The fill follows HP from the actor's data, whatever changed it.
 
 Only GMs change bars; when several GMs are online, the active GM writes every change.
@@ -23,27 +23,31 @@ Only GMs change bars; when several GMs are online, the active GM writes every ch
 
 - **Boss bars.** Fill with a lingering damage trail, temp HP shield, defeat banner or effect, collapse for players.
   Several bosses stack.
-- **Elite column.** Cards by rank (editor in the module settings: name, colour, icon size, which parts show), "one
+- **The hub.** One GM window for all of it: "On the scene" (show, hide, phases, counters, quotes, layout mode),
+  "Profiles" (search, drop an actor, or take the selected token), "Elite ranks" and "Look library". Leaving a section
+  with unsaved edits asks first.
+- **Elite column.** Cards by rank (name, colour, icon size, which parts show, in the hub's "Elite ranks"), "one
   per token" with numbered names or "one per actor" with ×N, a "+N" limit.
 - **Statuses.** The token's effect icons with tooltips; Midi QOL bookkeeping and DAE duplicates are left out. Hide
-  more by name, or add custom boss statuses switched on from the panel.
+  more by name, or add custom boss statuses switched on from the hub.
 - **Mini-bars.** Up to six under a boss bar or inside a card: temp HP, legendary actions and resistances, item uses,
   any `system.` path, or a manual counter. Each can be hidden from players.
 - **Auto-show.** Show when combat reaches round 1, hide when it ends or when the enemy falls, after a delay.
-- **Layout mode.** From the panel: drag the boss stack and the elite column, with guides, anchors to nine points,
+- **Layout mode.** From the hub's "On the scene": drag the boss stack and the elite column, with guides, anchors to nine points,
   a warning when a block covers Foundry's own UI or leaves the screen, and screen size previews. Saves for the world or for one scene.
 - **Looks.** 17 built-in looks (frame, fill, name, effects, statuses, extras, motion, layout), 9 bar layouts and
   4 card layouts with sizes S to XL, 30 fonts with Latin and Cyrillic. Boss bars, elite card plates and portrait
   frames are drawn by one WebGL2 shader: lit materials (liquid, energy, flame, ice, void, gradient), carved patterns,
   drifting motes, and hit, heal, phase, defeat and appear effects that spill past the bar. Without WebGL2 they fall
-  back to CSS. The library (module settings) copies, edits, imports and exports looks and presets; the workshop in
-  the profile overrides single categories with a live preview.
+  back to CSS. Motion, HP effects and statuses come as a few distinct archetypes that fit every look. The look
+  library copies, edits, imports and exports looks and presets; the profile's "Look" tab picks a look and overrides
+  single categories. Every preview plays the look's entrance, hit, heal, phase change and defeat.
 - **Phases.** Up to six: start of the fight, below an HP threshold, a form (the bar moves to another actor's token)
   or by hand. Each can change the name, title, portrait, look and music, with a phase change effect. The bar shows
   all HP with threshold ticks, or refills per phase.
 - **Quotes.** Lines over the bar on eleven triggers: shown, phase, HP below, a big hit, healed, its turn, a status,
   a critical hit, a miss, defeat, or only by hand. Pools, order, cooldowns, once per fight, priorities; the GM can
-  also type a line in the panel.
+  also type a line in the hub.
 - **Music.** A track or playlist per boss and per phase: what plays fades out and resumes after the fight.
 - **Reduced motion.** `prefers-reduced-motion` and Foundry's low performance mode turn off shaking, particles and
   moving fills.

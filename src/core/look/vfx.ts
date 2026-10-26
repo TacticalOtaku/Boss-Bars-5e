@@ -12,6 +12,8 @@ export interface VfxEvent {
   x: number;
   /** Past the look's big-hit threshold: shards and a crack, played longer. */
   big?: boolean;
+  /** The look's "scale by damage": false plays every hit and heal at full strength. */
+  scale?: boolean;
 }
 
 /** One running effect: `t` is its progress 0–1, `strength` 0–1. */
@@ -40,9 +42,9 @@ const DURATION: Record<VfxKind | "bigDamage", number> = {
   appear: 1200,
 };
 
-/** HP changes scale with their share (a third of the bar is full strength); the others always play fully. */
+/** HP changes scale with their share (a third of the bar is full strength) unless the look says not to. */
 const strengthOf = (event: VfxEvent) =>
-  event.kind === "damage" || event.kind === "heal" ? effectStrength(event.share, true) : 1;
+  event.kind === "damage" || event.kind === "heal" ? effectStrength(event.share, event.scale ?? true) : 1;
 
 /** The effects running at `now`, oldest first; finished ones are left out. */
 export function vfxAt(events: readonly VfxEvent[], now: number, options: { reduced: boolean }): VfxState[] {

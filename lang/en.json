@@ -8,7 +8,7 @@
     },
     "Phase": {
       "Default": "Phase {n}",
-      "FormWaiting": "{name}: the next form has no token on this scene. Select one and use “Bind selected token” in Active bosses."
+      "FormWaiting": "{name}: the next form has no token on this scene. Select one and use “Bind selected token” in the hub, “On the scene”."
     },
     "Hud": {
       "Setup": "Set up a Boss Bars profile",
@@ -33,7 +33,8 @@
         "Phases": "Phases",
         "Quotes": "Quotes",
         "Music": "Music",
-        "AutoShow": "Auto-show"
+        "AutoShow": "Auto-show",
+        "Look": "Look"
       },
       "Kind": {
         "Label": "Kind",
@@ -70,7 +71,9 @@
         "Button": "Remove profile",
         "Title": "Remove the profile",
         "Body": "The actor stops being a boss or elite, and its bars and cards are hidden on every scene. Remove the profile?"
-      }
+      },
+      "LookHint": "The look and overrides are saved with the profile. A preset is edited in the look library.",
+      "EliteLook": "An elite wears the look of its rank: set it in \"Elite ranks\"."
     },
     "Ranks": {
       "Title": "Elite ranks",
@@ -101,7 +104,6 @@
       "Look": "Look"
     },
     "Panel": {
-      "Title": "Active bosses",
       "Bosses": "Bosses",
       "Elites": "Elites",
       "Show": "Show",
@@ -168,7 +170,7 @@
       "SampleAttacker": "Tarn"
     },
     "Phases": {
-      "Hint": "Up to 6 phases. The first is the start of the fight; later ones begin below an HP threshold, as a form (the bar moves onto another actor's token) or by hand from Active bosses. Thresholds only go forward.",
+      "Hint": "Up to 6 phases. The first is the start of the fight; later ones begin below an HP threshold, as a form (the bar moves onto another actor's token) or by hand from the hub, “On the scene”. Thresholds only go forward.",
       "Scale": "HP scale with the phase thresholds",
       "Label": "Phase label",
       "FirstPlaceholder": "Label (empty: none for the first phase)",
@@ -321,7 +323,7 @@
       "HideNames": "Hide effects by name",
       "HideNamesHint": "One name per line.",
       "Custom": "Custom statuses",
-      "CustomHint": "Switched on per boss from the Active bosses panel.",
+      "CustomHint": "Switched on per boss in the hub, “On the scene”.",
       "Name": "Name",
       "Icon": "Icon",
       "Description": "Description (up to 200 characters)",
@@ -382,6 +384,33 @@
         "Portrait": "Portrait style",
         "MiniBars": "Mini-bar style",
         "Statuses": "Status style"
+      },
+      "Motion": {
+        "Classic": "Classic",
+        "Swift": "Swift",
+        "Majestic": "Majestic",
+        "Smoulder": "Smouldering",
+        "Haunting": "Haunting",
+        "Chronicle": "Chronicle",
+        "Quiet": "Quiet"
+      },
+      "Hit": {
+        "Classic": "Classic",
+        "Heavy": "Heavy blows",
+        "Brittle": "Brittle",
+        "Snappy": "Snappy",
+        "Eerie": "Eerie",
+        "Serene": "Serene",
+        "Quiet": "Quiet"
+      },
+      "Status": {
+        "Classic": "Classic plates",
+        "Round": "Round",
+        "Orbs": "Orbs",
+        "Diamond": "Diamonds",
+        "Grid": "Rune grid",
+        "Plain": "Plain",
+        "Bare": "Bare"
       }
     },
     "Library": {
@@ -414,24 +443,12 @@
       "Imported": "Imported: {looks} look(s), {presets} preset(s). Save to keep them."
     },
     "Workshop": {
-      "Title": "Look workshop",
-      "Open": "Workshop →",
-      "Hint": "Pick the look and override single categories, with a live preview.",
       "Look": "Look",
       "Overrides": "Override categories",
       "AsInLook": "As in the look ({name})",
-      "Console": "Test console",
-      "Heal": "Heal",
-      "NextPhase": "Next phase",
       "Quote": "Quote",
       "SampleQuote": "Ash remembers your names…",
-      "Defeat": "Defeat",
-      "Reset": "Reset",
-      "CopyLook": "Copy look",
-      "Apply": "Apply to profile",
-      "NotBoss": "Save a boss profile first.",
-      "DamageSmall": "Damage 10%",
-      "DamageLarge": "Damage 30%"
+      "CopyLook": "Copy look"
     },
     "Param": {
       "Portrait": "Portrait",
@@ -588,6 +605,31 @@
       "Embers": "Rising embers",
       "Sparkles": "Twinkling sparkles",
       "Ink": "Ink on paper"
+    },
+    "Preview": {
+      "Play": "Play an effect",
+      "Appear": "Appear",
+      "Damage": "Hit",
+      "Heal": "Heal",
+      "Phase": "Phase",
+      "Defeat": "Defeat"
+    },
+    "Hub": {
+      "Title": "Boss Bars",
+      "Scene": "On the scene",
+      "Profiles": "Profiles",
+      "Ranks": "Elite ranks",
+      "Library": "Look library",
+      "PickProfile": "Pick a profile on the left, drop an actor from the sidebar, or select a token and press \"Selected token\".",
+      "FromToken": "Selected token",
+      "NoToken": "Select a token on the scene first.",
+      "Newer": "From a newer version (read only)",
+      "NoProfiles": "No profiles yet.",
+      "DropHint": "Drop an actor here to set up its profile.",
+      "WorldActorsOnly": "Only actors of this world can have a profile.",
+      "Sections": "Sections",
+      "OnStage": "on stage",
+      "OnStageHint": "Shown on the viewed scene"
     }
   }
 }

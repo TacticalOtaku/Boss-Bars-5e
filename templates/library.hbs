@@ -34,6 +34,9 @@
       <div class="bb5e-library__detail">
         <div class="bb5e-preview bb5e-library__boss"></div>
         <div class="bb5e-preview bb5e-library__card"></div>
+        <div class="bb5e-library__play" role="group" aria-label="{{localize "BB5E.Preview.Play"}}">
+          {{#each steps}}<button type="button" data-action="play" data-step="{{step}}">{{label}}</button>{{/each}}
+        </div>
         <div class="bb5e-library__actions">
           <button type="button" data-action="copy"><i class="fa-solid fa-copy" inert></i> {{localize "BB5E.Library.Copy"}}</button>
           {{#if detail.own}}

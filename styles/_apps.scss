@@ -1,131 +1,917 @@
-// GM windows in the look of the AIM sheet (values taken over from its tokens, no Tactile files or fonts).
-// Tokens sit on the window root; the theme follows Foundry's application theme.
+// GM windows in the language of the AIM character sheet (design/character-sheet/mock.html in that repo): warm
+// night surfaces or parchment, a brass accent, Palatino headings, 10 px controls with a hairline, rows that light up
+// with an accent edge, tabs with an underline, switches for on/off. Tokens sit on the window root; the theme
+// follows Foundry's interface theme (night for dark, parchment for light).
 
 .bb5e-app {
-  --bb5e-app-bg: #e7e8eb;
-  --bb5e-app-surface: #f3f3f5;
-  --bb5e-app-sunken: #d9dbdf;
-  --bb5e-app-ink: #23262e;
-  --bb5e-app-muted: #626876;
-  --bb5e-app-line: rgb(35 38 46 / 9%);
-  --bb5e-app-accent: oklch(73% 0.13 45deg);
-  --bb5e-app-accent-text: oklch(50% 0.14 45deg);
+  --bb5e-app-s0: #f3eee3;
+  --bb5e-app-s1: #ebe4d6;
+  --bb5e-app-s2: #e2d9c7;
+  --bb5e-app-s3: #d6cbb5;
+  --bb5e-app-line: rgb(60 40 10 / 10%);
+  --bb5e-app-line-strong: rgb(60 40 10 / 20%);
+  --bb5e-app-text: #2a2419;
+  --bb5e-app-text-2: #6a5e4b;
+  --bb5e-app-text-3: #988b75;
+  --bb5e-app-accent: #9a6420;
+  --bb5e-app-accent-ink: #fff8ec;
+  --bb5e-app-accent-soft: color-mix(in oklab, var(--bb5e-app-accent) 16%, transparent);
+  --bb5e-app-accent-line: color-mix(in oklab, var(--bb5e-app-accent) 45%, transparent);
   --bb5e-app-danger: #c2363f;
-  --bb5e-app-raise: inset 0 1px 0 rgb(255 255 255 / 85%), 0 10px 24px -12px rgb(38 44 60 / 45%);
-  --bb5e-app-press: inset 0 2px 5px rgb(38 44 60 / 18%), inset 0 -1px 0 rgb(255 255 255 / 70%);
+  --bb5e-app-display: "Palatino Linotype", "Book Antiqua", palatino, georgia, serif;
+  --bb5e-app-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --bb5e-app-num: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --bb5e-app-r-sm: 6px;
+  --bb5e-app-r-md: 10px;
+  --bb5e-app-r-lg: 14px;
+  --bb5e-app-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --bb5e-app-settle: cubic-bezier(0.22, 1, 0.36, 1);
 
-  min-width: 400px;
-  border: 0;
-  border-radius: 22px;
-  background: var(--bb5e-app-bg);
-  color: var(--bb5e-app-ink);
-  box-shadow: 0 30px 70px -28px rgb(10 12 18 / 75%);
-
-  .window-header {
-    border: 0;
-    background: none;
-    color: var(--bb5e-app-ink);
-  }
-
-  .window-title {
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    text-transform: uppercase;
-  }
-
-  .window-content {
-    gap: 12px;
-    padding: 0 14px 14px;
-    background: none;
-    color: var(--bb5e-app-ink);
-  }
-
-  .tabs {
-    padding: 4px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--bb5e-app-sunken);
-    box-shadow: var(--bb5e-app-press);
-  }
-
-  .tabs > a,
-  .tabs > button {
-    border-radius: 999px;
-  }
-
-  .tabs > .active {
-    background: var(--bb5e-app-surface);
-    box-shadow: var(--bb5e-app-raise);
-    text-shadow: none;
-  }
-
-  .hint {
-    color: var(--bb5e-app-muted);
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--bb5e-app-accent);
-    outline-offset: 2px;
-  }
+  color: var(--bb5e-app-text);
+  font: 13px/1.4 var(--bb5e-app-ui);
+  color-scheme: light;
 }
 
 .theme-dark .bb5e-app,
 .bb5e-app.theme-dark {
-  --bb5e-app-bg: #262d40;
-  --bb5e-app-surface: #2f3750;
-  --bb5e-app-sunken: #1d2333;
-  --bb5e-app-ink: #e7eaf3;
-  --bb5e-app-muted: #a0a8bd;
-  --bb5e-app-line: rgb(220 228 255 / 8%);
-  --bb5e-app-accent: oklch(78% 0.13 45deg);
-  --bb5e-app-accent-text: oklch(84% 0.12 45deg);
-  --bb5e-app-danger: #ff7a82;
-  --bb5e-app-raise: inset 0 1px 0 rgb(255 255 255 / 8%), 0 12px 26px -12px rgb(0 0 0 / 70%);
-  --bb5e-app-press: inset 0 2px 6px rgb(0 0 0 / 45%), inset 0 -1px 0 rgb(255 255 255 / 5%);
+  --bb5e-app-s0: #11131a;
+  --bb5e-app-s1: #161922;
+  --bb5e-app-s2: #1d212c;
+  --bb5e-app-s3: #262b38;
+  --bb5e-app-line: rgb(255 255 255 / 7%);
+  --bb5e-app-line-strong: rgb(255 255 255 / 14%);
+  --bb5e-app-text: #ece6da;
+  --bb5e-app-text-2: #aaa499;
+  --bb5e-app-text-3: #6e6a63;
+  --bb5e-app-accent: #d4a55a;
+  --bb5e-app-accent-ink: #1b1206;
+  --bb5e-app-danger: #e0564f;
+
+  color-scheme: dark;
 }
 
-.bb5e-card {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--bb5e-app-surface);
-  box-shadow: var(--bb5e-app-raise);
+// Foundry's own control styles leak into windows: zero specificity, so everything below wins.
+:where(.bb5e-app) :where(button, input, select, textarea) {
+  margin: 0;
+  color: inherit;
+}
+
+// Buttons that are Font Awesome icons themselves (header controls, the file picker) keep the icon font.
+:where(.bb5e-app) :where(button, input, select, textarea):not(:where([class*="fa-"])) {
+  font: inherit;
+}
+
+:where(.bb5e-app) :where(button) {
+  min-height: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  line-height: normal;
+}
+
+.bb5e-app :focus-visible {
+  outline: 2px solid var(--bb5e-app-accent);
+  outline-offset: 2px;
+}
+
+// Slim rounded thumbs on a clear track, accent while hovered or dragged.
+.bb5e-app ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.bb5e-app ::-webkit-scrollbar-track,
+.bb5e-app ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.bb5e-app ::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background: var(--bb5e-app-line-strong) padding-box;
+}
+
+.bb5e-app ::-webkit-scrollbar-thumb:hover {
+  border-width: 2px;
+  background: var(--bb5e-app-accent-line) padding-box;
+}
+
+.bb5e-app ::-webkit-scrollbar-thumb:active {
+  border-width: 2px;
+  background: var(--bb5e-app-accent) padding-box;
+}
+
+// ---- Framed GM windows (the hub, the layout panel); the hub's sections have no frame ----
+
+.bb5e-app.bb5e-hub {
+  min-width: 720px;
+}
+
+.bb5e-app:not(.bb5e-hosted) {
+  overflow: hidden;
+  border: 1px solid var(--bb5e-app-line-strong);
+  border-radius: 20px;
+  background: var(--bb5e-app-s0);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 55%);
+
+  .window-header {
+    gap: 10px;
+    padding: 12px 12px 10px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--bb5e-app-line);
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--bb5e-app-accent) 7%, var(--bb5e-app-s0)),
+      var(--bb5e-app-s0)
+    );
+    color: var(--bb5e-app-text);
+  }
+
+  .window-icon {
+    color: var(--bb5e-app-accent);
+  }
+
+  .window-title {
+    color: var(--bb5e-app-text);
+    font: 600 17px/1.1 var(--bb5e-app-display);
+    letter-spacing: 0.01em;
+  }
+
+  .header-control {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: var(--bb5e-app-r-md);
+    background: none;
+    color: var(--bb5e-app-text-2);
+    transition:
+      background 140ms,
+      color 140ms,
+      transform 140ms var(--bb5e-app-snap);
+
+    &:hover {
+      background: var(--bb5e-app-s2);
+      color: var(--bb5e-app-text);
+    }
+
+    &:active {
+      transform: scale(0.92);
+    }
+  }
+
+  .window-content {
+    gap: 12px;
+    padding: 14px 16px;
+    background: none;
+    color: var(--bb5e-app-text);
+  }
+}
+
+.bb5e-app.bb5e-hub .window-content {
+  display: grid;
+  grid-template-columns: 210px 250px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.bb5e-app.bb5e-hub:not([data-section="profiles"]) .window-content {
+  grid-template-columns: 210px minmax(0, 1fr);
+}
+
+// ---- Type: caps dividers with a hairline ----
+
+.bb5e-lbl,
+.bb5e-app legend,
+.bb5e-panel__heading,
+.bb5e-sec {
+  margin: 0;
+  color: var(--bb5e-app-text-3);
+  font: 600 10.5px/1.3 var(--bb5e-app-ui);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bb5e-sec,
+.bb5e-panel__heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 2px 8px;
+  border: 0;
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--bb5e-app-line);
+  }
+}
+
+.bb5e-app .hint {
+  margin: 0;
+  color: var(--bb5e-app-text-3);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+// ---- Controls ----
+
+.bb5e-app button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-md);
+  background: var(--bb5e-app-s2);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 140ms,
+    border-color 140ms,
+    color 140ms,
+    transform 140ms var(--bb5e-app-snap);
+
+  &:hover {
+    border-color: var(--bb5e-app-line-strong);
+    background: var(--bb5e-app-s3);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.96);
+  }
+
+  &[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  i {
+    font-size: 12px;
+  }
+}
+
+.bb5e-app button[type="submit"] {
+  border-color: transparent;
+  background: var(--bb5e-app-accent);
+  color: var(--bb5e-app-accent-ink);
+  font-weight: 600;
+
+  &:hover {
+    background: color-mix(in oklab, var(--bb5e-app-accent) 88%, #fff);
+  }
+}
+
+.bb5e-app :is(.bb5e-footer__remove, .bb5e-rows__remove, .bb5e-ranks__remove),
+.bb5e-quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--bb5e-app-text-2);
+
+  &:hover {
+    background: var(--bb5e-app-s2);
+    color: var(--bb5e-app-text);
+  }
+}
+
+.bb5e-app :is(.bb5e-footer__remove, .bb5e-rows__remove, .bb5e-ranks__remove):hover {
+  color: var(--bb5e-app-danger);
+}
+
+// Fields: the search field's shape, a hairline that turns to the accent on focus.
+.bb5e-app
+  :where(
+    input[type="text"],
+    input[type="search"],
+    input[type="number"],
+    input:not([type]),
+    select,
+    textarea
+  ) {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-md);
+  outline: none;
+  background-color: var(--bb5e-app-s1);
+  box-shadow: none;
+  color: var(--bb5e-app-text);
+  font-size: 13px;
+  transition: border-color 140ms;
+
+  &::placeholder {
+    color: var(--bb5e-app-text-3);
+  }
+
+  &:hover {
+    border-color: var(--bb5e-app-line-strong);
+  }
+
+  &:focus-visible {
+    border-color: var(--bb5e-app-accent-line);
+    outline: none;
+  }
+}
+
+.bb5e-app input[type="number"] {
+  font-family: var(--bb5e-app-num);
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+}
+
+.bb5e-app textarea {
+  height: auto;
+  min-height: 64px;
+  padding: 8px 10px;
+  line-height: 1.4;
+}
+
+.bb5e-app select {
+  padding-right: 26px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--bb5e-app-text-3) 50%),
+    linear-gradient(135deg, var(--bb5e-app-text-3) 50%, transparent 50%);
+  background-repeat: no-repeat;
+  background-position:
+    right 13px center,
+    right 8px center;
+  background-size: 5px 5px;
+  appearance: none;
+  cursor: pointer;
+}
+
+.bb5e-app input[type="color"] {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 3px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-md);
+  background: var(--bb5e-app-s1);
+  cursor: pointer;
+}
+
+// On/off: the sheet's switch.
+.bb5e-app input[type="checkbox"] {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border: 0;
+  border-radius: 99px;
+  background: var(--bb5e-app-s3);
+  appearance: none;
+  cursor: pointer;
+  transition: background 240ms;
+
+  &::before {
+    content: none;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--bb5e-app-text-2);
+    transition:
+      transform 240ms var(--bb5e-app-snap),
+      background 240ms;
+  }
+
+  &:checked {
+    background: var(--bb5e-app-accent);
+  }
+
+  &:checked::after {
+    background: var(--bb5e-app-accent-ink);
+    transform: translateX(14px);
+  }
+
+  &[disabled] {
+    opacity: 0.45;
+  }
+}
+
+.bb5e-app input[type="radio"] {
+  position: relative;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1.5px solid var(--bb5e-app-text-3);
+  border-radius: 50%;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+
+  &:checked {
+    border-color: var(--bb5e-app-accent);
+    box-shadow: inset 0 0 0 3px var(--bb5e-app-s1);
+    background: var(--bb5e-app-accent);
+  }
+}
+
+// Sliders: a recessed track, an accent knob.
+.bb5e-app input[type="range"] {
+  flex: 1;
+  height: 18px;
+  margin: 0;
+  border: 0;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+
+  &::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 6px;
+    background: var(--bb5e-app-s0);
+    box-shadow: inset 0 0 0 1px var(--bb5e-app-line-strong);
+  }
+
+  &::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+    margin-top: -5px;
+    border: 2px solid var(--bb5e-app-s1);
+    border-radius: 50%;
+    background: var(--bb5e-app-accent);
+    box-shadow: 0 0 0 1px var(--bb5e-app-accent-line);
+    appearance: none;
+  }
+}
+
+.bb5e-app range-picker {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  input[type="number"] {
+    flex: none;
+    width: 4.5em;
+    text-align: center;
+  }
+}
+
+.bb5e-app file-picker {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border: 0;
+  background: none;
+  box-shadow: none;
+
+  button {
+    flex: none;
+    width: 32px;
+    padding: 0;
+  }
+}
+
+// ---- Forms: a label column, the fields, a hint under them ----
+
+.bb5e-app .form-group {
+  display: grid;
+  grid-template-columns: minmax(8em, 11em) minmax(0, 1fr);
+  gap: 4px 14px;
+  align-items: center;
+  margin: 0;
+  padding: 6px 0;
+
+  > label {
+    color: var(--bb5e-app-text-2);
+    font-size: 12.5px;
+    line-height: 1.3;
+  }
+
+  .form-fields {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  > .hint,
+  > .bb5e-field-error {
+    grid-column: 2;
+  }
+}
+
+:where(.bb5e-app fieldset) {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  > legend {
+    float: left;
+    width: 100%;
+    padding: 0;
+  }
+
+  > legend + * {
+    clear: both;
+  }
 }
 
 .bb5e-field-error {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--bb5e-app-danger);
-  font-size: var(--font-size-12, 12px);
+  font-size: 12px;
 }
 
+// ---- Tabs: text on a hairline; the active one carries the accent underline ----
+
+.bb5e-app .tabs {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin: 0 -16px;
+  padding: 0 12px;
+  overflow-x: auto;
+  border: 0;
+  border-bottom: 1px solid var(--bb5e-app-line);
+  border-radius: 0;
+  background: var(--bb5e-app-s0);
+  box-shadow: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  > a {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
+    height: 40px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--bb5e-app-text-2);
+    font-size: 13px;
+    text-shadow: none;
+    white-space: nowrap;
+    transition: color 140ms;
+
+    i {
+      display: none;
+    }
+
+    &::after {
+      content: "";
+      position: absolute;
+      right: 10px;
+      bottom: -1px;
+      left: 10px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--bb5e-app-line-strong);
+      transform: scaleX(0);
+      transition: transform 240ms var(--bb5e-app-settle);
+    }
+
+    &:hover {
+      color: var(--bb5e-app-text);
+    }
+
+    &:hover::after {
+      transform: scaleX(1);
+    }
+  }
+
+  > a.active {
+    color: var(--bb5e-app-text);
+
+    &::after {
+      background: var(--bb5e-app-accent);
+      transform: scaleX(1);
+    }
+  }
+}
+
+// ---- Hub: the section rail, the roster, the section ----
+
+.bb5e-hub__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 16px 8px 12px 12px;
+  overflow-y: auto;
+  border-right: 1px solid var(--bb5e-app-line);
+  background: linear-gradient(180deg, var(--bb5e-app-s1), var(--bb5e-app-s0));
+
+  .bb5e-lbl {
+    padding: 0 10px 6px;
+  }
+}
+
+.bb5e-hub__section.bb5e-hub__section {
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--bb5e-app-r-md);
+  background: none;
+  color: var(--bb5e-app-text-2);
+  text-align: start;
+  transform: none;
+
+  i {
+    width: 16px;
+    color: var(--bb5e-app-text-3);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  &:hover {
+    box-shadow: inset 2px 0 0 var(--bb5e-app-accent-line);
+    background: var(--bb5e-app-s2);
+    color: var(--bb5e-app-text);
+  }
+
+  &[aria-pressed="true"] {
+    box-shadow: inset 2px 0 0 var(--bb5e-app-accent);
+    background: var(--bb5e-app-accent-soft);
+    color: var(--bb5e-app-text);
+
+    i {
+      color: var(--bb5e-app-accent);
+    }
+  }
+}
+
+.bb5e-hub__section-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bb5e-hub__count {
+  flex: none;
+  color: var(--bb5e-app-text-3);
+  font: 500 11px var(--bb5e-app-num);
+  font-variant-numeric: tabular-nums;
+}
+
+.bb5e-hub__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 12px 8px 12px 12px;
+  overflow-y: auto;
+  border-right: 1px solid var(--bb5e-app-line);
+  background: var(--bb5e-app-s0);
+
+  > .bb5e-quiet {
+    justify-content: flex-start;
+  }
+}
+
+.bb5e-search {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-md);
+  background: var(--bb5e-app-s1);
+  color: var(--bb5e-app-text-3);
+  transition: border-color 140ms;
+
+  input[type="search"] {
+    flex: 1;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  &:focus-within {
+    border-color: var(--bb5e-app-accent-line);
+  }
+}
+
+.bb5e-roster {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// A roster entry is a sheet row: a tile, a name line, a meta line; the accent edge shows on hover.
+.bb5e-roster__row.bb5e-roster__row {
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--bb5e-app-r-md);
+  background: none;
+  text-align: start;
+  transform: none;
+
+  img {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--bb5e-app-accent-line);
+    border-radius: var(--bb5e-app-r-sm);
+
+    // Portraits are often light art on transparency: a dark avatar well in both themes, as on the sheet.
+    background: radial-gradient(circle at 35% 30%, #4a4458, #1d1a26);
+    object-fit: cover;
+    transition: transform 240ms var(--bb5e-app-snap);
+  }
+
+  &:hover {
+    box-shadow: inset 2px 0 0 var(--bb5e-app-accent-line);
+    background: var(--bb5e-app-s2);
+
+    img {
+      transform: translateY(-1px) scale(1.05);
+    }
+  }
+
+  &[aria-pressed="true"] {
+    box-shadow: inset 2px 0 0 var(--bb5e-app-accent);
+    background: var(--bb5e-app-accent-soft);
+  }
+}
+
+.bb5e-roster__text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+
+.bb5e-roster__name,
+.bb5e-roster__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bb5e-roster__name {
+  font-weight: 500;
+}
+
+.bb5e-roster__sub {
+  color: var(--bb5e-app-text-3);
+  font-size: 11.5px;
+}
+
+.bb5e-roster__newer {
+  padding: 6px 10px;
+  color: var(--bb5e-app-text-3);
+}
+
+.bb5e-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--bb5e-app-accent-soft);
+  color: var(--bb5e-app-accent);
+  font-size: 10.5px;
+}
+
+.bb5e-hub__drop {
+  margin: 8px 0 0;
+  padding: 12px;
+  border: 1px dashed var(--bb5e-app-line-strong);
+  border-radius: var(--bb5e-app-r-lg);
+  color: var(--bb5e-app-text-3);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.bb5e-hub__slot {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bb5e-hub__empty {
+  align-self: center;
+  max-width: 28em;
+  margin: 0 auto;
+  color: var(--bb5e-app-text-3);
+  text-align: center;
+}
+
+.bb5e-app.bb5e-hosted {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 16px;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--bb5e-app-s0);
+  box-shadow: none;
+}
+
+// Sections without tabs start under a little air.
+.bb5e-app.bb5e-hosted > :first-child:not(.tabs) {
+  margin-top: 14px;
+}
+
+// A group is a sheet section: a hairline box on the first surface.
+.bb5e-card {
+  margin: 0 0 12px;
+  padding: 8px 14px 10px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-lg);
+  background: var(--bb5e-app-s1);
+}
+
+.bb5e-app .tab {
+  padding-top: 12px;
+}
+
+// The section's save bar stays in view while its form scrolls.
 .bb5e-footer {
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
+}
 
-  button {
-    flex: 1;
-  }
+.bb5e-hosted > .bb5e-footer button {
+  flex: 0 0 auto;
+}
+
+.bb5e-hosted > .bb5e-footer button[type="submit"] {
+  min-width: 160px;
+}
+
+.bb5e-hosted > .bb5e-footer {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  margin: auto -16px 0;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--bb5e-app-line);
+  background: var(--bb5e-app-s0);
 }
 
 .bb5e-footer__dirty {
   flex: none;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--bb5e-app-accent);
-  color: #23262e;
-  font-size: var(--font-size-11, 11px);
-  font-weight: 600;
-  text-transform: uppercase;
+  margin-right: auto;
+  color: var(--bb5e-app-accent);
+  font-size: 11.5px;
 }
 
-.bb5e-footer__remove {
-  color: var(--bb5e-app-danger);
-}
+// ---- On the scene ----
 
-// Active bosses panel.
 .bb5e-panel__list {
   display: grid;
-  gap: 6px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -134,48 +920,62 @@
 .bb5e-panel__row {
   display: grid;
   gap: 6px;
-  padding: 6px 8px;
-  border-radius: 9px;
-  background: var(--bb5e-app-surface);
-  box-shadow: var(--bb5e-app-raise);
+  padding: 4px 8px;
+  border-radius: var(--bb5e-app-r-md);
+  transition:
+    background 140ms,
+    box-shadow 140ms;
+
+  &:hover {
+    box-shadow: inset 2px 0 0 var(--bb5e-app-accent-line);
+    background: var(--bb5e-app-s2);
+  }
 }
 
 .bb5e-panel__main {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
+  min-height: 36px;
 
   img {
     flex: none;
-    width: 32px;
-    height: 32px;
-    border: 0;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--bb5e-app-accent-line);
+    border-radius: var(--bb5e-app-r-sm);
+
+    // Portraits are often light art on transparency: a dark avatar well in both themes, as on the sheet.
+    background: radial-gradient(circle at 35% 30%, #4a4458, #1d1a26);
     object-fit: cover;
   }
 
   button {
     flex: none;
-    width: auto;
     margin-left: auto;
   }
 }
 
-// Shown rows: manual counters and custom statuses (spec §11).
+// Shown rows: say, counters and custom statuses (spec §11).
 .bb5e-panel__extras {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding-left: 42px;
-  font-size: var(--font-size-12, 12px);
+  align-items: center;
+  padding: 0 0 4px 48px;
+  font-size: 12px;
 
   button {
-    flex: none;
-    width: auto;
-    min-width: 26px;
-    height: 24px;
-    padding: 0 6px;
-    line-height: 1;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+  }
+}
+
+.bb5e-panel__say {
+  input[type="text"],
+  select {
+    flex: 1;
   }
 }
 
@@ -186,16 +986,13 @@
 
   output {
     min-width: 3.5em;
-    font-family: monospace;
+    font-family: var(--bb5e-app-num);
+    font-variant-numeric: tabular-nums;
     text-align: center;
   }
 }
 
 .bb5e-panel__custom {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-
   img {
     width: 16px;
     height: 16px;
@@ -203,8 +1000,9 @@
   }
 
   &[aria-pressed="true"] {
-    background: var(--bb5e-app-accent);
-    color: #23262e;
+    border-color: var(--bb5e-app-accent-line);
+    background: var(--bb5e-app-accent-soft);
+    color: var(--bb5e-app-accent);
   }
 }
 
@@ -212,18 +1010,37 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.bb5e-panel__row--shown .bb5e-panel__name {
-  color: var(--bb5e-app-accent-text);
-  font-weight: 600;
+.bb5e-panel__row--shown {
+  box-shadow: inset 2px 0 0 var(--bb5e-app-accent);
+  background: var(--bb5e-app-accent-soft);
+
+  .bb5e-panel__name::after {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-left: 7px;
+    border-radius: 50%;
+    background: var(--bb5e-app-accent);
+    vertical-align: middle;
+  }
 }
 
 .bb5e-panel__empty {
   margin: 0;
-  color: var(--bb5e-app-muted);
+  color: var(--bb5e-app-text-3);
+}
+
+.bb5e-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 // Token HUD button: the module's own icon, active while the bar is shown.
@@ -231,32 +1048,68 @@
   color: #c9a45c;
 }
 
-// Profile kind switch.
+// ---- Profile ----
+
 .bb5e-kind {
-  display: flex;
-  gap: 16px;
   margin: 0 0 8px;
-  padding: 0;
-  border: 0;
 
   legend {
-    margin-bottom: 4px;
-    font-weight: 600;
-  }
-
-  label {
-    display: inline-flex;
-    flex: none;
-    gap: 6px;
-    align-items: center;
+    margin-bottom: 8px;
   }
 }
 
-// A live card drawn by the HUD renderer: the column is laid out in place, not on the screen.
+// Boss or elite: the sheet's segmented control over the two radios.
+.bb5e-segs {
+  display: inline-flex;
+  gap: 2px;
+  width: fit-content;
+  padding: 2px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-md);
+  background: var(--bb5e-app-s1);
+
+  label {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    height: 26px;
+    padding: 0 14px;
+    border-radius: 7px;
+    color: var(--bb5e-app-text-3);
+    font-size: 12px;
+    cursor: pointer;
+    transition:
+      background 140ms,
+      color 140ms;
+
+    &:hover {
+      color: var(--bb5e-app-text);
+    }
+
+    &:has(input:checked) {
+      background: var(--bb5e-app-s3);
+      color: var(--bb5e-app-text);
+    }
+
+    &:has(input:focus-visible) {
+      outline: 2px solid var(--bb5e-app-accent);
+      outline-offset: 2px;
+    }
+  }
+
+  input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+// A live bar or card drawn by the HUD renderer sits on a dark stage in either theme: the HUD lives on scenes.
 .bb5e-preview {
   padding: 10px;
-  border-radius: 9px;
-  background: #2b2f38;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-lg);
+  background: radial-gradient(600px 300px at 30% 20%, #1b1f2a 0%, #0b0d12 70%);
 
   .bb5e-column {
     position: static;
@@ -266,111 +1119,45 @@
   }
 }
 
-// Elite ranks editor.
-.bb5e-ranks {
-  container-type: inline-size;
+// Previews of boss bars: laid out in place and scaled to fit.
+.bb5e-library__boss,
+.bb5e-library__tile,
+.bb5e-workshop__preview,
+.bb5e-look-preview {
+  overflow: hidden;
+
+  .bb5e-stack {
+    position: static;
+    translate: none;
+    align-items: flex-start;
+  }
+
+  // Never wider than the window: the bar keeps its proportions in em, its width is capped.
+  .bb5e-boss {
+    max-width: 100%;
+  }
 }
 
-.bb5e-ranks__list {
-  display: grid;
-  gap: 8px;
-  margin: 0 0 8px;
-  padding: 0;
-  list-style: none;
+.bb5e-library__boss,
+.bb5e-workshop__preview,
+.bb5e-look-preview {
+  --bb5e-ui-scale: 0.8;
+
+  min-height: 7.5rem;
+  padding: 14px 18px;
 }
 
-.bb5e-ranks__row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 16em auto;
-  gap: 10px;
-  align-items: center;
+.bb5e-library__tile {
+  --bb5e-ui-scale: 0.45;
+
   padding: 8px;
-  border-radius: 12px;
-  background: var(--bb5e-app-surface);
-  box-shadow: var(--bb5e-app-raise);
-
-  .bb5e-preview {
-    padding: 6px;
-  }
 }
 
-.bb5e-ranks__order {
-  display: grid;
-  gap: 4px;
-
-  button {
-    width: 28px;
-    height: 24px;
-    padding: 0;
-  }
+.bb5e-library__card {
+  justify-self: start;
 }
 
-.bb5e-ranks__line,
-.bb5e-ranks__parts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.bb5e-ranks__line {
-  input[type="color"] {
-    flex: none;
-    width: 32px;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    background: none;
-  }
-
-  input[type="text"] {
-    flex: 1;
-    min-width: 8em;
-  }
-}
-
-.bb5e-ranks__size input {
-  width: 4.5em;
-}
-
-.bb5e-ranks__parts {
-  margin-top: 6px;
-  font-size: var(--font-size-12, 12px);
-}
-
-.bb5e-ranks__remove {
-  width: 32px;
-  color: var(--bb5e-app-danger);
-}
-
-.bb5e-panel__heading {
-  margin: 8px 0 4px;
-  border: 0;
-  color: var(--bb5e-app-muted);
-  font-size: var(--font-size-12, 12px);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.bb5e-panel__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-// Narrow windows: the live card goes under the fields.
-@container (width < 560px) {
-  .bb5e-ranks__row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-
-    .bb5e-preview {
-      grid-column: 2;
-    }
-  }
-}
-
-// Profile editor: mini-bar and custom status rows, status checkboxes, auto-show switches.
+// Mini-bar and custom status rows, status switches, auto-show switches.
 .bb5e-rows {
   display: grid;
   gap: 8px;
@@ -381,10 +1168,16 @@
 
 .bb5e-rows__row {
   display: grid;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 9px;
-  background: var(--bb5e-app-sunken);
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-lg);
+  background: var(--bb5e-app-s1);
+  transition: border-color 240ms;
+
+  &:hover {
+    border-color: var(--bb5e-app-line-strong);
+  }
 }
 
 .bb5e-rows__line {
@@ -411,14 +1204,20 @@
   }
 }
 
-// "Phases" tab: the HP scale with a marker per threshold (display only, thresholds are typed).
+.bb5e-rows__remove {
+  flex: none;
+  width: 32px;
+  padding: 0;
+}
+
+// "Phases": the HP scale with a marker per threshold (display only, thresholds are typed).
 .bb5e-phase-scale {
   position: relative;
-  height: 18px;
-  margin: 4px 0 26px;
-  border-radius: 9px;
-  background: linear-gradient(90deg, #8e1414, #e0473f);
-  box-shadow: var(--bb5e-app-press);
+  height: 10px;
+  margin: 10px 0 26px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, color-mix(in oklab, #e0564f 75%, #000), #e0564f);
+  box-shadow: inset 0 0 0 1px var(--bb5e-app-line);
 }
 
 .bb5e-phase-scale__mark {
@@ -429,28 +1228,30 @@
   width: 3px;
   margin-left: -1.5px;
   border-radius: 2px;
-  background: var(--bb5e-app-ink);
+  background: var(--bb5e-app-text);
 
   span {
     position: absolute;
-    top: 24px;
+    top: 20px;
     left: 50%;
     translate: -50% 0;
-    font-size: 11px;
+    color: var(--bb5e-app-text-2);
+    font: 500 11px var(--bb5e-app-num);
     white-space: nowrap;
-    opacity: 0.8;
   }
 }
 
 .bb5e-phase__number {
   flex: none;
   min-width: 1.75em;
+  color: var(--bb5e-app-accent);
+  font: 600 15px var(--bb5e-app-display);
   text-align: center;
 }
 
 .bb5e-phase__start {
   flex: 1;
-  opacity: 0.8;
+  color: var(--bb5e-app-text-2);
 }
 
 .bb5e-phase__enter {
@@ -462,6 +1263,8 @@
   }
 
   summary {
+    color: var(--bb5e-app-text-2);
+    font-size: 12.5px;
     cursor: pointer;
   }
 }
@@ -477,30 +1280,30 @@
   flex: none;
 }
 
-.bb5e-rows__remove {
-  flex: none;
-  width: 32px;
-  color: var(--bb5e-app-danger);
-}
-
 .bb5e-status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
-  gap: 4px 12px;
+  grid-template-columns: repeat(auto-fill, minmax(12em, 1fr));
+  gap: 2px 12px;
   margin: 0 0 8px;
-  padding: 0;
-  border: 0;
 
   legend {
-    margin-bottom: 4px;
-    font-weight: 600;
+    margin-bottom: 8px;
   }
 
   label {
     display: flex;
-    gap: 6px;
+    gap: 10px;
     align-items: center;
     min-width: 0;
+    min-height: 34px;
+    padding: 2px 8px;
+    border-radius: var(--bb5e-app-r-md);
+    cursor: pointer;
+    transition: background 140ms;
+
+    &:hover {
+      background: var(--bb5e-app-s2);
+    }
   }
 
   img {
@@ -513,16 +1316,156 @@
 
 .bb5e-check {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
-  margin: 4px 0;
+  justify-content: space-between;
+  min-height: 34px;
+  margin: 2px 0;
+  cursor: pointer;
 }
 
-// "Looks and presets": sections on the left, list and the selected item with live previews.
+// "Look" tab and the library: looks and filters as the sheet's tags.
+.bb5e-workshop__looks,
+.bb5e-library__play,
+.bb5e-library__actions,
+.bb5e-library__filters,
+.bb5e-library__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+
+  button {
+    flex: none;
+  }
+}
+
+.bb5e-workshop__looks button,
+.bb5e-library__filters button {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--bb5e-app-text-2);
+  font-size: 12px;
+
+  &[aria-pressed="true"] {
+    border-color: var(--bb5e-app-accent-line);
+    background: var(--bb5e-app-accent-soft);
+    color: var(--bb5e-app-accent);
+  }
+}
+
+// ---- Elite ranks ----
+
+.bb5e-ranks {
+  container-type: inline-size;
+}
+
+.bb5e-ranks__list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.bb5e-ranks__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 17.5em auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-lg);
+  background: var(--bb5e-app-s1);
+  transition: border-color 240ms;
+
+  &:hover {
+    border-color: var(--bb5e-app-line-strong);
+  }
+
+  .bb5e-preview {
+    padding: 8px;
+    overflow: hidden;
+  }
+}
+
+.bb5e-ranks__order {
+  display: grid;
+  gap: 4px;
+
+  button {
+    width: 28px;
+    height: 26px;
+    padding: 0;
+  }
+}
+
+.bb5e-ranks__line,
+.bb5e-ranks__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.bb5e-ranks__line input[type="text"] {
+  flex: 1;
+  min-width: 8em;
+}
+
+.bb5e-ranks__size input {
+  width: 4.5em;
+}
+
+.bb5e-ranks__parts {
+  gap: 14px;
+  margin-top: 8px;
+  color: var(--bb5e-app-text-2);
+  font-size: 12px;
+
+  label {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+}
+
+.bb5e-ranks__remove {
+  width: 32px;
+  padding: 0;
+}
+
+.bb5e-ranks__look {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  color: var(--bb5e-app-text-2);
+  font-size: 12px;
+
+  select {
+    flex: 1;
+  }
+}
+
+// Narrow sections: the live card goes under the fields.
+@container (width < 560px) {
+  .bb5e-ranks__row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+
+    .bb5e-preview {
+      grid-column: 2;
+    }
+  }
+}
+
+// ---- Look library: categories, the list, the selected item with live previews ----
+
 .bb5e-library {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr);
-  gap: 12px;
+  gap: 14px;
   height: 100%;
   min-height: 0;
 }
@@ -530,17 +1473,30 @@
 .bb5e-library__nav {
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: 2px;
 
   button {
     justify-content: flex-start;
+    height: 34px;
+    padding: 0 10px;
+    border: 0;
+    background: none;
+    color: var(--bb5e-app-text-2);
     text-align: left;
-  }
+    transform: none;
 
-  button[aria-pressed="true"] {
-    background: var(--bb5e-app-surface);
-    box-shadow: var(--bb5e-app-raise);
-    font-weight: 600;
+    &:hover {
+      box-shadow: inset 2px 0 0 var(--bb5e-app-accent-line);
+      background: var(--bb5e-app-s2);
+      color: var(--bb5e-app-text);
+      transform: none;
+    }
+
+    &[aria-pressed="true"] {
+      box-shadow: inset 2px 0 0 var(--bb5e-app-accent);
+      background: var(--bb5e-app-accent-soft);
+      color: var(--bb5e-app-text);
+    }
   }
 }
 
@@ -551,27 +1507,6 @@
   min-height: 0;
 }
 
-.bb5e-library__bar,
-.bb5e-library__filters,
-.bb5e-library__actions,
-.bb5e-workshop__console,
-.bb5e-workshop__looks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-
-  button {
-    flex: none;
-    width: auto;
-  }
-
-  button[aria-pressed="true"] {
-    background: var(--bb5e-app-accent);
-    color: #23262e;
-  }
-}
-
 .bb5e-library__bar input[type="search"] {
   flex: 1;
   min-width: 10rem;
@@ -580,7 +1515,7 @@
 .bb5e-library__body {
   display: grid;
   grid-template-columns: 14rem minmax(0, 1fr);
-  gap: 12px;
+  gap: 14px;
   flex: 1;
   min-height: 0;
 }
@@ -588,7 +1523,7 @@
 .bb5e-library__list {
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
   overflow-y: auto;
@@ -597,24 +1532,32 @@
   button {
     justify-content: flex-start;
     width: 100%;
+    border: 0;
+    background: none;
     text-align: left;
-  }
+    transform: none;
 
-  button[aria-pressed="true"] {
-    background: var(--bb5e-app-surface);
-    box-shadow: var(--bb5e-app-raise);
-    font-weight: 600;
+    &:hover {
+      box-shadow: inset 2px 0 0 var(--bb5e-app-accent-line);
+      background: var(--bb5e-app-s2);
+      transform: none;
+    }
+
+    &[aria-pressed="true"] {
+      box-shadow: inset 2px 0 0 var(--bb5e-app-accent);
+      background: var(--bb5e-app-accent-soft);
+    }
   }
 }
 
 .bb5e-library__badge {
   margin-left: auto;
   padding: 0 6px;
-  border-radius: 999px;
-  background: var(--bb5e-app-sunken);
-  color: var(--bb5e-app-muted);
-  font-size: var(--font-size-11, 11px);
-  font-weight: 400;
+  border-radius: 5px;
+  background: var(--bb5e-app-s3);
+  color: var(--bb5e-app-text-2);
+  font-size: 10.5px;
+  line-height: 18px;
 }
 
 .bb5e-library__detail,
@@ -635,45 +1578,9 @@
 
   figcaption {
     margin-top: 4px;
-    color: var(--bb5e-app-muted);
-    font-size: var(--font-size-12, 12px);
+    color: var(--bb5e-app-text-3);
+    font-size: 12px;
   }
-}
-
-// Previews of boss bars: the bar is laid out in place and scaled to fit the window.
-.bb5e-library__boss,
-.bb5e-library__tile,
-.bb5e-workshop__preview {
-  overflow: hidden;
-
-  .bb5e-stack {
-    position: static;
-    translate: none;
-    align-items: flex-start;
-  }
-
-  // Never wider than the window: the bar keeps its proportions in em, its width is capped.
-  .bb5e-boss {
-    max-width: 100%;
-  }
-}
-
-.bb5e-library__boss,
-.bb5e-workshop__preview {
-  --bb5e-ui-scale: 0.8;
-
-  min-height: 7.5rem;
-  padding: 14px 18px;
-}
-
-.bb5e-library__tile {
-  --bb5e-ui-scale: 0.45;
-
-  padding: 8px;
-}
-
-.bb5e-library__card {
-  justify-self: start;
 }
 
 .bb5e-workshop {
@@ -681,19 +1588,13 @@
   gap: 10px;
 }
 
-.bb5e-look-name {
-  flex: 1;
-  font-weight: 600;
+// Reduced motion: every transition is instant.
+@media (prefers-reduced-motion: reduce) {
+  .bb5e-app * {
+    transition-duration: 0ms;
+  }
 }
 
-.bb5e-ranks__look {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 6px;
-  font-size: var(--font-size-12, 12px);
-
-  select {
-    flex: 1;
-  }
+.performance-low .bb5e-app * {
+  transition-duration: 0ms;
 }

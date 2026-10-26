@@ -8,6 +8,8 @@ export interface ThemeSpec {
   name: string;
   /** Bar and card layout ids (catalog/layouts.ts). */
   layouts: [string, string];
+  /** Archetype ids (catalog/archetypes.ts) for appearance and exit, the HP change effect and statuses. */
+  styles: [motion: string, hpEffect: string, statuses: string];
   values: ThemeValues;
 }
 
@@ -23,32 +25,33 @@ function themed(
     font: Values;
     fill: Values;
     frame?: Values;
-    hpEffect?: Values;
-    motion?: Values;
     portrait?: Values;
     miniBars?: Values;
-    statuses?: Values;
   },
 ): ThemeValues {
   return {
     font: { titleColor: accent, glowColor: accent, ...values.font },
     frame: { color: accent, glowColor: accent, ...values.frame },
     fill: values.fill,
-    hpEffect: { sparkColor: accent, ...values.hpEffect },
-    motion: values.motion ?? {},
     portrait: { borderColor: accent, glowColor: accent, ...values.portrait },
     miniBars: { color: accent, ...values.miniBars },
-    statuses: values.statuses ?? {},
   };
 }
 
 /** The themes (spec §9, ticket #9); ids classic, frost and neon never change. Names are literal i18n keys. */
 export const THEMES: ThemeSpec[] = [
-  { id: "classic", name: "BB5E.Look.Theme.Classic", layouts: ["a", "a"], values: {} },
+  {
+    id: "classic",
+    name: "BB5E.Look.Theme.Classic",
+    layouts: ["a", "a"],
+    styles: ["classic", "classic", "classic"],
+    values: {},
+  },
   {
     id: "ember",
     name: "BB5E.Look.Theme.Ember",
     layouts: ["a", "a"],
+    styles: ["smoulder", "heavy", "classic"],
     values: themed("#ff9a3c", {
       font: { family: "yeseva-one", nameSize: 1.3, caps: false, color: "#ffe2b8", glow: 0.35 },
       frame: { style: "classic", corners: "spikes", glow: 0.35, color: "#c4561c" },
@@ -58,8 +61,6 @@ export const THEMES: ThemeSpec[] = [
         empty: "#1a0703",
         edgeGlow: true,
       },
-      hpEffect: { trailColor: "#ffd27a", bigThreshold: 20 },
-      motion: { enter: "fade", defeat: "dissolve", phaseCrack: true },
       portrait: { shape: "shield", tint: "red" },
       miniBars: { color2: "#c2410c", empty: "#1a0703" },
     }),
@@ -68,6 +69,7 @@ export const THEMES: ThemeSpec[] = [
     id: "frost",
     name: "BB5E.Look.Theme.Frost",
     layouts: ["medallion", "top"],
+    styles: ["smoulder", "brittle", "round"],
     values: {
       font: {
         family: "philosopher",
@@ -90,23 +92,6 @@ export const THEMES: ThemeSpec[] = [
         edgeGlow: true,
         motes: "sparkles",
       },
-      hpEffect: {
-        damageShake: false,
-        sparkColor: "#cfefff",
-        healWave: true,
-        lowPulse: false,
-        lowFlicker: true,
-        trailColor: "#bfe6ff",
-      },
-      motion: {
-        enter: "expand",
-        duration: 450,
-        leave: "fade",
-        defeat: "dissolve",
-        phaseCrack: true,
-        phasePalette: true,
-        phaseBanner: false,
-      },
       portrait: { shape: "hexagon", borderColor: "#9fd4ff", glow: 0.3, glowColor: "#7fc8ff", tint: "darken" },
       miniBars: {
         bar: "ring",
@@ -116,13 +101,13 @@ export const THEMES: ThemeSpec[] = [
         empty: "#0b1a2a",
         height: 0.45,
       },
-      statuses: { shape: "circle", size: 1.4, max: 8, maxCard: 3 },
     },
   },
   {
     id: "storm",
     name: "BB5E.Look.Theme.Storm",
     layouts: ["under", "a"],
+    styles: ["swift", "snappy", "diamond"],
     values: themed("#8fd3ff", {
       font: { family: "jura", nameSize: 1.4, spacing: 0.12, color: "#eef7ff", glow: 0.5 },
       frame: { style: "double", color: "#6f86a8", glow: 0.45 },
@@ -132,24 +117,15 @@ export const THEMES: ThemeSpec[] = [
         empty: "#050a16",
         edgeGlow: true,
       },
-      hpEffect: {
-        damageShake: true,
-        healWave: true,
-        sparkColor: "#cfe9ff",
-        trailColor: "#b8dcff",
-        trailDelay: 300,
-        bigThreshold: 20,
-      },
-      motion: { enter: "slide", duration: 250, phaseFlash: true, phaseBanner: true },
       portrait: { shape: "diamond", borderColor: "#6f86a8", glow: 0.45 },
       miniBars: { pip: "diamond", color2: "#1c3a78", empty: "#050a16" },
-      statuses: { shape: "diamond" },
     }),
   },
   {
     id: "undead",
     name: "BB5E.Look.Theme.Undead",
     layouts: ["right", "a"],
+    styles: ["haunting", "eerie", "classic"],
     values: themed("#9fd12a", {
       font: { family: "triodion", nameSize: 1.4, caps: false, color: "#e3ead0", glow: 0.35, shadow: true },
       frame: { style: "classic", corners: "spikes", color: "#b8ad8c", glow: 0.3 },
@@ -159,23 +135,15 @@ export const THEMES: ThemeSpec[] = [
         empty: "#0a0d06",
         edgeGlow: true,
       },
-      hpEffect: {
-        damageShake: false,
-        lowFlicker: true,
-        lowPulse: false,
-        sparkColor: "#c6f04a",
-        trailColor: "#d6f562",
-      },
-      motion: { enter: "fade", duration: 600, defeat: "dissolve" },
       portrait: { shape: "shield", borderColor: "#b8ad8c", tint: "darken" },
       miniBars: { color2: "#3b5a12", empty: "#0a0d06" },
-      statuses: { shape: "square", border: true },
     }),
   },
   {
     id: "abyss",
     name: "BB5E.Look.Theme.Abyss",
     layouts: ["bare", "top"],
+    styles: ["haunting", "eerie", "plain"],
     values: themed("#8a6bff", {
       font: { family: "oranienbaum", nameSize: 1.5, spacing: 0.1, color: "#ece6ff", glow: 0.7 },
       frame: { style: "none", glow: 0.7 },
@@ -185,23 +153,15 @@ export const THEMES: ThemeSpec[] = [
         empty: "#020007",
         edgeGlow: true,
       },
-      hpEffect: {
-        damageShake: false,
-        healRise: false,
-        sparkColor: "#c9b6ff",
-        trailColor: "#b9a6ff",
-        trailDelay: 700,
-      },
-      motion: { enter: "fade", duration: 800, leave: "fade", defeat: "dissolve", phasePalette: true },
       portrait: { shape: "circle", glow: 0.6 },
       miniBars: { bar: "ring", pip: "dot", empty: "#020007" },
-      statuses: { shape: "plain" },
     }),
   },
   {
     id: "celestial",
     name: "BB5E.Look.Theme.Celestial",
     layouts: ["crown", "top"],
+    styles: ["majestic", "serene", "orbs"],
     values: themed("#ffe7a3", {
       font: {
         family: "cormorant-unicase",
@@ -220,17 +180,15 @@ export const THEMES: ThemeSpec[] = [
         edgeGlow: true,
         motes: "sparkles",
       },
-      hpEffect: { damageShake: false, healWave: true, healRise: true, trailColor: "#ffffff" },
-      motion: { enter: "expand", duration: 500, defeat: "fade", phaseFlash: true, phaseBanner: true },
       portrait: { shape: "circle", glow: 0.7 },
       miniBars: { color2: "#a8822f", empty: "#2a2416" },
-      statuses: { shape: "circle", border: false },
     }),
   },
   {
     id: "sylvan",
     name: "BB5E.Look.Theme.Sylvan",
     layouts: ["a", "a"],
+    styles: ["haunting", "serene", "round"],
     values: themed("#b8e86a", {
       font: { family: "kurale", nameSize: 1.35, caps: false, color: "#eef6dc", glow: 0.3 },
       frame: { style: "classic", corners: "filigree", color: "#8a6a3a", glow: 0.25 },
@@ -242,17 +200,15 @@ export const THEMES: ThemeSpec[] = [
         edgeGlow: true,
         motes: "fireflies",
       },
-      hpEffect: { healWave: true, sparkColor: "#e4ff9a", trailColor: "#e8f5c8" },
-      motion: { enter: "fade", duration: 500, defeat: "dissolve", phasePalette: true },
       portrait: { shape: "circle", borderColor: "#8a6a3a" },
       miniBars: { pip: "dot", color2: "#4f7d2a", empty: "#0e1a09" },
-      statuses: { shape: "circle" },
     }),
   },
   {
     id: "dragon",
     name: "BB5E.Look.Theme.Dragon",
     layouts: ["medallion", "a"],
+    styles: ["smoulder", "heavy", "diamond"],
     values: themed("#f0b24a", {
       font: {
         family: "alegreya-sc",
@@ -278,8 +234,6 @@ export const THEMES: ThemeSpec[] = [
         pattern: "scales",
         motes: "embers",
       },
-      hpEffect: { bigThreshold: 20, sparkColor: "#ffb347", trailColor: "#f2cf7c" },
-      motion: { enter: "expand", defeat: "banner", phaseCrack: true, phaseBanner: true },
       portrait: {
         shape: "shield",
         borderWidth: 0.25,
@@ -288,13 +242,13 @@ export const THEMES: ThemeSpec[] = [
         glowColor: "#ff7a2a",
       },
       miniBars: { pip: "diamond", color2: "#7a1d0c", empty: "#170704" },
-      statuses: { shape: "diamond" },
     }),
   },
   {
     id: "deep",
     name: "BB5E.Look.Theme.Deep",
     layouts: ["inside", "a"],
+    styles: ["haunting", "eerie", "orbs"],
     values: themed("#3fd0c9", {
       font: { family: "viaoda-libre", nameSize: 1.55, color: "#dcfbf8", glow: 0.4 },
       frame: { style: "inset", color: "#2c7f80", glow: 0.35 },
@@ -304,24 +258,15 @@ export const THEMES: ThemeSpec[] = [
         empty: "#00080f",
         shine: true,
       },
-      hpEffect: {
-        damageShake: false,
-        healWave: true,
-        sparkColor: "#9ff5ee",
-        trailColor: "#a6f0ea",
-        trailDelay: 700,
-        trailSpeed: 900,
-      },
-      motion: { enter: "fade", duration: 700, defeat: "fade", phasePalette: true },
       portrait: { shape: "circle", borderColor: "#2c7f80", tint: "darken" },
       miniBars: { bar: "ring", pip: "dot", color2: "#0b4f6c", empty: "#00080f" },
-      statuses: { shape: "circle", border: false },
     }),
   },
   {
     id: "rune",
     name: "BB5E.Look.Theme.Rune",
     layouts: ["right", "row"],
+    styles: ["smoulder", "classic", "grid"],
     values: themed("#5fe0d0", {
       font: { family: "tektur", nameSize: 1.35, bold: true, spacing: 0.14, color: "#d8e3e1", glow: 0.45 },
       frame: { style: "inset", corners: "studs", color: "#7c8885", glow: 0.25 },
@@ -332,17 +277,15 @@ export const THEMES: ThemeSpec[] = [
         segments: "phases",
         pattern: "runes",
       },
-      hpEffect: { damageShake: true, bigCrack: true, sparkColor: "#9ff5e8", trailColor: "#b0f5ec" },
-      motion: { enter: "expand", defeat: "dissolve", phaseCrack: true, phaseFlash: true },
       portrait: { shape: "hexagon", borderColor: "#7c8885", glow: 0.35 },
       miniBars: { pip: "diamond", color2: "#14504a", empty: "#0a100f" },
-      statuses: { shape: "diamond", arrangement: "grid" },
     }),
   },
   {
     id: "neon",
     name: "BB5E.Look.Theme.Neon",
     layouts: ["cinema", "tile"],
+    styles: ["chronicle", "snappy", "diamond"],
     values: {
       font: {
         family: "russo-one",
@@ -364,28 +307,15 @@ export const THEMES: ThemeSpec[] = [
         segmentEvery: 10,
         edgeGlow: true,
       },
-      hpEffect: {
-        bigThreshold: 20,
-        bigCrack: false,
-        lowThreshold: 30,
-        lowPulse: false,
-        lowFlicker: true,
-        trailColor: "#ffffff",
-        sparkColor: "#ff2bd6",
-        trailDelay: 250,
-        trailSpeed: 400,
-        trailAccumulate: false,
-      },
-      motion: { enter: "type", duration: 500, defeat: "banner", phaseRefill: true },
       portrait: { shape: "notch", borderWidth: 0, glow: 0.4, glowColor: "#ff2bd6", tint: "red" },
       miniBars: { pip: "dot", color: "#00e5ff", color2: "", empty: "#07021a", height: 0.3 },
-      statuses: { shape: "diamond", size: 1.3, max: 12 },
     },
   },
   {
     id: "parchment",
     name: "BB5E.Look.Theme.Parchment",
     layouts: ["right", "row"],
+    styles: ["chronicle", "quiet", "classic"],
     values: themed("#5a3a1e", {
       font: {
         family: "marck-script",
@@ -405,17 +335,15 @@ export const THEMES: ThemeSpec[] = [
         shieldColor: "#3c6e9e",
         pattern: "ink",
       },
-      hpEffect: { damageShake: false, damageFlash: false, sparks: false, trailColor: "#b08a5a" },
-      motion: { enter: "type", duration: 600, defeat: "fade", phaseBanner: true, phaseFlash: false },
       portrait: { shape: "square", tint: "none" },
       miniBars: { color2: "#8c5c30", empty: "#e8d9b5", label: true },
-      statuses: { shape: "square" },
     }),
   },
   {
     id: "minimal",
     name: "BB5E.Look.Theme.Minimal",
     layouts: ["minimal", "row"],
+    styles: ["quiet", "quiet", "bare"],
     values: themed("#ffffff", {
       font: {
         family: "unbounded",
@@ -429,30 +357,15 @@ export const THEMES: ThemeSpec[] = [
       },
       frame: { style: "none", portraitFrame: false },
       fill: { type: "solid", colors: ["#f2f2f2"], empty: "#2a2a2a", shieldColor: "#9ad0ff" },
-      hpEffect: {
-        damageShake: false,
-        sparks: false,
-        bigCrack: false,
-        lowPulse: false,
-        trailColor: "#888888",
-      },
-      motion: {
-        enter: "fade",
-        duration: 250,
-        leave: "fade",
-        defeat: "fade",
-        phaseBanner: false,
-        phaseFlash: false,
-      },
       portrait: { shape: "circle", borderWidth: 0, glow: 0 },
       miniBars: { color2: "", empty: "#2a2a2a", height: 0.25, label: false },
-      statuses: { shape: "plain", border: false, size: 1.2 },
     }),
   },
   {
     id: "nightmare",
     name: "BB5E.Look.Theme.Nightmare",
     layouts: ["cinema", "tile"],
+    styles: ["haunting", "eerie", "plain"],
     values: themed("#ff1f4b", {
       font: { family: "rubik-wet-paint", nameSize: 1.55, caps: false, color: "#f6d3da", glow: 0.45 },
       frame: { style: "double", color: "#4a0d1a", glow: 0.55 },
@@ -462,24 +375,15 @@ export const THEMES: ThemeSpec[] = [
         empty: "#050002",
         edgeGlow: true,
       },
-      hpEffect: {
-        damageShake: true,
-        lowFlicker: true,
-        lowPulse: false,
-        sparkColor: "#ff3355",
-        trailColor: "#ff6680",
-        trailDelay: 900,
-      },
-      motion: { enter: "fade", duration: 900, defeat: "dissolve", phaseCrack: true, phasePalette: true },
       portrait: { shape: "notch", tint: "red", glow: 0.5 },
       miniBars: { pip: "dot", color2: "#3d0010", empty: "#050002" },
-      statuses: { shape: "plain" },
     }),
   },
   {
     id: "royal",
     name: "BB5E.Look.Theme.Royal",
     layouts: ["a", "a"],
+    styles: ["majestic", "serene", "round"],
     values: themed("#e6c35c", {
       font: {
         family: "bona-nova-sc",
@@ -497,17 +401,15 @@ export const THEMES: ThemeSpec[] = [
         shine: true,
         pattern: "damask",
       },
-      hpEffect: { damageShake: false, sparkColor: "#ffe08a", trailColor: "#f7e3a0" },
-      motion: { enter: "expand", duration: 500, defeat: "banner", phaseBanner: true, phasePalette: true },
       portrait: { shape: "shield", borderWidth: 0.25, glow: 0.25 },
       miniBars: { color2: "#3e1468", empty: "#120622" },
-      statuses: { shape: "circle" },
     }),
   },
   {
     id: "steel",
     name: "BB5E.Look.Theme.Steel",
     layouts: ["inside", "a"],
+    styles: ["swift", "heavy", "classic"],
     values: themed("#c8ccd4", {
       font: {
         family: "dela-gothic-one",
@@ -531,11 +433,8 @@ export const THEMES: ThemeSpec[] = [
         empty: "#140303",
         shine: true,
       },
-      hpEffect: { damageShake: true, bigThreshold: 20, trailColor: "#e8e8e8", sparkColor: "#ffd27a" },
-      motion: { enter: "slide", duration: 250, defeat: "banner", phaseCrack: true, phaseBanner: true },
       portrait: { shape: "shield", borderWidth: 0.25, borderColor: "#9aa1ab" },
       miniBars: { pip: "diamond", color2: "#8a9099", empty: "#140303" },
-      statuses: { shape: "square", border: true },
     }),
   },
 ];
