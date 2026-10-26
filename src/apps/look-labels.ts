@@ -1,3 +1,4 @@
+import { FONTS } from "../core/look/fonts";
 import type { Category } from "../core/look/schema";
 
 /** Literal i18n keys (the key test greps them; keys are never built from parts). */
@@ -174,10 +175,8 @@ export const VALUE_LABELS: Record<string, string> = {
 };
 
 /** Built-in font names (they are proper names, not translated) and the GM's own file. */
+/** Font names are proper names (not translated); "custom" is the GM's own woff2. */
 export const FONT_LABELS: Record<string, string> = {
-  system: "Georgia",
-  cormorant: "Cormorant",
-  philosopher: "Philosopher",
-  "russo-one": "Russo One",
+  ...Object.fromEntries(Object.entries(FONTS).map(([id, font]) => [id, font.name])),
   custom: "BB5E.Param.FontCustom",
 };

@@ -18,6 +18,10 @@ import {
   readParams,
 } from "../../src/core/look/schema";
 import { lookStyle } from "../../src/core/look/style";
+import { existsSync } from "node:fs";
+import { LAYOUTS } from "../../src/core/look/catalog/layouts";
+import { THEMES } from "../../src/core/look/catalog/themes";
+import { FONT_FACES, FONTS } from "../../src/core/look/fonts";
 
 describe("readParams", () => {
   it("keeps fitting values, replaces the rest with defaults and keeps unknown keys", () => {
@@ -47,14 +51,54 @@ describe("readParams", () => {
 });
 
 describe("built-in catalog", () => {
-  it("has three looks, each with a preset in every category, all ids distinct", () => {
-    expect(BUILTIN_LOOKS.map((look) => look.id)).toEqual(["classic", "frost", "neon"]);
+  it("has 30 looks, each with a preset in every category, 30 per category, all ids distinct", () => {
+    expect(BUILTIN_LOOKS).toHaveLength(30);
+    expect(BUILTIN_LOOKS.slice(0, 1).map((look) => look.id)).toEqual(["classic"]);
+    expect(BUILTIN_LOOKS.map((look) => look.id)).toEqual(expect.arrayContaining(["frost", "neon"]));
+    for (const category of CATEGORIES) {
+      expect(BUILTIN_PRESETS.filter((each) => each.category === category)).toHaveLength(30);
+    }
     for (const look of BUILTIN_LOOKS) {
       for (const category of CATEGORIES) {
         expect(BUILTIN_PRESETS.find((each) => each.id === look.presets[category])?.category).toBe(category);
       }
     }
     expect(BUILTIN_IDS.size).toBe(BUILTIN_LOOKS.length + BUILTIN_PRESETS.length);
+  });
+
+  it("keeps every value the catalog states: a typo would fall back to the default unnoticed", () => {
+    const entries = [
+      ...THEMES.flatMap((theme) =>
+        Object.entries(theme.values).map(([category, raw]) => [theme.id, category, raw] as const),
+      ),
+      ...LAYOUTS.flatMap((layout) => [
+        [layout.id, "layoutBar", layout.bar] as const,
+        [layout.id, "layoutCard", layout.card] as const,
+      ]),
+    ];
+    for (const [id, category, raw] of entries) {
+      const params = readParams(category as (typeof CATEGORIES)[number], raw) as Record<string, unknown>;
+      for (const [key, value] of Object.entries(raw ?? {})) {
+        expect([id, category, key, params[key]]).toEqual([id, category, key, value]);
+        expect([id, category, key, key in PARAMS[category as (typeof CATEGORIES)[number]]]).toEqual([
+          id,
+          category,
+          key,
+          true,
+        ]);
+      }
+    }
+  });
+
+  it("uses known fonts and layouts, and ships every font file", () => {
+    for (const theme of THEMES) {
+      const family = theme.values.font?.family ?? "cormorant";
+      expect([theme.id, String(family) in FONTS]).toEqual([theme.id, true]);
+      for (const layout of theme.layouts) expect(LAYOUTS.some((each) => each.id === layout)).toBe(true);
+    }
+    expect(new Set(THEMES.map((theme) => theme.values.font?.family ?? "cormorant")).size).toBe(30);
+    for (const face of FONT_FACES)
+      expect([face.file, existsSync(`fonts/${face.file}`)]).toEqual([face.file, true]);
   });
 
   it("Classic RPG is the parameter defaults", () => {

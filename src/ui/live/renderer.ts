@@ -111,8 +111,8 @@ class LiveRenderer {
         if (first) target.drawn = fill;
         if (fill !== target.fill) target.dirty = true;
         target.fill = fill;
-        // The first frame is drawn at once: the bar should not wait a loop turn on its CSS fill.
-        if (first && !this.#lost && visible(canvas)) this.#draw(target, shaderTime(performance.now()));
+        // Until the canvas has a frame it is drawn at once: the bar should not wait a loop turn on its CSS fill.
+        if (!target.live && !this.#lost && visible(canvas)) this.#draw(target, shaderTime(performance.now()));
         this.#wake();
       },
       detach: () => {
