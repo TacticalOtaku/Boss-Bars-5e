@@ -19,7 +19,7 @@ import {
 } from "../../src/core/look/schema";
 import { lookStyle } from "../../src/core/look/style";
 import { existsSync } from "node:fs";
-import { LAYOUTS } from "../../src/core/look/catalog/layouts";
+import { BAR_LAYOUTS, CARD_LAYOUTS } from "../../src/core/look/catalog/layouts";
 import { THEMES } from "../../src/core/look/catalog/themes";
 import { FONT_FACES, FONTS } from "../../src/core/look/fonts";
 
@@ -51,13 +51,16 @@ describe("readParams", () => {
 });
 
 describe("built-in catalog", () => {
-  it("has 30 looks, each with a preset in every category, 30 per category, all ids distinct", () => {
-    expect(BUILTIN_LOOKS).toHaveLength(30);
+  it("has 17 looks with a preset in every styled category, 9 bar and 4 card layouts, all ids distinct", () => {
+    expect(BUILTIN_LOOKS).toHaveLength(17);
     expect(BUILTIN_LOOKS.slice(0, 1).map((look) => look.id)).toEqual(["classic"]);
     expect(BUILTIN_LOOKS.map((look) => look.id)).toEqual(expect.arrayContaining(["frost", "neon"]));
+    const count = (category: string) => BUILTIN_PRESETS.filter((each) => each.category === category).length;
     for (const category of CATEGORIES) {
-      expect(BUILTIN_PRESETS.filter((each) => each.category === category)).toHaveLength(30);
+      if (category !== "layoutBar" && category !== "layoutCard")
+        expect([category, count(category)]).toEqual([category, 17]);
     }
+    expect([count("layoutBar"), count("layoutCard")]).toEqual([9, 4]);
     for (const look of BUILTIN_LOOKS) {
       for (const category of CATEGORIES) {
         expect(BUILTIN_PRESETS.find((each) => each.id === look.presets[category])?.category).toBe(category);
@@ -71,10 +74,8 @@ describe("built-in catalog", () => {
       ...THEMES.flatMap((theme) =>
         Object.entries(theme.values).map(([category, raw]) => [theme.id, category, raw] as const),
       ),
-      ...LAYOUTS.flatMap((layout) => [
-        [layout.id, "layoutBar", layout.bar] as const,
-        [layout.id, "layoutCard", layout.card] as const,
-      ]),
+      ...BAR_LAYOUTS.map((layout) => [layout.id, "layoutBar", layout.params] as const),
+      ...CARD_LAYOUTS.map((layout) => [layout.id, "layoutCard", layout.params] as const),
     ];
     for (const [id, category, raw] of entries) {
       const params = readParams(category as (typeof CATEGORIES)[number], raw) as Record<string, unknown>;
@@ -94,9 +95,11 @@ describe("built-in catalog", () => {
     for (const theme of THEMES) {
       const family = theme.values.font?.family ?? "cormorant";
       expect([theme.id, String(family) in FONTS]).toEqual([theme.id, true]);
-      for (const layout of theme.layouts) expect(LAYOUTS.some((each) => each.id === layout)).toBe(true);
+      const [bar, card] = theme.layouts;
+      expect([theme.id, BAR_LAYOUTS.some((each) => each.id === bar)]).toEqual([theme.id, true]);
+      expect([theme.id, CARD_LAYOUTS.some((each) => each.id === card)]).toEqual([theme.id, true]);
     }
-    expect(new Set(THEMES.map((theme) => theme.values.font?.family ?? "cormorant")).size).toBe(30);
+    expect(new Set(THEMES.map((theme) => theme.values.font?.family ?? "cormorant")).size).toBe(THEMES.length);
     for (const face of FONT_FACES)
       expect([face.file, existsSync(`fonts/${face.file}`)]).toEqual([face.file, true]);
   });
@@ -197,7 +200,7 @@ describe("lookStyle", () => {
     const style = lookStyle(resolveLook("neon", {}, BUILTIN_SOURCES, CLASSIC));
     expect(style.attrs).toMatchObject({
       portrait: "notch",
-      bar: "thin",
+      bar: "thick",
       icon: "tile",
       fill: "energy",
       segments: "every",
@@ -207,6 +210,21 @@ describe("lookStyle", () => {
     expect(style.vars["--bb5e-name-weight"]).toBe("400");
     expect(style.statuses.max).toBe(12);
     expect(style.motion.defeat).toBe("banner");
+  });
+
+  it("scales a bar and a card by the layout's size: S, M (default), L, XL", () => {
+    expect(readParams("layoutBar", {}).size).toBe("m");
+    expect(readParams("layoutCard", { size: "huge" }).size).toBe("m");
+    const look = resolveLook("classic", {}, BUILTIN_SOURCES, CLASSIC);
+    const sized = (bar: string, card: string) =>
+      lookStyle({
+        ...look,
+        layoutBar: { ...look.layoutBar, params: { ...look.layoutBar.params, size: bar } },
+        layoutCard: { ...look.layoutCard, params: { ...look.layoutCard.params, size: card } },
+      }).vars;
+    expect(sized("m", "m")).toMatchObject({ "--bb5e-look-size": "1", "--bb5e-card-size": "1" });
+    expect(sized("xl", "s")).toMatchObject({ "--bb5e-look-size": "1.45", "--bb5e-card-size": "0.85" });
+    expect(sized("l", "l")["--bb5e-look-size"]).toBe("1.2");
   });
 
   it("falls back to the palette for frames without an image and registers a GM font", () => {

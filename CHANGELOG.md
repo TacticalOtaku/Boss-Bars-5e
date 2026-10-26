@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.0
+
+- Boss bars, elite card plates and boss portrait frames are now drawn by one WebGL2 shader instead of CSS: lit
+  materials (liquid, energy, flame with tongues above the bar, ice, void, gradient), bevelled metal frames in four
+  styles, an outer glow, and effects that spill past the bar: a hit burns the lost chunk away with rays, sparks and
+  shards (cracks and a shock wave on a big hit), healing washes along the fill, a phase change surges from the
+  middle, defeat cracks and greys the bar, a new bar sweeps in. One WebGL context serves the page; without WebGL2,
+  or when the GPU drops the context, everything falls back to its CSS look at once.
+- Calm looks stay calm: a look without sparks, flash or cracks gets none in the shader, and a look without the phase
+  flash gets a soft wave of its own light instead of white light pillars.
+- New fill parameters: a pattern carved into the fill (glowing runes, dragon scales, gold damask, ink on paper) and
+  motes around the bar (fireflies, rising embers, twinkling sparkles).
+- Elite cards get a plate with the rank strip and a metal ring around the icon in the look's portrait shape.
+- Flames and embers die down behind the boss name and title, so the text stays readable.
+- Statuses, mini-bars and names are polished: bevelled status icons that pop in, glass mini-bars, layered name shadows.
+- Catalog cut for quality: 17 looks (several themes merged into others; Desert King and Clockwork removed), 9 bar
+  layouts and 4 card layouts. Layout sizes S, M, L and XL replace the size layouts; the HP ring layout is gone. A
+  look or layout id that no longer exists falls back to Classic RPG.
+- Frame budget: busy bars at 60 fps, a boss bar at rest at 30, a card at rest at 15, a still frame with reduced
+  motion; every frame renders all due bars first and copies them after, so 12 elite cards and a boss stay smooth.
+
 ## 1.0.0
 
 - Public API for macros and other modules: `game.modules.get("boss-bars-5e").api` (version 1) shows and hides bars,

@@ -54,6 +54,9 @@
 
 .bb5e-elite {
   position: relative;
+
+  // the look's size (S–XL) is set on each card
+  font-size: calc(1em * var(--bb5e-card-size, 1));
   display: flex;
   gap: 0.5em;
   align-items: center;
@@ -246,26 +249,6 @@
   }
 }
 
-// Ring (layout B): the HP ring around the icon replaces the bar.
-.bb5e-elite__ring {
-  position: absolute;
-  inset: -0.25em;
-  display: none;
-  border-radius: 50%;
-  background: conic-gradient(var(--bb5e-edge) 0 calc(var(--bb5e-f) * 1turn), var(--bb5e-empty) 0);
-  mask: radial-gradient(farthest-side, transparent calc(100% - 0.25em), #000 calc(100% - 0.24em));
-}
-
-.bb5e-elite--fill[data-look-cfill="ring"] {
-  .bb5e-elite__ring {
-    display: block;
-  }
-
-  .bb5e-elite__meter {
-    display: none;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .bb5e-elite__fill {
     transition: none;
@@ -274,4 +257,43 @@
 
 .performance-low .bb5e-elite__fill {
   transition: none;
+}
+
+// The card's plate and meter drawn by the shared WebGL2 renderer (ADR 0003): a canvas around the whole card, behind
+// its texts; while it draws, the CSS plate and meter step aside.
+.bb5e-elite__vfx {
+  position: absolute;
+  z-index: -1;
+  display: none;
+  pointer-events: none;
+}
+
+.bb5e-elite.bb5e-vfx {
+  isolation: isolate;
+  background: none;
+
+  .bb5e-elite__vfx {
+    display: block;
+  }
+
+  .bb5e-elite__meter {
+    background: transparent;
+
+    &::before,
+    &::after,
+    > * {
+      visibility: hidden;
+    }
+  }
+}
+
+// Above the layouts' own rank borders (icon on top, tile): the plate draws the rank strip itself.
+.bb5e-column .bb5e-elite.bb5e-vfx:not(.bb5e-elite--icon-only) {
+  border-color: transparent;
+}
+
+// The plate frames the icon too (not in the tile layout): the CSS outline and glow step aside.
+.bb5e-column .bb5e-elite.bb5e-vfx:not([data-look-icon="tile"]) .bb5e-elite__icon.bb5e-face {
+  border-color: transparent;
+  box-shadow: none;
 }

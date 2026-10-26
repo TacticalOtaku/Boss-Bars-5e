@@ -1,4 +1,5 @@
 import { customFamily, FONTS } from "./fonts";
+import { barMaterial, type BarMaterial } from "./material";
 import type { ResolvedLook } from "./resolve";
 import type { Params } from "./schema";
 
@@ -16,9 +17,13 @@ export interface LookStyle {
   effects: Params<"hpEffect">;
   motion: Params<"motion">;
   portraitShake: boolean;
+  /** The boss bar body's shader uniforms (stage VFX). */
+  material: BarMaterial;
 }
 
 const em = (value: number) => `${value}em`;
+/** The layout size as a scale of the bar or card (spec: S, M, L, XL). */
+const SIZE_SCALE: Record<string, number> = { s: 0.85, m: 1, l: 1.2, xl: 1.45 };
 const ms = (value: number) => `${value}ms`;
 const url = (path: string) => (path ? `url("${path}")` : "none");
 const glow = (size: number, color: string) => (size > 0 ? `0 0 ${em(size)} ${color}` : "0 0 0 transparent");
@@ -90,7 +95,9 @@ export function lookStyle(look: ResolvedLook): LookStyle {
     inkfill: flag(Boolean(font.color2)),
   };
   const shadows = [
-    font.shadow ? "0 0.1em 0.2em #000" : "",
+    font.shadow
+      ? "0 1px 0 rgb(0 0 0 / 90%), 0 0 1px rgb(0 0 0 / 95%), 0 0.08em 0.12em rgb(0 0 0 / 85%), 0 0.15em 0.6em rgb(0 0 0 / 60%)"
+      : "",
     font.glow > 0 ? glow(font.glow, font.glowColor) : "",
   ];
   const vars: Record<string, string> = {
@@ -130,6 +137,8 @@ export function lookStyle(look: ResolvedLook): LookStyle {
     "--bb5e-width": em(bar.width),
     "--bb5e-height": em(bar.height),
     "--bb5e-card-width": em(card.width),
+    "--bb5e-look-size": String(SIZE_SCALE[bar.size] ?? 1),
+    "--bb5e-card-size": String(SIZE_SCALE[card.size] ?? 1),
   };
   return {
     key: JSON.stringify([attrs, vars]),
@@ -146,5 +155,6 @@ export function lookStyle(look: ResolvedLook): LookStyle {
     effects,
     motion: look.motion.params,
     portraitShake: portrait.shake,
+    material: barMaterial(look),
   };
 }

@@ -32,10 +32,12 @@ Only GMs change bars; when several GMs are online, the active GM writes every ch
 - **Auto-show.** Show when combat reaches round 1, hide when it ends or when the enemy falls, after a delay.
 - **Layout mode.** From the panel: drag the boss stack and the elite column, with guides, anchors to nine points,
   a warning when a block covers Foundry's own UI or leaves the screen, and screen size previews. Saves for the world or for one scene.
-- **Looks.** 30 built-in looks (frame, fill, name, effects, statuses, extras, motion, layout), 30 layouts each for
-  bars and cards, 30 fonts with Latin and Cyrillic. The library (module settings) copies, edits, imports and exports
-  looks and presets; the workshop in the profile overrides single categories with a live preview. Live fills
-  (liquid, energy, flame, ice, void) are drawn by WebGL2 and fall back to CSS.
+- **Looks.** 17 built-in looks (frame, fill, name, effects, statuses, extras, motion, layout), 9 bar layouts and
+  4 card layouts with sizes S to XL, 30 fonts with Latin and Cyrillic. Boss bars, elite card plates and portrait
+  frames are drawn by one WebGL2 shader: lit materials (liquid, energy, flame, ice, void, gradient), carved patterns,
+  drifting motes, and hit, heal, phase, defeat and appear effects that spill past the bar. Without WebGL2 they fall
+  back to CSS. The library (module settings) copies, edits, imports and exports looks and presets; the workshop in
+  the profile overrides single categories with a live preview.
 - **Phases.** Up to six: start of the fight, below an HP threshold, a form (the bar moves to another actor's token)
   or by hand. Each can change the name, title, portrait, look and music, with a phase change effect. The bar shows
   all HP with threshold ticks, or refills per phase.

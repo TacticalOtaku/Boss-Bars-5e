@@ -7,7 +7,7 @@ import { hpFraction } from "../src/core/hp";
 import { nextPhase, phaseIndex, pickPhase } from "../src/core/phases";
 import { pickQuote, speak, type QuoteEvent } from "../src/core/quotes";
 import { LIVE_FILLS, type LiveFill } from "../src/core/look/live";
-import { liveRenderer } from "../src/ui/live/renderer";
+import { vfxRenderer } from "../src/ui/vfx/renderer";
 import { buildViews, ELITE_COLUMN_ID, type SubjectInput } from "../src/core/view";
 import { FONT_FACES } from "../src/core/look/fonts";
 import { createBossStack } from "../src/ui/boss-stack";
@@ -226,6 +226,19 @@ const ACTIONS: Record<string, () => void> = {
   },
   "Урон элите": () => state.elites.forEach((elite) => hurt(elite, 0.2)),
   "Лимит 12 / 3": () => (state.limit = state.limit === 12 ? 3 : 12),
+  // Budget check (VFX decision 4): fill the column to the 12-card limit with copies of a veteran.
+  "12 элит": () => {
+    const veteran = FIXTURE_ELITES[1];
+    if (!veteran) return;
+    for (let i = state.elites.length; i < 13; i++) {
+      const copy = structuredClone(veteran);
+      const id = `Inst9${String(i).padStart(11, "0")}`;
+      copy.instance = { ...copy.instance, id, tokenId: id, order: 100 + i };
+      copy.tokens = copy.tokens.map((t) => ({ ...t, tokenId: `x${i}` }));
+      copy.name = `Орк ${i}`;
+      state.elites.push(copy);
+    }
+  },
   "ГМ / игрок": () => (state.gm = !state.gm),
   "Боссы: вниз / в ряд": () => (state.bossDir = state.bossDir === "down" ? "row" : "down"),
   "uiScale 0.8 / 1": () => (state.uiScale = state.uiScale === 1 ? 0.8 : 1),
@@ -235,7 +248,7 @@ const ACTIONS: Record<string, () => void> = {
     const next = liveType ? LIVE_FILLS.indexOf(liveType) + 1 : 0;
     liveType = LIVE_FILLS[next] ?? null;
   },
-  "Потеря контекста (2 с)": () => liveRenderer(reducedMotion)?.simulateLoss(2000),
+  "Потеря контекста (2 с)": () => vfxRenderer(reducedMotion)?.simulateLoss(2000),
   Сброс: () => {
     Object.assign(state, fresh());
     state.collapsed.clear();

@@ -35,7 +35,7 @@
   flex: none;
   max-width: 45%;
   overflow: hidden;
-  color: var(--bb5e-gold);
+  color: var(--bb5e-title, var(--bb5e-gold));
   text-overflow: ellipsis;
   text-shadow: 0 0.1em 0.2em #000;
   white-space: nowrap;
@@ -46,16 +46,35 @@
   flex: 1;
   height: 0.5em;
   overflow: hidden;
-  border: 1px solid rgb(201 164 92 / 60%);
+  border: 1px solid color-mix(in srgb, var(--bb5e-gold) 55%, transparent);
+  border-radius: 999px;
   background: var(--bb5e-empty);
+  box-shadow:
+    inset 0 0.1em 0.25em rgb(0 0 0 / 85%),
+    0 1px 0 rgb(255 255 255 / 8%);
 }
 
 .bb5e-mini__fill {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background: var(--bb5e-mini-fill);
+  box-shadow:
+    inset 0 0.08em 0 rgb(255 255 255 / 45%),
+    inset 0 -0.12em 0.15em rgb(0 0 0 / 45%);
   transform-origin: left center;
   transition: transform 0.25s ease-out;
+
+  // the lit end of the fill
+  &::after {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 0.35em;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 70%));
+    content: "";
+  }
 }
 
 .bb5e-mini__pips {
@@ -67,13 +86,23 @@
 .bb5e-mini__pip {
   width: 0.625em;
   height: 0.625em;
-  border: 1px solid var(--bb5e-gold);
+  border: 1px solid color-mix(in srgb, var(--bb5e-gold) 70%, #000);
   background: var(--bb5e-empty);
+  box-shadow: inset 0 0.1em 0.2em rgb(0 0 0 / 80%);
   rotate: 45deg;
+  transition:
+    background-color 0.2s ease-out,
+    box-shadow 0.2s ease-out;
 
+  // a gem: lit facet top left, deep bottom right, a glow around it
   &--on {
     background: var(--bb5e-gold);
-    box-shadow: 0 0 0.25em rgb(201 164 92 / 70%);
+    background-image:
+      radial-gradient(circle at 30% 30%, rgb(255 255 255 / 85%), transparent 45%),
+      linear-gradient(135deg, transparent 50%, rgb(0 0 0 / 35%));
+    box-shadow:
+      0 0 0.35em color-mix(in srgb, var(--bb5e-mini-on, var(--bb5e-gold)) 75%, transparent),
+      inset 0 0 0.1em rgb(255 255 255 / 50%);
   }
 }
 
@@ -101,10 +130,41 @@
   position: relative;
   width: 1.5em;
   height: 1.5em;
-  border: 1px solid rgb(255 255 255 / 25%);
+  border: 1px solid rgb(255 255 255 / 28%);
   border-radius: 0.1875em;
-  background: rgb(0 0 0 / 60%);
+  background: radial-gradient(circle at 50% 35%, rgb(60 60 70 / 90%), rgb(0 0 0 / 90%));
+  box-shadow:
+    0 0.1em 0.3em rgb(0 0 0 / 75%),
+    inset 0 0 0 1px rgb(0 0 0 / 70%);
   pointer-events: auto;
+  animation: bb5e-status-in 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+
+  // gloss over the upper half, a dark bevel below
+  &::after {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgb(255 255 255 / 22%), transparent 45%, rgb(0 0 0 / 30%));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 35%);
+    content: "";
+    pointer-events: none;
+  }
+}
+
+@keyframes bb5e-status-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .bb5e-status__icon {
@@ -170,6 +230,10 @@
   .bb5e-mini__fill {
     transition: none;
   }
+
+  .bb5e-status {
+    animation: none;
+  }
 }
 
 .performance-low {
@@ -177,5 +241,9 @@
   .bb5e-elite__shield,
   .bb5e-mini__fill {
     transition: none;
+  }
+
+  .bb5e-status {
+    animation: none;
   }
 }
