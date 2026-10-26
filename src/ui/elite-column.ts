@@ -179,7 +179,13 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     if (card.shown !== shown) {
       const change = hpChange(card.shown, shown, look.effects.bigThreshold);
       if (change && card.vfx) {
-        card.vfx.handle.event({ kind: change.kind, share: change.share, x: shown, big: false });
+        card.vfx.handle.event({
+          kind: change.kind,
+          share: change.share,
+          x: shown,
+          big: false,
+          scale: look.effects.scaleByDamage,
+        });
       }
       playHpChange(
         change,

@@ -128,6 +128,7 @@ declare global {
     close(options?: Record<string, unknown>): Promise<this>;
     bringToFront(): void;
     changeTab(tab: string, group: string): void;
+    _insertElement(element: HTMLElement, options?: Record<string, unknown>): Promise<void>;
     _prepareContext(options: Record<string, unknown>): Promise<Record<string, unknown>>;
     _preRender(context: Record<string, unknown>, options: Record<string, unknown>): Promise<void>;
     _onFirstRender(context: Record<string, unknown>, options: Record<string, unknown>): Promise<void>;
@@ -138,6 +139,7 @@ declare global {
   const Hooks: {
     once(hook: string, callback: (...args: never[]) => void): number;
     on(hook: string, callback: (...args: never[]) => unknown): number;
+    off(hook: string, id: number): void;
     /** Stops at the first callback returning false and returns false then. */
     call(hook: string, ...args: unknown[]): boolean;
     callAll(hook: string, ...args: unknown[]): boolean;
@@ -200,6 +202,7 @@ declare global {
       saveDataToFile(data: string, type: string, filename: string): void;
       readTextFromFile(file: File): Promise<string>;
       escapeHTML(value: string): string;
+      fromUuid(uuid: string): Promise<unknown>;
     };
     applications: {
       instances: Map<string, ApplicationV2Instance>;

@@ -1,0 +1,10 @@
+<li>
+  <button type="button" class="bb5e-roster__row" data-action="profile" data-actor-id="{{id}}" aria-pressed="{{#if selected}}true{{else}}false{{/if}}">
+    <img src="{{img}}" alt="">
+    <span class="bb5e-roster__text">
+      <span class="bb5e-roster__name">{{name}}</span>
+      {{#if playerName}}<span class="bb5e-roster__sub">{{playerName}}</span>{{/if}}
+    </span>
+    {{#if onStage}}<span class="bb5e-pill" data-tooltip-text="{{localize "BB5E.Hub.OnStageHint"}}">{{localize "BB5E.Hub.OnStage"}}</span>{{/if}}
+  </button>
+</li>

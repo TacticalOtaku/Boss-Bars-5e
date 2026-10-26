@@ -54,6 +54,9 @@ interface Target {
   /** When the trail starts to follow a hit (ms). */
   trailFrom: number;
   defeatedAt: number | null;
+  /** The old palette and when the blend to the new one began (motion.phasePalette). */
+  paletteFrom: Float32Array | null;
+  paletteAt: number;
   events: VfxEvent[];
   seeds: number;
   /** Meter size and place in the frame, CSS px (ResizeObserver: read after layout, never in the frame loop). */
@@ -66,8 +69,8 @@ interface Target {
 
 const KIND: Record<VfxKind, number> = { damage: 0, heal: 1, phase: 2, defeat: 3, appear: 4 };
 /** The trail waits, then follows slower than the fill (the look's defaults). */
-const TRAIL_DELAY = 550;
-const TRAIL_MS = 420;
+/** A phase's palette blend (motion.phasePalette). */
+const PALETTE_MS = 800;
 const DEFEAT_MS = 2000;
 const MAX_PX = 4096;
 
@@ -284,6 +287,8 @@ class VfxRenderer {
       trail: -1,
       trailFrom: 0,
       defeatedAt: null,
+      paletteFrom: null,
+      paletteAt: 0,
       events: [],
       seeds: 0,
       box: { x: 0, y: 0, w: 0, h: 0 },
@@ -301,6 +306,10 @@ class VfxRenderer {
     return {
       setMaterial: (material, key) => {
         if (key === target.key) return;
+        if (target.material && material.phasePalette) {
+          target.paletteFrom = target.material.colors;
+          target.paletteAt = performance.now();
+        }
         target.material = material;
         target.key = key;
         target.dirty = true;
@@ -312,9 +321,12 @@ class VfxRenderer {
           target.drawn = state.fill;
           target.trail = state.fill;
         }
-        // A hit holds the trail where the fill was; healing takes it along.
-        if (state.fill < target.state.fill) target.trailFrom = now + TRAIL_DELAY;
-        else if (state.fill > target.state.fill) target.trail = state.fill;
+        // A hit holds the trail where the fill was (a look that does not gather hits drops the older ones);
+        // healing takes it along.
+        if (state.fill < target.state.fill) {
+          if (target.material?.trailAccumulate === 0) target.trail = target.state.fill;
+          target.trailFrom = now + (target.material?.trailDelay ?? 550);
+        } else if (state.fill > target.state.fill) target.trail = state.fill;
         if (state.defeated && !target.state.defeated) target.defeatedAt = now;
         if (!state.defeated) target.defeatedAt = null;
         target.state = state;
@@ -322,6 +334,11 @@ class VfxRenderer {
         this.#wake();
       },
       event: (event) => {
+        // "Refill": a phase change sweeps the fill up from empty.
+        if (event.kind === "phase" && target.material?.phaseRefill) {
+          target.drawn = 0;
+          target.trail = 0;
+        }
         target.events.push({ ...event, at: performance.now() });
         target.seeds++;
         this.#wake();
@@ -370,6 +387,7 @@ class VfxRenderer {
         target.drawn !== target.state.fill ||
         target.trail !== target.state.fill ||
         vfxAt(target.events, now, { reduced }).length > 0 ||
+        now - target.paletteAt < PALETTE_MS ||
         (target.defeatedAt !== null && now - target.defeatedAt < DEFEAT_MS);
       const interval = vfxFrameInterval({ busy, bosses: !target.card, reduced });
       if (interval === null) {
@@ -385,7 +403,9 @@ class VfxRenderer {
       target.drawn = approach(target.drawn, target.state.fill, dt);
       if (target.trail < target.drawn) target.trail = target.drawn;
       else if (now >= target.trailFrom) {
-        const next = target.trail + (target.drawn - target.trail) * Math.min(1, dt / TRAIL_MS);
+        const next =
+          target.trail +
+          (target.drawn - target.trail) * Math.min(1, dt / (target.material?.trailSpeed ?? 600));
         target.trail = Math.abs(next - target.drawn) < 0.001 ? target.drawn : next;
       }
       target.events = target.events.filter((event) => now - event.at < 3000);
@@ -529,7 +549,7 @@ class VfxRenderer {
     );
     gl.uniform1i(u.u_shape, material.portraitShape);
     gl.uniform1i(u.u_frameStyle, material.frameStyle);
-    gl.uniform3fv(u.u_hit, material.hit);
+    gl.uniform4fv(u.u_hit, material.hit);
     gl.uniform2fv(u.u_phase, material.phase);
     gl.uniform4f(
       u.u_panel,
@@ -559,12 +579,21 @@ class VfxRenderer {
     gl.uniform1f(u.u_shield, state.shield);
     const defeat = target.defeatedAt === null ? 0 : Math.min(1, (now - target.defeatedAt) / DEFEAT_MS);
     gl.uniform1f(u.u_defeat, state.defeated ? Math.max(defeat, this.#reduced() ? 1 : 0) : 0);
-    gl.uniform1f(u.u_low, state.low ? 1 : 0);
+    gl.uniform1f(u.u_low, state.low ? material.lowMode : 0);
     const ticks = new Float32Array(8);
     state.ticks.slice(0, 8).forEach((at, index) => (ticks[index] = at));
     gl.uniform1fv(u.u_ticks, ticks);
     gl.uniform1i(u.u_tickCount, Math.min(8, state.ticks.length));
-    gl.uniform3fv(u.u_colors, material.colors);
+    const blend = Math.min(1, (now - target.paletteAt) / PALETTE_MS);
+    const from = target.paletteFrom;
+    gl.uniform3fv(
+      u.u_colors,
+      from && blend < 1
+        ? material.colors.map(
+            (value, index) => (from[index] ?? value) + (value - (from[index] ?? value)) * blend,
+          )
+        : material.colors,
+    );
     gl.uniform1i(u.u_count, material.colorCount);
     gl.uniform3fv(u.u_empty, material.empty);
     gl.uniform3fv(u.u_frameColor, material.frameColor);

@@ -31,6 +31,7 @@ uniform float u_fill;
 uniform float u_trail;
 uniform float u_shield;
 uniform float u_defeat;
+/** Low HP: 0 none, 1 a pulse, 2 a flicker. */
 uniform float u_low;
 uniform float u_ticks[8];
 uniform int u_tickCount;
@@ -54,8 +55,8 @@ uniform float u_shine;
 /** FILL_PATTERNS (0 none, 1 runes, 2 scales, 3 damask) and FILL_MOTES (0 none, 1 fireflies, 2 embers, 3 sparkles). */
 uniform int u_pattern;
 uniform int u_motes;
-/** Hit effects the look plays (0 or 1): x sparks and rays, y the white flash, z big cracks. */
-uniform vec3 u_hit;
+/** Hit effects the look plays (0 or 1): x sparks and rays, y the white flash, z big cracks, w the heal wave. */
+uniform vec4 u_hit;
 /** How a phase change plays (0 or 1): x the bright flash and light pillars, y cracks through the fill. */
 uniform vec2 u_phase;
 
@@ -169,6 +170,11 @@ float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 // Premultiplied layers: "over" covers what is below, "add" is light.
 vec3 C = vec3(0.0);
 float A = 0.0;
+/** The low HP signal 0–1: a slow pulse, or a broken flicker of a failing light. */
+float lowSignal() {
+  if (u_low > 1.5) return step(0.4, hash(vec2(floor(u_time * 11.0), 7.3))) * (0.6 + 0.4 * hash(vec2(floor(u_time * 23.0), 1.9)));
+  return 0.5 + 0.5 * sin(turn(90.0));
+}
 void over(vec3 c, float a) { C = c * a + C * (1.0 - a); A = a + A * (1.0 - a); }
 void add(vec3 c, float k) { C += c * k; A = clamp(A + k * luma(c) * 0.9, 0.0, 1.0); }
 
@@ -367,7 +373,7 @@ void portrait(vec2 p) {
   over(vec3(0.0), 0.6 * exp(-max(dShadow, 0.0) / (S * 0.07)) * step(0.0, d));
   float breathe = 0.7 + 0.3 * sin(turn(18.0));
   add(u_glowColor, u_frameGlow * exp(-outside / (S * 0.12)) * breathe * step(0.0, d) * 1.1);
-  if (u_low > 0.5) add(vec3(1.0, 0.12, 0.08), exp(-outside / (S * 0.1)) * (0.5 + 0.5 * sin(turn(90.0))) * 0.6 * step(0.0, d));
+  if (u_low > 0.5) add(vec3(1.0, 0.12, 0.08), exp(-outside / (S * 0.1)) * lowSignal() * 0.6 * step(0.0, d));
   // inside: a soft inner shadow under the ring, the dimming of defeat, the red pulse of low HP
   float inner = -d - T;
   if (d < 0.0) {
@@ -379,7 +385,7 @@ void portrait(vec2 p) {
       add(u_spark, crack * (1.0 - u_defeat) * 1.4);
       over(vec3(0.0), crack * u_defeat * 0.6);
     }
-    if (u_low > 0.5) over(vec3(0.6, 0.0, 0.0), (0.5 + 0.5 * sin(turn(90.0))) * 0.35 * smoothstep(-S * 0.35, 0.0, d));
+    if (u_low > 0.5) over(vec3(0.6, 0.0, 0.0), lowSignal() * 0.35 * smoothstep(-S * 0.35, 0.0, d));
   }
   // the ring: bevelled metal with a groove and a travelling glint
   float ringA = smoothstep(0.75, -0.75, d) * smoothstep(-T - 0.75, -T + 0.75, d) * ringOn * reveal;
@@ -531,7 +537,7 @@ void main() {
   add(u_glowColor, u_frameGlow * exp(-outside / (H * 0.55)) * 0.8 * breathe * step(0.0, d) * reveal);
   add(pal(0.7), mat.a * fillMask * exp(-outside / (H * 0.4)) * 0.45 * step(0.0, d) * (0.6 + 0.4 * u_edgeGlow) * reveal);
   if (u_low > 0.5) {
-    float pulse = 0.5 + 0.5 * sin(turn(90.0));
+    float pulse = lowSignal();
     add(vec3(1.0, 0.12, 0.08), exp(-outside / (H * 0.7)) * pulse * 0.55 * step(0.0, d));
   }
 
@@ -849,7 +855,7 @@ void main() {
       float inside = smoothstep(0.75, -0.75, dIn);
       float b = t * 1.3 - 0.15;
       float wave = exp(-pow((uv.x - b) * aspect * 1.4, 2.0)) * step(uv.x, u_fill + 0.01) * inside;
-      add(hc, wave * (1.0 - t * 0.6) * 1.5 * s);
+      add(hc, wave * (1.0 - t * 0.6) * 1.5 * s * u_hit.w);
       float gained = step(x - share, uv.x) * step(uv.x, x) * inside;
       add(hc, gained * sin(t * PI) * 0.6 * s);
       add(hc, exp(-outside / (H * 0.6)) * step(0.0, d) * fillMask * sin(t * PI) * 0.35 * s);

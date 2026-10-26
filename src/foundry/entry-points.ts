@@ -89,7 +89,7 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
     tokens.tools.bb5eActiveBosses = {
       name: "bb5eActiveBosses",
       order: Object.keys(tokens.tools).length,
-      title: "BB5E.Panel.Title",
+      title: "BB5E.Hub.Title",
       icon: "fa-solid fa-skull-crossbones",
       button: true,
       visible: game.user.isGM,

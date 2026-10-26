@@ -1,4 +1,5 @@
 import "../styles/boss-bars-5e.scss";
+import type { HubSection } from "./apps/hub";
 import type { LayoutHost } from "./apps/layout-panel";
 import { MODULE_ID } from "./constants";
 import { ELITE_COLUMN_ID } from "./core/view";
@@ -29,19 +30,19 @@ function loadFailed(error: unknown): void {
   ui.notifications.error("BB5E.Error.WindowFailed", { localize: true });
 }
 
-const openRanks = () =>
-  void import("./apps/ranks-editor").then(({ openRanksEditor }) => openRanksEditor(), loadFailed);
-const openLibrary = () => void import("./apps/library").then(({ openLibrary: open }) => open(), loadFailed);
 const openLayout = () =>
   import("./apps/layout-panel").then(({ openLayoutPanel }) => {
     if (layoutHost) openLayoutPanel(layoutHost);
   }, loadFailed);
-const openProfile = (actor: ActorDocument) =>
-  import("./apps/profile-editor").then(({ openProfileEditor }) => openProfileEditor(actor), loadFailed);
-const openPanel = () =>
-  import("./apps/active-bosses").then(({ openActiveBosses }) => {
-    if (hud) openActiveBosses(hud, { openRanks, openLayout, openLibrary });
+/** Every GM way in leads to the hub (stage 13), on the right section. */
+const openHub = (section: HubSection, actor?: ActorDocument) =>
+  import("./apps/hub").then(({ openHub: open }) => {
+    if (hud) open({ hud, openLayout: () => void openLayout() }, section, actor);
   }, loadFailed);
+const openRanks = () => void openHub("ranks");
+const openLibrary = () => void openHub("library");
+const openProfile = (actor: ActorDocument) => openHub("profiles", actor);
+const openPanel = () => openHub("scene");
 
 const apiHost: ApiHost = {
   play: (message) => playEffect(message),

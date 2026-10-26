@@ -1,0 +1,29 @@
+<aside class="bb5e-hub__list" {{#unless profiles}}hidden{{/unless}}>
+  {{#if profiles}}
+  <label class="bb5e-search">
+    <i class="fa-solid fa-magnifying-glass" inert></i>
+    <input type="search" name="hubSearch" value="{{profiles.query}}" placeholder="{{localize "BB5E.Library.Search"}}" aria-label="{{localize "BB5E.Library.Search"}}">
+  </label>
+  <button type="button" class="bb5e-quiet" data-action="addProfile"><i class="fa-solid fa-crosshairs" inert></i> {{localize "BB5E.Hub.FromToken"}}</button>
+  {{#if profiles.bosses.length}}
+  <p class="bb5e-sec"><span class="bb5e-lbl">{{localize "BB5E.Panel.Bosses"}}</span></p>
+  <ul class="bb5e-roster">
+    {{#each profiles.bosses}}{{> "modules/boss-bars-5e/templates/hub-row.hbs"}}{{/each}}
+  </ul>
+  {{/if}}
+  {{#if profiles.elites.length}}
+  <p class="bb5e-sec"><span class="bb5e-lbl">{{localize "BB5E.Panel.Elites"}}</span></p>
+  <ul class="bb5e-roster">
+    {{#each profiles.elites}}{{> "modules/boss-bars-5e/templates/hub-row.hbs"}}{{/each}}
+  </ul>
+  {{/if}}
+  {{#if profiles.newer.length}}
+  <p class="bb5e-sec"><span class="bb5e-lbl">{{localize "BB5E.Hub.Newer"}}</span></p>
+  <ul class="bb5e-roster">
+    {{#each profiles.newer}}<li class="bb5e-roster__newer">{{name}}</li>{{/each}}
+  </ul>
+  {{/if}}
+  {{#if profiles.empty}}<p class="bb5e-panel__empty">{{localize "BB5E.Hub.NoProfiles"}}</p>{{/if}}
+  <p class="bb5e-hub__drop">{{localize "BB5E.Hub.DropHint"}}</p>
+  {{/if}}
+</aside>

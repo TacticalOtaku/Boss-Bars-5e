@@ -7,11 +7,9 @@ import { instanceFor, profileActorOf, type BossHud } from "../foundry/store";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-/** Other GM windows the panel links to (loaded lazily by main). */
+/** The layout mode, which runs over the scene with its own panel. */
 export interface PanelLinks {
-  openRanks(): void;
   openLayout(): void;
-  openLibrary(): void;
 }
 
 interface Row {
@@ -138,9 +136,8 @@ function sceneRows(scene: SceneDocument): Row[] {
 class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "bb5e-active-bosses",
-    classes: ["bb5e-app"],
-    window: { title: "BB5E.Panel.Title", icon: "fa-solid fa-skull-crossbones", resizable: true },
-    position: { width: 400, height: "auto" },
+    classes: ["bb5e-app", "bb5e-hosted"],
+    window: { frame: false, positioned: false },
     actions: {
       toggle: ActiveBosses.#onToggle,
       counter: ActiveBosses.#onCounter,
@@ -150,9 +147,7 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
       sayQuote: ActiveBosses.#onSayQuote,
       sayText: ActiveBosses.#onSayText,
       hideAll: ActiveBosses.#onHideAll,
-      openRanks: ActiveBosses.#onOpenRanks,
       openLayout: ActiveBosses.#onOpenLayout,
-      openLibrary: ActiveBosses.#onOpenLibrary,
     },
   };
 
@@ -168,10 +163,19 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
   readonly #open: PanelLinks;
   #unsubscribe: (() => void) | null = null;
 
-  constructor(hud: BossHud, open: PanelLinks) {
+  constructor(
+    readonly slot: HTMLElement,
+    hud: BossHud,
+    open: PanelLinks,
+  ) {
     super();
     this.#hud = hud;
     this.#open = open;
+  }
+
+  /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
+  override async _insertElement(element: HTMLElement) {
+    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
   }
 
   override async _prepareContext(options: Record<string, unknown>) {
@@ -294,20 +298,12 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
     if (scene) await writeOrNotify({ type: "hideAll", sceneId: scene.id });
   }
 
-  static async #onOpenRanks(this: ActiveBosses) {
-    this.#open.openRanks();
-  }
-
   static async #onOpenLayout(this: ActiveBosses) {
     this.#open.openLayout();
   }
-
-  static async #onOpenLibrary(this: ActiveBosses) {
-    this.#open.openLibrary();
-  }
 }
 
-export function openActiveBosses(hud: BossHud, open: PanelLinks): void {
-  const existing = foundry.applications.instances.get("bb5e-active-bosses");
-  void (existing ?? new ActiveBosses(hud, open)).render({ force: true });
+/** The hub's "On the scene" section. */
+export function hostActiveBosses(slot: HTMLElement, hud: BossHud, open: PanelLinks): ApplicationV2Instance {
+  return new ActiveBosses(slot, hud, open);
 }

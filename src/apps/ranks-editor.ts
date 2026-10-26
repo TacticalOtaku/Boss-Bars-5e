@@ -17,10 +17,9 @@ type Action = (this: RanksEditor, event: Event, target: HTMLElement) => Promise<
 class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "bb5e-ranks",
-    classes: ["bb5e-app"],
+    classes: ["bb5e-app", "bb5e-hosted"],
     tag: "form",
-    window: { title: "BB5E.Ranks.Title", icon: "fa-solid fa-ranking-star", resizable: true },
-    position: { width: 680, height: "auto" },
+    window: { frame: false, positioned: false },
     form: { handler: RanksEditor.#onSubmit, closeOnSubmit: false, submitOnChange: false },
     actions: {
       addRank: RanksEditor.#onAdd,
@@ -34,6 +33,15 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     list: { template: `${TEMPLATES}/ranks-list.hbs` },
     footer: { template: `${TEMPLATES}/editor-footer.hbs` },
   };
+
+  constructor(readonly slot: HTMLElement) {
+    super();
+  }
+
+  /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
+  override async _insertElement(element: HTMLElement) {
+    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
+  }
 
   #draft: Rank[] = structuredClone(currentRanks());
   /** Looks to pick from: built-ins and the world library. */
@@ -201,7 +209,7 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
-export function openRanksEditor(): void {
-  const existing = foundry.applications.instances.get("bb5e-ranks");
-  void (existing ?? new RanksEditor()).render({ force: true });
+/** The hub's "Elite ranks" section. */
+export function hostRanksEditor(slot: HTMLElement): ApplicationV2Instance {
+  return new RanksEditor(slot);
 }

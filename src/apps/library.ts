@@ -22,7 +22,10 @@ import {
   displayName,
   freshPreview,
   previewBoss,
+  playPreview,
   previewCard,
+  previewSteps,
+  type PreviewStep,
   sourcesOf,
   styleFor,
 } from "./shared";
@@ -110,15 +113,9 @@ function paramsFromForm(category: Category, raw: unknown): Record<string, unknow
 class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "bb5e-library",
-    classes: ["bb5e-app"],
+    classes: ["bb5e-app", "bb5e-hosted", "standard-form"],
     tag: "form",
-    window: {
-      title: "BB5E.Library.Title",
-      icon: "fa-solid fa-palette",
-      resizable: true,
-      contentClasses: ["standard-form"],
-    },
-    position: { width: 940, height: 720 },
+    window: { frame: false, positioned: false },
     form: { handler: LibraryApp.#onSave, closeOnSubmit: false, submitOnChange: false },
     actions: {
       section: LibraryApp.#onSection,
@@ -130,6 +127,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
       exportItem: LibraryApp.#onExportItem,
       importFile: LibraryApp.#onImportClick,
       sheet: LibraryApp.#onSheet,
+      play: LibraryApp.#onPlay,
     },
   };
 
@@ -144,12 +142,22 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #filter: Filter = "all";
   #search = "";
   #sheet = false;
+  /** The previews' state: the play buttons hit, heal, defeat and change phase on it. */
+  #preview = freshPreview();
   #dirty = false;
   #confirming = false;
 
-  constructor(library: Library) {
+  constructor(
+    readonly slot: HTMLElement,
+    library: Library,
+  ) {
     super();
     this.#draft = structuredClone(library);
+  }
+
+  /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
+  override async _insertElement(element: HTMLElement) {
+    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
   }
 
   #items(): Item[] {
@@ -236,6 +244,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
         selected: each.id === this.#selected,
       })),
       detail,
+      steps: previewSteps(),
       sheet: this.#sheet,
       sheetItems: this.#sheet ? items.map((each) => ({ id: each.id, name: displayName(each) })) : [],
     };
@@ -253,13 +262,15 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const item = this.#find(this.#selected);
     const boss = this.element.querySelector<HTMLElement>(".bb5e-library__boss");
     const card = this.element.querySelector<HTMLElement>(".bb5e-library__card");
-    if (item && boss) previewBoss(boss, this.#styleOf(item), freshPreview(), displayName(item));
+    if (item && boss) previewBoss(boss, this.#styleOf(item), this.#preview, displayName(item));
     if (item && card) {
       previewCard(card, {
         label: displayName(item),
         img: "icons/svg/mystery-man.svg",
         rank: SAMPLE_RANK,
         look: this.#styleOf(item),
+        fraction: this.#preview.fraction,
+        defeated: this.#preview.defeated,
       });
     }
     for (const tile of this.element.querySelectorAll<HTMLElement>("[data-sheet-id]")) {
@@ -336,7 +347,12 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onSelect(this: LibraryApp, _event: Event, target: HTMLElement) {
     this.#selected = target.dataset.id ?? null;
+    this.#preview = freshPreview();
     await this.render();
+  }
+
+  static #onPlay(this: LibraryApp, _event: Event, target: HTMLElement) {
+    playPreview(this.#preview, target.dataset.step as PreviewStep, () => this.#drawPreviews());
   }
 
   static async #onFilter(this: LibraryApp, _event: Event, target: HTMLElement) {
@@ -460,14 +476,14 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
-export function openLibrary(): void {
+/** The hub's "Look library" section; null (with a warning) when a newer version wrote the library. */
+export function hostLibrary(slot: HTMLElement): ApplicationV2Instance | null {
   const stored = readLibrary(game.settings.get(MODULE_ID, "library"), BUILTIN_IDS);
   if (stored.status === "newer") {
     ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
-    return;
+    return null;
   }
-  const existing = foundry.applications.instances.get("bb5e-library");
   const library =
     stored.status === "ok" ? stored.value : { dataVersion: LIBRARY_VERSION, looks: [], presets: [] };
-  void (existing ?? new LibraryApp(library)).render({ force: true });
+  return new LibraryApp(slot, library);
 }
