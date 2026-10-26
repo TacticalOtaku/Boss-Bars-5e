@@ -1,4 +1,5 @@
 import type { PhaseState } from "./phases";
+import { QUOTE_LIMITS, type QuoteState, type ShownQuote } from "./quotes";
 import { PROFILE_ID, type DisplayMode, type ProfileKind } from "./profile";
 import { isDocumentId, isRecord, migrate, type ReadResult } from "./schema";
 
@@ -21,6 +22,10 @@ export interface Instance {
   phase?: PhaseState;
   /** The actor holding the profile once a form moved the instance onto another actor's token or tokens. */
   source?: string;
+  /** Per quote: cooldown, "already said", the pool cursor (stage 7). */
+  quoteState?: Record<string, QuoteState>;
+  /** The quote on screen. */
+  quote?: ShownQuote;
 }
 
 export interface InstanceState {
@@ -48,15 +53,56 @@ function readPhaseState(raw: unknown): PhaseState | undefined {
   return state;
 }
 
-/** Counters, custom statuses, phase and source are optional: bad entries are dropped, the instance stays. */
+const count = (value: unknown) =>
+  Number.isInteger(value) && (value as number) >= 0 ? (value as number) : undefined;
+
+function readQuoteState(raw: unknown): Record<string, QuoteState> {
+  const states: Record<string, QuoteState> = {};
+  for (const [id, value] of Object.entries(isRecord(raw) ? raw : {})) {
+    if (!PROFILE_ID.test(id) || !isRecord(value) || typeof value.fight !== "string") continue;
+    const state: QuoteState = { fight: value.fight };
+    const round = count(value.round);
+    const cursor = count(value.cursor);
+    if (round !== undefined) state.round = round;
+    if (cursor !== undefined) state.cursor = cursor;
+    if (value.done === true) state.done = true;
+    states[id] = state;
+  }
+  return states;
+}
+
+/** The quote on screen reaches every client as text: checked like any other text. */
+function readShownQuote(raw: unknown): ShownQuote | undefined {
+  if (!isRecord(raw) || typeof raw.key !== "string" || typeof raw.text !== "string") return undefined;
+  const { priority, at, duration } = raw;
+  if (![priority, at, duration].every((value) => typeof value === "number" && Number.isFinite(value)))
+    return undefined;
+  return {
+    key: raw.key.slice(0, 80),
+    text: raw.text.slice(0, QUOTE_LIMITS.text),
+    priority: priority as number,
+    at: at as number,
+    duration: Math.min(QUOTE_LIMITS.durationMax, Math.max(0, duration as number)),
+  };
+}
+
+/** Counters, statuses, phase, source and quotes are optional: bad entries are dropped, the instance stays. */
 function cleanInstance(item: Instance): Instance {
-  const { counters, customStatuses, phase, source } = item as {
+  const { counters, customStatuses, phase, source, quoteState, quote } = item as {
     counters?: unknown;
     customStatuses?: unknown;
     phase?: unknown;
     source?: unknown;
+    quoteState?: unknown;
+    quote?: unknown;
   };
   const clean: Instance = { ...item };
+  if (quoteState !== undefined) clean.quoteState = readQuoteState(quoteState);
+  if (quote !== undefined) {
+    const shown = readShownQuote(quote);
+    if (shown) clean.quote = shown;
+    else delete clean.quote;
+  }
   if (phase !== undefined) {
     const state = readPhaseState(phase);
     if (state) clean.phase = state;
@@ -164,6 +210,21 @@ export function moveInstance(
     each === item ? [moved] : sameTarget(each, target) ? [] : [each],
   );
   return { ...state, items };
+}
+
+/** A quote goes on screen; the speaking quote's state is kept (a free text has none). */
+export function setQuote(
+  state: InstanceState,
+  id: string,
+  shown: ShownQuote,
+  quoteId?: string,
+  quoteState?: QuoteState,
+): InstanceState {
+  return updateItem(state, id, (item) => ({
+    ...item,
+    quote: shown,
+    ...(quoteId && quoteState ? { quoteState: { ...item.quoteState, [quoteId]: quoteState } } : {}),
+  }));
 }
 
 const sameTarget = (item: Instance, target: InstanceTarget) =>

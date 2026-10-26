@@ -14,12 +14,13 @@ const stage4 = { autoShow: DEFAULT_AUTO_SHOW, statuses: { hidden: [], custom: []
 /** Stage 5 boss fields: no look chosen yet. */
 const stage5 = { look: null, overrides: {} };
 /** Stage 6 boss fields: no phases. */
-const stage6 = { phases: [], fillMode: "segments", playerTicks: true } as const;
+const stage6 = { phases: [], fillMode: "segments", playerTicks: true, quotes: [] } as const;
 /** Stage 6 editor input: no phases. */
-const stage6Input: Pick<ProfileInput, "phases" | "fillMode" | "playerTicks"> = {
+const stage6Input: Pick<ProfileInput, "phases" | "fillMode" | "playerTicks" | "quotes"> = {
   phases: [],
   fillMode: "segments",
   playerTicks: true,
+  quotes: [],
 };
 
 const boss = {

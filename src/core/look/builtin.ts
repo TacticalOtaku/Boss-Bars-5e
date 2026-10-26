@@ -120,7 +120,7 @@ const LAYOUTS: { id: string; name: string; bar: Record<string, unknown>; card: R
   {
     id: "c",
     name: "BB5E.Look.Layout.C",
-    bar: { portrait: "notch", bar: "thin", width: 60, height: 0.625 },
+    bar: { portrait: "notch", bar: "thin", quote: "below", width: 60, height: 0.625 },
     card: { icon: "tile", fill: "vertical", name: "overlay", statuses: "side", width: 8 },
   },
 ];

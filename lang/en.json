@@ -31,6 +31,7 @@
         "MiniBars": "Mini-bars",
         "Statuses": "Statuses",
         "Phases": "Phases",
+        "Quotes": "Quotes",
         "AutoShow": "Auto-show"
       },
       "Kind": {
@@ -112,7 +113,46 @@
       "Phase": "Phase",
       "FormWaiting": "The form waits for a token.",
       "BindToken": "Bind selected token",
-      "NoSelection": "Select one token on this scene first."
+      "NoSelection": "Select one token on this scene first.",
+      "Say": "Say",
+      "ChooseQuote": "Quote of the profile",
+      "OwnText": "Own line"
+    },
+    "Quotes": {
+      "Hint": "Lines the boss says over its bar; everyone sees them. Crit and miss work only when the attacker targeted the boss before rolling.",
+      "Trigger": {
+        "Label": "When",
+        "Appear": "The bar is shown",
+        "Phase": "Entering a phase",
+        "Below": "HP falls below (once per fight)",
+        "Damage": "One hit takes at least",
+        "Heal": "Healed",
+        "Turn": "The boss's turn starts",
+        "Status": "Gains a status",
+        "Crit": "Critical hit on the boss",
+        "Miss": "An attack misses the boss",
+        "Defeat": "Defeated",
+        "Manual": "Only by hand"
+      },
+      "Phase": "Phase",
+      "ChoosePhase": "Choose a phase",
+      "Percent": "Share of HP",
+      "Status": "Status id or effect name",
+      "Texts": "One line per variant; {name} is the boss's name, {attacker} the attacker (crit and miss only)",
+      "Order": {
+        "Label": "Variant order",
+        "Random": "Random",
+        "Cycle": "In turn"
+      },
+      "Cooldown": "At most once per rounds",
+      "Duration": "Seconds",
+      "Auto": "auto",
+      "Once": "Once per fight",
+      "Remove": "Remove quote",
+      "Add": "Add quote",
+      "Limits": "Up to 30 quotes, 10 variants of 200 characters each.",
+      "EliteHint": "Quotes are for bosses only.",
+      "SampleAttacker": "Tarn"
     },
     "Phases": {
       "Hint": "Up to 6 phases. The first is the start of the fight; later ones begin below an HP threshold, as a form (the bar moves onto another actor's token) or by hand from Active bosses. Thresholds only go forward.",
@@ -176,7 +216,14 @@
       "ImportEmpty": "The file holds no looks or presets.",
       "ThresholdRange": "A threshold must be between 5 and 95%.",
       "ThresholdGap": "Thresholds fall from phase to phase and keep at least 8% apart (a form starts over).",
-      "NoFormActor": "Choose the actor of the form."
+      "NoFormActor": "Choose the actor of the form.",
+      "QuoteEmpty": "Write at least one line.",
+      "QuoteTexts": "At most 10 lines of at most 200 characters.",
+      "PercentRange": "The share must be a whole number from 1 to 99%.",
+      "NoPhase": "Choose one of this boss's phases.",
+      "NoStatus": "Write a status id or an effect name.",
+      "CooldownRange": "The cooldown must be 0 to 99 rounds.",
+      "DurationRange": "The time must be empty (automatic) or 1 to 20 seconds."
     },
     "Column": {
       "Title": "Elites",
@@ -331,6 +378,8 @@
       "Console": "Test console",
       "Heal": "Heal",
       "NextPhase": "Next phase",
+      "Quote": "Quote",
+      "SampleQuote": "Ash remembers your names…",
       "Defeat": "Defeat",
       "Reset": "Reset",
       "CopyLook": "Copy look",
@@ -401,6 +450,7 @@
       "Leave": "Exit",
       "Defeat": "Exit on defeat",
       "BannerText": "Banner text (empty: “Defeated”)",
+      "QuotePlace": "Quote",
       "PhaseCrack": "Phase change: frame cracks",
       "PhaseFlash": "Phase change: flash",
       "PhaseRefill": "Phase change: bar refills",

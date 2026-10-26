@@ -67,6 +67,7 @@ export function lookStyle(look: ResolvedLook): LookStyle {
     bar: bar.bar,
     name: bar.name,
     extras: bar.extras,
+    quote: bar.quote,
     icon: card.icon,
     cfill: card.fill,
     cname: card.name,

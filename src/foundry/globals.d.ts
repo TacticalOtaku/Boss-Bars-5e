@@ -72,9 +72,20 @@ declare global {
   }
 
   interface CombatDocument {
+    id: string;
+    round: number;
+    started: boolean;
     combatants: FoundryCollection<{ sceneId: string; tokenId: string; defeated: boolean }>;
     /** The round and turn before the last change (set before updateCombat fires). */
     previous?: { round?: number };
+  }
+
+  interface ChatMessageDocument {
+    id: string;
+    flags?: unknown;
+    /** Evaluated rolls; a D20Roll answers isCritical, isFumble and total. */
+    rolls?: { isCritical?: boolean; isFumble?: boolean; total?: number }[];
+    speaker?: { scene?: string | null; token?: string | null; alias?: string };
   }
 
   interface UserDocument {
@@ -94,6 +105,7 @@ declare global {
     bringToFront(): void;
     changeTab(tab: string, group: string): void;
     _prepareContext(options: Record<string, unknown>): Promise<Record<string, unknown>>;
+    _preRender(context: Record<string, unknown>, options: Record<string, unknown>): Promise<void>;
     _onFirstRender(context: Record<string, unknown>, options: Record<string, unknown>): Promise<void>;
     _onRender(context: Record<string, unknown>, options: Record<string, unknown>): Promise<void>;
     _onClose(options: Record<string, unknown>): void;

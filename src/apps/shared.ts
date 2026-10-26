@@ -89,6 +89,7 @@ export interface PreviewState {
   ticks?: number[];
   title?: string;
   img?: string;
+  quote?: BossBarView["quote"];
 }
 
 export const freshPreview = (): PreviewState => ({ fraction: 0.74, defeated: false, shown: true });
@@ -121,6 +122,7 @@ export function previewBoss(host: HTMLElement, look: LookStyle, state: PreviewSt
     title: state.title ?? game.i18n.localize("BB5E.Look.SampleTitle"),
     phase: state.phase ?? null,
     ticks: state.ticks ?? [],
+    quote: state.quote ?? null,
     portrait: { src: state.img || SAMPLE_IMG, video: isVideoPath(state.img ?? "") },
     size: 100,
     fraction: state.fraction,

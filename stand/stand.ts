@@ -5,6 +5,7 @@ import { BUILTIN_LOOKS, BUILTIN_SOURCES, CLASSIC } from "../src/core/look/builti
 import { resolveLook } from "../src/core/look/resolve";
 import { hpFraction } from "../src/core/hp";
 import { nextPhase, phaseIndex, pickPhase } from "../src/core/phases";
+import { pickQuote, speak, type QuoteEvent } from "../src/core/quotes";
 import { buildViews, ELITE_COLUMN_ID, type SubjectInput } from "../src/core/view";
 import { FONT_FACES } from "../src/core/look/fonts";
 import { createBossStack } from "../src/ui/boss-stack";
@@ -58,6 +59,7 @@ const peaks = new Map<string, number>();
 // One resolved object per look, as the store keeps them: equal looks share one style.
 const looks = BUILTIN_LOOKS.map((look) => resolveLook(look.id, {}, BUILTIN_SOURCES, CLASSIC));
 let lookIndex = 0;
+let quotePlace: "above" | "below" | "side" = "above";
 const reducedMotion = () =>
   matchMedia("(prefers-reduced-motion: reduce)").matches ||
   document.body.classList.contains("performance-low");
@@ -84,13 +86,47 @@ const column = createEliteColumn(overlay, {
   },
 });
 
-/** The active GM's phase engine, run in place: damage through a threshold changes the phase. */
+/** What the stand's "GM" last saw of each boss: HP share and phase, for the quote events. */
+const seen = new Map<string, { fraction: number | null; phase: string | undefined }>();
+const quoteContext = (subject: SubjectInput) => ({
+  fight: "stand",
+  round: null,
+  now: Date.now(),
+  name: subject.profile.playerName || subject.name,
+  random: Math.random,
+});
+
+/** The active GM's phase and quote engines, run in place. */
 function runPhases(): void {
   for (const subject of state.bosses) {
     const hp = subject.tokens[0]?.hp;
     if (subject.profile.kind !== "boss" || !hp) continue;
     const step = nextPhase(subject.profile.phases, subject.instance.phase, hpFraction(hp));
     if (step) subject.instance.phase = step.state;
+    const now = { fraction: hpFraction(hp), phase: subject.instance.phase?.id };
+    const before = seen.get(subject.instance.id);
+    seen.set(subject.instance.id, now);
+    if (!before) continue;
+    const events: QuoteEvent[] = [];
+    if (now.phase && now.phase !== before.phase) events.push({ type: "phase", phaseId: now.phase });
+    if (before.fraction !== null && now.fraction !== null && now.fraction !== before.fraction) {
+      events.push(
+        now.fraction < before.fraction
+          ? { type: "hp", from: before.fraction, to: now.fraction }
+          : { type: "heal" },
+      );
+    }
+    const pick = pickQuote(
+      subject.profile.quotes,
+      events,
+      subject.instance.quoteState ?? {},
+      subject.instance.quote,
+      quoteContext(subject),
+    );
+    if (pick) {
+      subject.instance.quote = pick.shown;
+      subject.instance.quoteState = { ...subject.instance.quoteState, [pick.quoteId]: pick.state };
+    }
   }
 }
 
@@ -101,6 +137,8 @@ function render(): void {
   const subjects = [...state.bosses, ...state.elites].map((subject) => ({ ...subject, look }));
   const views = buildViews(subjects, FIXTURE_RANKS, viewer, state.limit, peaks);
   stack.update(views.bosses, { ...DEFAULT_LAYOUT.bosses, dir: state.bossDir }, state.uiScale);
+  // The quote place is a layout parameter; the stand flips it on the rendered bars to show all three.
+  for (const bar of overlay.querySelectorAll<HTMLElement>(".bb5e-boss")) bar.dataset.lookQuote = quotePlace;
   column.update(views.elites, views, DEFAULT_LAYOUT.elites, state.uiScale);
 }
 
@@ -156,6 +194,19 @@ const ACTIONS: Record<string, () => void> = {
     const hp = subject.tokens[0]?.hp;
     const step = next ? pickPhase(phases, next.id, hp ? hpFraction(hp) : null) : null;
     if (step) subject.instance.phase = step.state;
+  },
+  Фраза: () => {
+    const subject = state.bosses[0];
+    const quote =
+      subject?.profile.kind === "boss" ? subject.profile.quotes.find((each) => each.id === "say") : undefined;
+    if (!subject || !quote) return;
+    const pick = speak(quote, subject.instance.quoteState?.say, quoteContext(subject));
+    subject.instance.quote = pick.shown;
+    subject.instance.quoteState = { ...subject.instance.quoteState, say: pick.state };
+  },
+  "Фраза: под / сбоку / над": () => {
+    const next = { above: "below", below: "side", side: "above" } as const;
+    quotePlace = next[quotePlace];
   },
   "Сегменты / перезаливка": () => {
     const profile = state.bosses[0]?.profile;

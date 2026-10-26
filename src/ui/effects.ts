@@ -134,6 +134,32 @@ export function playPhaseChange(
   }
 }
 
+/** A quote fades in, rising a little (reduced motion: the fade only), and leaves after `ms`. */
+export function showQuote(
+  el: HTMLElement,
+  text: string,
+  ms: number,
+  reduced: boolean,
+): ReturnType<typeof setTimeout> {
+  el.textContent = text;
+  el.hidden = false;
+  run(
+    el,
+    reduced
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [{ opacity: 0, transform: "translateY(0.4em)" }, { opacity: 1 }],
+    300,
+  );
+  return setTimeout(() => {
+    const out = run(el, [{ opacity: 1 }, { opacity: 0 }], 300);
+    const hide = () => {
+      el.hidden = true;
+    };
+    if (out) void out.finished.then(hide, hide);
+    else hide();
+  }, ms);
+}
+
 /** Entry of a bar or card as its look says; reduced motion keeps the fade only. */
 export function enterFrames(style: LookStyle, reduced: boolean): Keyframe[] {
   if (reduced) return [{ opacity: 0 }, { opacity: 1 }];

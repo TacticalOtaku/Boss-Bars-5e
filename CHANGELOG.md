@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0
+
+- Boss quotes (profile tab "Quotes", up to 30): a line over the bar when the bar is shown, a phase begins, HP falls
+  below a share (once per fight), one hit takes at least a share, the boss is healed, its turn starts, it gains a
+  status, a critical hit or a miss lands on it, it is defeated, or only by hand. Each quote has up to 10 variants
+  (random or in turn), "at most once per N rounds", "once per fight" and an automatic or own duration.
+- One quote at a time: defeat > phase entry > manual > the rest; a more important line on screen is not cut off.
+  Cooldowns, "already said" and the variant cursor live in the scene, so a GM reload never repeats a line, and a
+  player who reloads sees the rest of the current one.
+- The active GM decides; quotes need a GM online. HP, healing, statuses, defeat and phases come from the data, the
+  turn from the combat tracker, crits and misses from the chat: dnd5e attack rolls and Midi QOL cards (full
+  automation). Crit and miss need the attacker to target the boss before rolling (see the README).
+- `{name}` is the bar's name as players see it, `{attacker}` the attacker's token (crit and miss).
+- "Active bosses": say a quote of the profile or your own line. The workshop's test console gets "Quote"; ▶ in the
+  Quotes tab plays a line on the preview.
+- The bar layout gains "Quote" (above, below, beside); the cinematic layout C puts it below.
+- Data versions: the look library 3 (look presets now keep parameters they do not know); profiles 2 and scene
+  instances 3 stay.
+
 ## 0.7.0
 
 - Boss phases (profile tab "Phases", up to 6): the first is the start of the fight, later ones begin below an HP

@@ -77,3 +77,22 @@ describe("parseAction — phases", () => {
     expect(parseAction({ type: "bindToken", sceneId: id, instanceId: id, tokenId: "x" })).toBeNull();
   });
 });
+
+describe("parseAction — quotes", () => {
+  it("accepts a profile quote or a trimmed own text up to 200 characters", () => {
+    expect(parseAction({ type: "say", sceneId: id, instanceId: id, quoteId: "roar" })).toEqual({
+      type: "say",
+      sceneId: id,
+      instanceId: id,
+      quoteId: "roar",
+    });
+    expect(parseAction({ type: "say", sceneId: id, instanceId: id, text: "  Ash!  " })).toEqual({
+      type: "say",
+      sceneId: id,
+      instanceId: id,
+      text: "Ash!",
+    });
+    expect(parseAction({ type: "say", sceneId: id, instanceId: id, text: "x".repeat(201) })).toBeNull();
+    expect(parseAction({ type: "say", sceneId: id, instanceId: id, text: "  " })).toBeNull();
+  });
+});
