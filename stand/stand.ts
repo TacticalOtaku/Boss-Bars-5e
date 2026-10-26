@@ -6,6 +6,8 @@ import { resolveLook } from "../src/core/look/resolve";
 import { hpFraction } from "../src/core/hp";
 import { nextPhase, phaseIndex, pickPhase } from "../src/core/phases";
 import { pickQuote, speak, type QuoteEvent } from "../src/core/quotes";
+import { LIVE_FILLS, type LiveFill } from "../src/core/look/live";
+import { liveRenderer } from "../src/ui/live/renderer";
 import { buildViews, ELITE_COLUMN_ID, type SubjectInput } from "../src/core/view";
 import { FONT_FACES } from "../src/core/look/fonts";
 import { createBossStack } from "../src/ui/boss-stack";
@@ -60,6 +62,8 @@ const peaks = new Map<string, number>();
 const looks = BUILTIN_LOOKS.map((look) => resolveLook(look.id, {}, BUILTIN_SOURCES, CLASSIC));
 let lookIndex = 0;
 let quotePlace: "above" | "below" | "side" = "above";
+/** A live fill type forced onto the current look; null — the look's own. */
+let liveType: LiveFill | null = null;
 const reducedMotion = () =>
   matchMedia("(prefers-reduced-motion: reduce)").matches ||
   document.body.classList.contains("performance-low");
@@ -133,7 +137,11 @@ function runPhases(): void {
 function render(): void {
   runPhases();
   const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true, mayCollapseElites: true };
-  const look = looks[lookIndex];
+  const base = looks[lookIndex];
+  const look =
+    base && liveType
+      ? { ...base, fill: { ...base.fill, params: { ...base.fill.params, type: liveType } } }
+      : base;
   const subjects = [...state.bosses, ...state.elites].map((subject) => ({ ...subject, look }));
   const views = buildViews(subjects, FIXTURE_RANKS, viewer, state.limit, peaks);
   stack.update(views.bosses, { ...DEFAULT_LAYOUT.bosses, dir: state.bossDir }, state.uiScale);
@@ -223,6 +231,11 @@ const ACTIONS: Record<string, () => void> = {
   "uiScale 0.8 / 1": () => (state.uiScale = state.uiScale === 1 ? 0.8 : 1),
   "Облик →": () => (lookIndex = (lookIndex + 1) % looks.length),
   "Меньше движения": () => document.body.classList.toggle("performance-low"),
+  "Живая заливка →": () => {
+    const next = liveType ? LIVE_FILLS.indexOf(liveType) + 1 : 0;
+    liveType = LIVE_FILLS[next] ?? null;
+  },
+  "Потеря контекста (2 с)": () => liveRenderer(reducedMotion)?.simulateLoss(2000),
   Сброс: () => {
     Object.assign(state, fresh());
     state.collapsed.clear();

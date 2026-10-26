@@ -109,6 +109,9 @@ export const PARAMS = {
   hpEffect: {
     damageShake: b(true),
     damageFlash: b(true),
+    /** Sparks fly from the fill's edge on damage (stage 9; boss bars on the HUD). */
+    sparks: b(true),
+    sparkColor: c("#ffcc66"),
     scaleByDamage: b(true),
     bigThreshold: n(5, 100, 25),
     bigCrack: b(true),

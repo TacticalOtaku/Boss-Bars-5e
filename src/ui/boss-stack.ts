@@ -1,4 +1,6 @@
 import { hpChange, isLow } from "../core/look/effects";
+import { isLiveFill } from "../core/look/live";
+import { ash, sparks, type Particle } from "../core/look/particles";
 import type { Block } from "../core/layout";
 import { QUOTE_LIMITS } from "../core/quotes";
 import type { BossBarView } from "../core/view";
@@ -16,6 +18,7 @@ import {
 import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 import { applyHpColor, applyLook } from "./look";
+import { liveRenderer, type LiveHandle } from "./live/renderer";
 
 export interface StackOptions {
   /** `defeated`: the defeat banner's text when the look gives none; `phase`: "Phase {n}". */
@@ -23,6 +26,8 @@ export interface StackOptions {
   onCollapse(id: string, collapsed: boolean): void;
   /** prefers-reduced-motion or Foundry's performance-low: only opacity changes are animated. */
   reducedMotion(): boolean;
+  /** The HUD's particle layer; editor previews have none. */
+  particles?: { emit(born: Particle[]): void };
 }
 
 interface Bar extends KeyedItem {
@@ -48,6 +53,8 @@ interface Bar extends KeyedItem {
   quote: HTMLElement;
   quoteKey: string | null;
   quoteTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The live fill (WebGL2 frame in a canvas over the CSS fill), while the look's fill type is live. */
+  live: { handle: LiveHandle; canvas: HTMLCanvasElement; key: string } | null;
   view: BossBarView | null;
   shown: number | null;
   /** undefined until the first render: the first phase seen plays no effect. */
@@ -124,6 +131,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       quote,
       quoteKey: null,
       quoteTimer: undefined,
+      live: null,
       view: null,
       shown: null,
       phaseKey: undefined,
@@ -161,8 +169,14 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       bar.el.style.setProperty("--bb5e-t", String(shown));
     }
     if (quiet) return;
+    const change = hpChange(previous, shown, view.look.effects.bigThreshold);
+    if (change?.kind === "damage" && view.look.effects.sparks && options.particles) {
+      const rect = bar.meter.getBoundingClientRect();
+      const at = { x: rect.left + rect.width * shown, y: rect.top + rect.height / 2 };
+      options.particles.emit(sparks(at, change.share, view.look.effects.sparkColor));
+    }
     playHpChange(
-      hpChange(previous, shown, view.look.effects.bigThreshold),
+      change,
       view.look,
       {
         root: bar.el,
@@ -188,6 +202,37 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     if (left <= 0) return;
     clearTimeout(bar.quoteTimer);
     bar.quoteTimer = showQuote(bar.quote, quote.text, left, options.reducedMotion());
+  }
+
+  /**
+   * Live fill types draw through the shared WebGL2 renderer into a canvas over the CSS fill, which hides only while
+   * the canvas draws (`bb5e-live`): without WebGL2 or after a lost context the CSS version shows (ADR 0002).
+   */
+  function updateLive(bar: Bar, view: BossBarView, shown: number) {
+    const type = view.look.attrs.fill ?? "";
+    if (!isLiveFill(type)) {
+      if (!bar.live) return;
+      bar.live.handle.detach();
+      bar.live.canvas.remove();
+      bar.meter.classList.remove("bb5e-live");
+      bar.live = null;
+      return;
+    }
+    if (!bar.live) {
+      const renderer = liveRenderer(options.reducedMotion);
+      if (!renderer) return;
+      const canvas = document.createElement("canvas");
+      canvas.className = "bb5e-boss__live";
+      canvas.setAttribute("aria-hidden", "true");
+      bar.fill.after(canvas);
+      const handle = renderer.attach(canvas, (live) => bar.meter.classList.toggle("bb5e-live", live));
+      bar.live = { handle, canvas, key: "" };
+    }
+    if (bar.live.key !== view.look.key) {
+      bar.live.key = view.look.key;
+      bar.live.handle.setLook(type, view.look.fill.colors);
+    }
+    bar.live.handle.setFill(shown);
   }
 
   /** Threshold ticks; elements are reused, so an unchanged render touches nothing. */
@@ -236,6 +281,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     else bar.meter.setAttribute("aria-valuenow", String(Math.round(shown * 100)));
     applyHpColor(bar.fill, look, shown);
     setFill(bar, view, shown, phaseChanged);
+    updateLive(bar, view, shown);
     renderTicks(bar, view.ticks);
     updateQuote(bar, view.quote);
     if (phaseChanged) {
@@ -274,6 +320,10 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       };
     },
     onLeave(bar, view) {
+      // "Dissolve": the bar crumbles into ash in its own colours.
+      if (view.defeated && view.look.motion.defeat === "dissolve" && options.particles) {
+        options.particles.emit(ash(bar.el.getBoundingClientRect(), view.look.fill.colors));
+      }
       if (!view.defeated || view.look.motion.defeat !== "banner") return;
       bar.banner.textContent = view.look.motion.bannerText || options.labels.defeated;
       bar.banner.hidden = false;

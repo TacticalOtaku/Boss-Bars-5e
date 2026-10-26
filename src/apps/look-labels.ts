@@ -77,6 +77,8 @@ export const PARAM_LABELS: Record<string, string> = {
   "hpEffect.trailDelay": "BB5E.Param.TrailDelay",
   "hpEffect.trailSpeed": "BB5E.Param.TrailSpeed",
   "hpEffect.trailAccumulate": "BB5E.Param.TrailAccumulate",
+  "hpEffect.sparks": "BB5E.Param.Sparks",
+  "hpEffect.sparkColor": "BB5E.Param.SparkColor",
   "motion.enter": "BB5E.Param.Enter",
   "motion.duration": "BB5E.Param.Duration",
   "motion.leave": "BB5E.Param.Leave",

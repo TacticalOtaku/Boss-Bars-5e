@@ -339,6 +339,16 @@
   text-transform: uppercase;
 }
 
+// The HUD's particle layer: over the whole screen while particles live, never in the way.
+.bb5e-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
 // Phase banner: the phase name over the bar for a moment (motion.phaseBanner).
 .bb5e-banner--phase {
   color: var(--bb5e-title, var(--bb5e-gold));

@@ -466,6 +466,8 @@
       "Defeat": "Exit on defeat",
       "BannerText": "Banner text (empty: “Defeated”)",
       "QuotePlace": "Quote",
+      "Sparks": "Sparks on damage",
+      "SparkColor": "Spark colour",
       "PhaseCrack": "Phase change: frame cracks",
       "PhaseFlash": "Phase change: flash",
       "PhaseRefill": "Phase change: bar refills",

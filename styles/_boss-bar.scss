@@ -321,6 +321,26 @@
   display: none;
 }
 
+// Live fill (WebGL2 frame): over the CSS fill, which hides only while the canvas draws.
+.bb5e-boss__live {
+  position: absolute;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.bb5e-boss__meter.bb5e-live {
+  .bb5e-boss__live {
+    display: block;
+  }
+
+  .bb5e-boss__fill {
+    visibility: hidden;
+  }
+}
+
 .bb5e-boss__fill,
 .bb5e-boss__trail {
   position: absolute;
