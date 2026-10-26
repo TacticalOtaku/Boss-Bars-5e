@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.1
 
 - Fixed: in "On the scene", a quote picked in the list went back to the first one, and a line being typed was lost
   with its focus, whenever a token moved or an actor changed. The hub rebuilt a section caught re-rendering; it now
