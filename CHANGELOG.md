@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.0
+
+- Boss phases (profile tab "Phases", up to 6): the first is the start of the fight, later ones begin below an HP
+  threshold, as a form or by hand. Thresholds only go forward; one hit through several lands on the last, as one
+  change. The active GM changes the phase exactly once (reloads and a second GM client included) and catches up on
+  what happened while no GM was online. A wounded boss shows up straight in its phase.
+- Forms: at 0 HP before a form the bar moves onto the nearest token of the form's actor on the scene (one per actor:
+  onto all its tokens), keeping the boss's profile, name and look; HP, mini-bars and statuses come from the new token.
+  Without such a token the form waits: the GM is told, the bar stays (not defeated, not auto-hidden), and "Bind
+  selected token" in "Active bosses" finishes it.
+- Entering a phase may change the label ("Phase II" by default), name, title, portrait and single look categories;
+  the changes add up from phase to phase. "Play" shows a phase's entry on the tab's preview.
+- Fill with phases (Main tab): segments (the bar is all HP, ticks at the thresholds, "Ticks for players" on by
+  default) or refill (the bar is the HP of the current phase). The fill preset's segments gain "At phase thresholds"
+  (gaps instead of thin ticks).
+- Phase change effect in the "Appearance and exit" category: frame crack, flash, refill sweep, palette blend, banner
+  with the phase name (Classic RPG: flash and banner). Reduced motion keeps the flash, the blend and the banner.
+- "Active bosses": pick a boss's phase (picking is not healing: a boss at 0 HP stays defeated), see a waiting form and
+  bind the selected token. The workshop's test console gets "Next phase".
+- Fixed: removing a category override in the workshop did not stick (profile writes merged into the stored flag);
+  profiles are now written whole.
+- Data versions: scene instances 3 and the look library 2, so 0.6.0 leaves 0.7.0 data untouched. Profiles stay at 2.
+
 ## 0.6.0
 
 - Look engine: a look is one preset per category — layout (bar and card), font, frame, fill and colour, HP change

@@ -57,6 +57,35 @@ interface ProfileBase {
   miniBars: MiniBar[];
 }
 
+export type PhaseTrigger =
+  /** The first phase only: the start of the fight. */
+  | { type: "start" }
+  /** Below this share of HP, in %. */
+  | { type: "hp"; below: number }
+  /** The bar moves onto a token of another actor; 0 HP before it is a transition, not a defeat. */
+  | { type: "form"; actorId: string }
+  | { type: "manual" };
+
+/** What entering a phase changes; a missing field keeps what the phases before it set. */
+export interface PhaseEnter {
+  playerName?: string;
+  title?: string;
+  portrait?: string;
+  /** Look categories, the phase change effect ("motion") among them. */
+  overrides?: Partial<Record<Category, string>>;
+}
+
+export interface Phase {
+  id: string;
+  /** Empty: "Phase II" by number; the first phase then shows no label. */
+  label: string;
+  trigger: PhaseTrigger;
+  enter: PhaseEnter;
+}
+
+/** "segments": the bar is all HP, thresholds are ticks; "refill": the bar is the HP inside the current phase. */
+export type FillMode = "segments" | "refill";
+
 /** Stored in the world actor's flags; one kind per actor. Fields of later stages are added with their stages. */
 export interface BossProfile extends ProfileBase {
   kind: "boss";
@@ -67,6 +96,11 @@ export interface BossProfile extends ProfileBase {
   title: string;
   /** Size in percent. */
   size: number;
+  /** Empty: no phases. The first one is the start of the fight. */
+  phases: Phase[];
+  fillMode: FillMode;
+  /** Players see the threshold ticks. */
+  playerTicks: boolean;
 }
 
 export interface EliteProfile extends ProfileBase {
@@ -88,6 +122,9 @@ export interface ProfileInput {
   autoShow: AutoShow;
   statuses: StatusRules;
   miniBars: MiniBar[];
+  phases: Phase[];
+  fillMode: FillMode;
+  playerTicks: boolean;
 }
 
 export const PROFILE_LIMITS = {
@@ -105,6 +142,11 @@ export const PROFILE_LIMITS = {
   hidden: 50,
   custom: 20,
   description: 200,
+  phases: 6,
+  phaseLabel: 40,
+  thresholdMin: 5,
+  thresholdMax: 95,
+  thresholdGap: 8,
 } as const;
 
 export const DEFAULT_AUTO_SHOW: AutoShow = {
@@ -130,7 +172,18 @@ export function defaultProfile(kind: ProfileKind = "boss"): Profile {
   } as const;
   const stage4 = { autoShow: { ...DEFAULT_AUTO_SHOW }, statuses: { hidden: [], custom: [] }, miniBars: [] };
   return kind === "boss"
-    ? { ...base, ...stage4, kind, look: null, overrides: {}, title: "", size: 100 }
+    ? {
+        ...base,
+        ...stage4,
+        kind,
+        look: null,
+        overrides: {},
+        title: "",
+        size: 100,
+        phases: [],
+        fillMode: "segments",
+        playerTicks: true,
+      }
     : { ...base, ...stage4, kind, rank: "" };
 }
 
@@ -178,6 +231,54 @@ function readStatuses(raw: unknown): StatusRules {
       .slice(0, PROFILE_LIMITS.hidden),
     custom: custom.flatMap((entry) => readCustomStatus(entry) ?? []).slice(0, PROFILE_LIMITS.custom),
   };
+}
+
+function readTrigger(raw: unknown, first: boolean): PhaseTrigger {
+  if (first) return { type: "start" };
+  if (!isRecord(raw)) return { type: "manual" };
+  switch (raw.type) {
+    case "hp":
+      return {
+        type: "hp",
+        below: clamp(raw.below, PROFILE_LIMITS.thresholdMin, PROFILE_LIMITS.thresholdMax, 50),
+      };
+    case "form":
+      return isDocumentId(raw.actorId) ? { type: "form", actorId: raw.actorId } : { type: "manual" };
+    case "start":
+    case "manual":
+      return { type: "manual" };
+    default:
+      // A newer version's trigger: it acts as manual (core/phases) and is written back as it is (ticket #12).
+      return typeof raw.type === "string" ? (raw as unknown as PhaseTrigger) : { type: "manual" };
+  }
+}
+
+function readEnter(raw: unknown): PhaseEnter {
+  if (!isRecord(raw)) return {};
+  const enter: PhaseEnter = {};
+  if (typeof raw.playerName === "string") enter.playerName = text(raw.playerName, PROFILE_LIMITS.text);
+  if (typeof raw.title === "string") enter.title = text(raw.title, PROFILE_LIMITS.text);
+  if (typeof raw.portrait === "string") enter.portrait = text(raw.portrait, PROFILE_LIMITS.path);
+  if (raw.overrides !== undefined) enter.overrides = readOverrides(raw.overrides);
+  return enter;
+}
+
+/** Bad or duplicate ids drop the phase (ticket #12: id collisions); unknown keys stay. */
+function readPhases(raw: unknown): Phase[] {
+  const phases: Phase[] = [];
+  for (const entry of Array.isArray(raw) ? raw : []) {
+    if (phases.length >= PROFILE_LIMITS.phases) break;
+    if (!isRecord(entry) || typeof entry.id !== "string" || !PROFILE_ID.test(entry.id)) continue;
+    if (phases.some((phase) => phase.id === entry.id)) continue;
+    phases.push({
+      ...entry,
+      id: entry.id,
+      label: text(entry.label, PROFILE_LIMITS.phaseLabel),
+      trigger: readTrigger(entry.trigger, phases.length === 0),
+      enter: readEnter(entry.enter),
+    });
+  }
+  return phases;
 }
 
 const validPath = (value: unknown): value is string =>
@@ -251,6 +352,9 @@ export function readProfile(raw: unknown): ReadResult<Profile> {
       overrides: readOverrides(value.overrides),
       title: text(value.title, PROFILE_LIMITS.text),
       size: clamp(value.size, PROFILE_LIMITS.sizeMin, PROFILE_LIMITS.sizeMax, 100),
+      phases: readPhases(value.phases),
+      fillMode: value.fillMode === "refill" ? "refill" : "segments",
+      playerTicks: value.playerTicks !== false,
     },
   };
 }
@@ -277,6 +381,36 @@ function miniBarErrors(bar: MiniBar, at: string, errors: Record<string, string>)
   }
 }
 
+/**
+ * Phase rows: thresholds 5–95% that fall and keep 8% apart within one HP pool (a form starts a new pool), a form
+ * needs its actor, labels and entry texts fit their limits.
+ */
+function phaseErrors(phases: Phase[], errors: Record<string, string>): void {
+  let previous: number | null = null;
+  phases.forEach((phase, index) => {
+    const at = `phases.${index}`;
+    const { trigger, enter } = phase;
+    if (tooLong(phase.label, PROFILE_LIMITS.phaseLabel)) errors[`${at}.label`] = "BB5E.Error.TooLong";
+    if (tooLong(enter.playerName ?? "", PROFILE_LIMITS.text))
+      errors[`${at}.enter.playerName`] = "BB5E.Error.TooLong";
+    if (tooLong(enter.title ?? "", PROFILE_LIMITS.text)) errors[`${at}.enter.title`] = "BB5E.Error.TooLong";
+    if (tooLong(enter.portrait ?? "", PROFILE_LIMITS.path))
+      errors[`${at}.enter.portrait`] = "BB5E.Error.TooLong";
+    if (trigger.type === "form") {
+      if (!isDocumentId(trigger.actorId)) errors[`${at}.actorId`] = "BB5E.Error.NoFormActor";
+      previous = null;
+    } else if (trigger.type === "hp") {
+      const { below } = trigger;
+      if (!(below >= PROFILE_LIMITS.thresholdMin && below <= PROFILE_LIMITS.thresholdMax)) {
+        errors[`${at}.below`] = "BB5E.Error.ThresholdRange";
+      } else if (previous !== null && previous - below < PROFILE_LIMITS.thresholdGap) {
+        errors[`${at}.below`] = "BB5E.Error.ThresholdGap";
+      }
+      previous = below;
+    }
+  });
+}
+
 /** Editor validation: i18n key of the problem for each invalid field of the chosen kind, keyed by field name. */
 export function profileErrors(input: ProfileInput): Record<string, string> {
   const errors: Record<string, string> = {};
@@ -297,6 +431,7 @@ export function profileErrors(input: ProfileInput): Record<string, string> {
       }
       if (tooLong(status.img, PROFILE_LIMITS.path)) errors[`${at}.img`] = "BB5E.Error.TooLong";
     });
+    phaseErrors(input.phases, errors);
   } else if (!input.rank || input.rank.length > PROFILE_LIMITS.rank) {
     errors.rank = "BB5E.Error.NoRank";
   }

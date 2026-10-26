@@ -6,7 +6,8 @@ import { CLASSIC_RESOLVED } from "./look/builtin";
 import type { ResolvedLook } from "./look/resolve";
 import { lookStyle, type LookStyle } from "./look/style";
 import { buildMiniBars, type MiniBarView } from "./minibars";
-import type { Profile } from "./profile";
+import { formPending, phaseChanges, phaseTicks, refillFraction, romanNumeral, shownIndex } from "./phases";
+import type { Phase, PhaseEnter, Profile } from "./profile";
 import { rankOf, type Rank } from "./ranks";
 import { buildStatuses, type StatusView } from "./statuses";
 
@@ -65,8 +66,20 @@ function styleOf(look: ResolvedLook): LookStyle {
   return style;
 }
 
+/** The phase everyone sees; the list of phases and a waiting form stay with the GM. */
+export interface PhaseView {
+  /** Changes when the phase changes: the renderer plays the phase effect on it. */
+  key: string;
+  label: string;
+  /** "II", "III"… for the default label; null when the phase has its own label or is the first one. */
+  numeral: string | null;
+}
+
 export interface BossBarView extends CommonView {
   title: string;
+  phase: PhaseView | null;
+  /** Threshold ticks as shares of the bar ("segments" fill); empty for players when the profile hides them. */
+  ticks: number[];
   size: number;
   collapsed: boolean;
   canCollapse: boolean;
@@ -94,6 +107,26 @@ const numbersOf = (hp: HpData | null, isGM: boolean) =>
     ? { numbers: { value: hp.value, max: hp.effectiveMax, temp: hp.temp } }
     : {};
 
+const phasesOf = (subject: SubjectInput): readonly Phase[] =>
+  subject.profile.kind === "boss" ? subject.profile.phases : [];
+
+/** What the phases up to the shown one changed (name, title, portrait, look categories). */
+export function phaseEnterOf(subject: SubjectInput): PhaseEnter {
+  const phases = phasesOf(subject);
+  return phases.length ? phaseChanges(phases, shownIndex(phases, subject.instance.phase)) : {};
+}
+
+/** The phase label everyone sees: its own label, or "Phase II" by number from the second phase on. */
+export function phaseViewOf(phases: readonly Phase[], index: number): PhaseView | null {
+  const phase = phases[index];
+  if (!phase) return null;
+  return {
+    key: phase.id,
+    label: phase.label,
+    numeral: phase.label || index === 0 ? null : romanNumeral(index + 1),
+  };
+}
+
 const shieldOf = (hp: HpData | null) =>
   hp && hp.temp > 0 && hp.effectiveMax > 0 ? Math.min(1, hp.temp / hp.effectiveMax) : 0;
 
@@ -109,7 +142,8 @@ export function buildViews(
   eliteLimit: number,
   peaks = new Map<string, number>(),
 ): HudViews {
-  const baseLabel = (subject: SubjectInput) => subject.profile.playerName || subject.name;
+  const baseLabel = (subject: SubjectInput) =>
+    phaseEnterOf(subject).playerName || subject.profile.playerName || subject.name;
   const labels = numberLabels(
     subjects.map((subject) => ({
       id: subject.instance.id,
@@ -124,8 +158,12 @@ export function buildViews(
     const total = aggregate(subject.tokens, viewer.isGM);
     if (!total) continue;
     const { instance, profile } = subject;
-    const src = profile.portrait ?? subject.actorImg;
+    const enter = phaseEnterOf(subject);
+    const src = enter.portrait || (profile.portrait ?? subject.actorImg);
     const isBoss = profile.kind === "boss";
+    const phases = phasesOf(subject);
+    const phaseAt = shownIndex(phases, instance.phase);
+    const fraction = total.hp ? hpFraction(total.hp) : null;
     const look = styleOf(subject.look ?? CLASSIC_RESOLVED);
     const statusLimit = isBoss ? look.statuses.max : look.statuses.maxCard;
     const rank = isBoss ? null : rankOf(ranks, profile.rank);
@@ -150,8 +188,11 @@ export function buildViews(
       id: instance.id,
       label: labels.get(instance.id) ?? baseLabel(subject),
       portrait: { src, video: isVideoPath(src) },
-      fraction: total.hp ? hpFraction(total.hp) : null,
-      defeated: total.defeated,
+      fraction:
+        fraction !== null && profile.kind === "boss" && profile.fillMode === "refill" && phases.length
+          ? refillFraction(phases, phaseAt, fraction)
+          : fraction,
+      defeated: total.defeated && !formPending(phases, instance.phase),
       muted: total.hidden,
       ...(profile.displayMode === "actor" && instance.actorId ? { count: total.count } : {}),
       ...numbersOf(total.hp, viewer.isGM),
@@ -163,9 +204,12 @@ export function buildViews(
     };
     if (profile.kind === "boss") {
       const canCollapse = !viewer.isGM && viewer.mayCollapse;
+      const ticks = profile.fillMode === "segments" && (viewer.isGM || profile.playerTicks);
       bosses.push({
         ...common,
-        title: profile.title,
+        title: enter.title || profile.title,
+        phase: phaseViewOf(phases, phaseAt),
+        ticks: ticks ? phaseTicks(phases, phaseAt) : [],
         size: profile.size,
         collapsed: canCollapse && viewer.collapsed.has(instance.id),
         canCollapse,

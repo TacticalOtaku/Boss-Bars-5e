@@ -22,6 +22,7 @@ declare global {
     type: string;
     isToken: boolean;
     token: TokenDocument | null;
+    prototypeToken?: { name: string };
     system: {
       attributes?: { hp?: Record<string, unknown> };
       resources?: Record<string, { value?: unknown; max?: unknown } | undefined>;
@@ -57,6 +58,9 @@ declare global {
     hidden: boolean;
     actorId: string | null;
     actorLink: boolean;
+    /** Top-left corner on the canvas, in pixels. */
+    x: number;
+    y: number;
     actor: ActorDocument | null;
     baseActor: ActorDocument | null;
     parent: SceneDocument | null;
@@ -116,7 +120,16 @@ declare global {
     i18n: { localize(key: string): string; format(key: string, data: Record<string, string>): string };
   };
 
-  const canvas: { scene: SceneDocument | null } | undefined;
+  const canvas:
+    | {
+        scene: SceneDocument | null;
+        /** The token layer: the placeables this client has selected. */
+        tokens?: { controlled: { document: TokenDocument }[] };
+      }
+    | undefined;
+
+  /** Foundry 14 ForcedReplacement: an update writes the value whole instead of merging it into the stored one. */
+  function _replace<T>(value: T): T;
 
   const ui: {
     notifications: {

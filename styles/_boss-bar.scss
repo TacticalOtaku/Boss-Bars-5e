@@ -172,6 +172,20 @@
   white-space: nowrap;
 }
 
+// Phase label: everyone sees it; the list of phases stays with the GM.
+.bb5e-boss__phase {
+  flex: none;
+  padding: 0 0.375em;
+  border: 1px solid color-mix(in srgb, var(--bb5e-gold) 60%, transparent);
+  border-radius: 0.1875em;
+  background: rgb(0 0 0 / 55%);
+  color: var(--bb5e-title, var(--bb5e-gold));
+  font: 600 calc(var(--bb5e-title-size, 0.8125em) * 0.9) / 1.4 var(--bb5e-font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .bb5e-boss[data-look-name="below"] .bb5e-boss__head {
   order: 2;
   margin-top: 0.125em;
@@ -250,6 +264,29 @@
     bottom: calc(100% + 0.125em);
     translate: none;
   }
+}
+
+// Threshold ticks of the phases ("segments" fill); the ring layout has no straight bar to mark.
+.bb5e-boss__ticks {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.bb5e-boss__tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--bb5e-at) * 100%);
+  width: 0.125em;
+  margin-left: -0.0625em;
+  background: var(--bb5e-gold);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 60%);
+}
+
+.bb5e-boss[data-look-bar="ring"] .bb5e-boss__ticks {
+  display: none;
 }
 
 .bb5e-boss__fill,

@@ -1,8 +1,9 @@
 import { MODULE_ID } from "../constants";
-import { readInstances } from "../core/instances";
-import { readProfile, type ProfileKind } from "../core/profile";
+import { readInstances, type Instance } from "../core/instances";
+import { phaseIndex, romanNumeral } from "../core/phases";
+import { readProfile, type Profile, type ProfileKind } from "../core/profile";
 import { writeOrNotify } from "../foundry/authority";
-import { instanceFor, type BossHud } from "../foundry/store";
+import { instanceFor, profileActorOf, type BossHud } from "../foundry/store";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -25,65 +26,104 @@ interface Row {
   /** Shown rows only: manual counters and the boss's custom statuses. */
   counters: { barId: string; label: string; value: number; max: number }[];
   customs: { id: string; name: string; img: string; active: boolean }[];
+  /** A shown boss with phases: pick one (GM only, like the whole panel). */
+  phases: { id: string; label: string; selected: boolean }[];
+  /** The form waits for a token: "Bind selected token". */
+  waiting: boolean;
+}
+
+function rowOf(
+  profile: Profile,
+  actor: ActorDocument,
+  instance: Instance | undefined,
+  label: { name: string; count: number; tokenId: string },
+): Row {
+  const counters = instance
+    ? profile.miniBars.flatMap(({ id, label, source }) =>
+        source.type === "counter"
+          ? [
+              {
+                barId: id,
+                label,
+                value: Math.min(source.max, instance.counters?.[id] ?? source.max),
+                max: source.max,
+              },
+            ]
+          : [],
+      )
+    : [];
+  const customs =
+    instance && profile.kind === "boss"
+      ? profile.statuses.custom.map((status) => ({
+          id: status.id,
+          name: status.name,
+          img: status.img,
+          active: Boolean(instance.customStatuses?.includes(status.id)),
+        }))
+      : [];
+  const phases = instance && profile.kind === "boss" ? profile.phases : [];
+  const current = phaseIndex(phases, instance?.phase);
+  return {
+    kind: profile.kind,
+    tokenId: label.tokenId,
+    instanceId: instance?.id ?? null,
+    name: profile.playerName ? `${label.name} (${profile.playerName})` : label.name,
+    count: label.count,
+    img: profile.portrait ?? actor.img,
+    order: instance?.order ?? Number.POSITIVE_INFINITY,
+    counters,
+    customs,
+    phases: phases.map((phase, index) => ({
+      id: phase.id,
+      label: phase.label || game.i18n.format("BB5E.Phase.Default", { n: romanNumeral(index + 1) }),
+      selected: index === current,
+    })),
+    waiting: Boolean(instance?.phase?.waiting),
+  };
 }
 
 /**
- * Tokens of the viewed scene whose actor has a profile: one row per token, or one per actor (×N) in that mode.
- * Shown ones first, in show order.
+ * Shown bars and cards first, in show order (a form's bar stays under its boss, even on another actor's token or
+ * while it waits with no token at all), then the other tokens whose actor has a profile: one row per token, or one
+ * per actor (×N) in that mode.
  */
 function sceneRows(scene: SceneDocument): Row[] {
   const read = readInstances(scene.flags[MODULE_ID]?.instances);
   const items = read.status === "ok" ? read.value.items : [];
-  const rows = new Map<string, Row>();
+  const rows: Row[] = [];
+  for (const item of items) {
+    const actor = profileActorOf(scene, item);
+    const profile = readProfile(actor?.flags[MODULE_ID]?.profile);
+    if (!actor || profile.status !== "ok") continue;
+    const tokens = item.tokenId
+      ? scene.tokens.filter((token) => token.id === item.tokenId)
+      : scene.tokens.filter((token) => token.actorId === item.actorId);
+    const name = item.source
+      ? actor.prototypeToken?.name || actor.name
+      : (item.tokenId && tokens[0]?.name) || actor.name;
+    rows.push(
+      rowOf(profile.value, actor, item, { name, count: tokens.length, tokenId: tokens[0]?.id ?? "" }),
+    );
+  }
+  // shortcut: every token of a boss whose bar moved onto a form is left out, not just the fallen one; fine while
+  // forms are used one boss token at a time.
+  const sources = new Set(items.flatMap((item) => (item.source ? [item.source] : [])));
+  const hidden = new Map<string, Row>();
   for (const token of scene.tokens.values()) {
     const actor = token.baseActor;
     const profile = readProfile(actor?.flags[MODULE_ID]?.profile);
-    if (!actor || profile.status !== "ok") continue;
+    if (!actor || profile.status !== "ok" || sources.has(actor.id) || instanceFor(items, token)) continue;
     const byActor = profile.value.displayMode === "actor";
     const key = byActor ? `actor:${actor.id}` : token.id;
-    const existing = rows.get(key);
-    if (existing) {
-      existing.count += 1;
-      continue;
+    const existing = hidden.get(key);
+    if (existing) existing.count += 1;
+    else {
+      const name = byActor ? actor.name : token.name;
+      hidden.set(key, rowOf(profile.value, actor, undefined, { name, count: 1, tokenId: token.id }));
     }
-    const instance = instanceFor(items, token);
-    const name = byActor ? actor.name : token.name;
-    const counters = instance
-      ? profile.value.miniBars.flatMap(({ id, label, source }) =>
-          source.type === "counter"
-            ? [
-                {
-                  barId: id,
-                  label,
-                  value: Math.min(source.max, instance.counters?.[id] ?? source.max),
-                  max: source.max,
-                },
-              ]
-            : [],
-        )
-      : [];
-    const customs =
-      instance && profile.value.kind === "boss"
-        ? profile.value.statuses.custom.map((status) => ({
-            id: status.id,
-            name: status.name,
-            img: status.img,
-            active: Boolean(instance.customStatuses?.includes(status.id)),
-          }))
-        : [];
-    rows.set(key, {
-      kind: profile.value.kind,
-      tokenId: token.id,
-      instanceId: instance?.id ?? null,
-      name: profile.value.playerName ? `${name} (${profile.value.playerName})` : name,
-      count: 1,
-      img: profile.value.portrait ?? actor.img,
-      order: instance?.order ?? Number.POSITIVE_INFINITY,
-      counters,
-      customs,
-    });
   }
-  return [...rows.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  rows.sort((a, b) => a.order - b.order);
+  return [...rows, ...[...hidden.values()].sort((a, b) => a.name.localeCompare(b.name))];
 }
 
 /** "Active bosses": show or hide each boss and elite of the viewed scene, or all of them. */
@@ -97,6 +137,8 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
       toggle: ActiveBosses.#onToggle,
       counter: ActiveBosses.#onCounter,
       toggleStatus: ActiveBosses.#onToggleStatus,
+      setPhase: ActiveBosses.#onSetPhase,
+      bindToken: ActiveBosses.#onBindToken,
       hideAll: ActiveBosses.#onHideAll,
       openRanks: ActiveBosses.#onOpenRanks,
       openLayout: ActiveBosses.#onOpenLayout,
@@ -148,14 +190,11 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onToggle(this: ActiveBosses, _event: Event, target: HTMLElement) {
     const scene = canvas?.scene;
-    const row = target.closest<HTMLElement>("[data-token-id]");
-    if (!scene || !row?.dataset.tokenId) return;
-    const { tokenId, instanceId } = row.dataset;
-    await writeOrNotify(
-      instanceId
-        ? { type: "hide", sceneId: scene.id, instanceId }
-        : { type: "show", sceneId: scene.id, tokenId },
-    );
+    const { tokenId, instanceId } = target.closest<HTMLElement>("[data-token-id]")?.dataset ?? {};
+    if (!scene) return;
+    // A waiting form may have no token left: hiding goes by the instance.
+    if (instanceId) await writeOrNotify({ type: "hide", sceneId: scene.id, instanceId });
+    else if (tokenId) await writeOrNotify({ type: "show", sceneId: scene.id, tokenId });
   }
 
   static async #onCounter(this: ActiveBosses, _event: Event, target: HTMLElement) {
@@ -176,6 +215,27 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!scene || !instanceId || !statusId) return;
     const active = target.getAttribute("aria-pressed") !== "true";
     await writeOrNotify({ type: "toggleStatus", sceneId: scene.id, instanceId, statusId, active });
+  }
+
+  static async #onSetPhase(this: ActiveBosses, _event: Event, target: HTMLElement) {
+    const scene = canvas?.scene;
+    const instanceId = target.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
+    const phaseId = target.dataset.phaseId;
+    if (scene && instanceId && phaseId)
+      await writeOrNotify({ type: "setPhase", sceneId: scene.id, instanceId, phaseId });
+  }
+
+  /** The one token this GM has selected on the scene becomes the waiting form's token. */
+  static async #onBindToken(this: ActiveBosses, _event: Event, target: HTMLElement) {
+    const scene = canvas?.scene;
+    const instanceId = target.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
+    const selected = canvas?.tokens?.controlled ?? [];
+    const token = selected.length === 1 ? selected[0]?.document : undefined;
+    if (!scene || !instanceId) return;
+    if (!token || token.parent?.id !== scene.id) {
+      return ui.notifications.warn("BB5E.Panel.NoSelection", { localize: true });
+    }
+    await writeOrNotify({ type: "bindToken", sceneId: scene.id, instanceId, tokenId: token.id });
   }
 
   static async #onHideAll(this: ActiveBosses) {

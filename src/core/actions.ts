@@ -7,7 +7,10 @@ export type WriteAction =
   | { type: "hide"; sceneId: string; instanceId: string }
   | { type: "hideAll"; sceneId: string }
   | { type: "setCounter"; sceneId: string; instanceId: string; barId: string; value: number }
-  | { type: "toggleStatus"; sceneId: string; instanceId: string; statusId: string; active: boolean };
+  | { type: "toggleStatus"; sceneId: string; instanceId: string; statusId: string; active: boolean }
+  | { type: "setPhase"; sceneId: string; instanceId: string; phaseId: string }
+  /** A waiting form takes the token the GM selected. */
+  | { type: "bindToken"; sceneId: string; instanceId: string; tokenId: string };
 
 /** Payload check at the trust boundary (queries from other GMs): returns a clean copy or null. */
 export function parseAction(raw: unknown): WriteAction | null {
@@ -39,6 +42,17 @@ export function parseAction(raw: unknown): WriteAction | null {
         PROFILE_ID.test(statusId) &&
         typeof active === "boolean";
       return valid ? { type: "toggleStatus", sceneId, instanceId, statusId, active } : null;
+    }
+    case "setPhase": {
+      const { instanceId, phaseId } = raw;
+      const valid = isDocumentId(instanceId) && typeof phaseId === "string" && PROFILE_ID.test(phaseId);
+      return valid ? { type: "setPhase", sceneId, instanceId, phaseId } : null;
+    }
+    case "bindToken": {
+      const { instanceId, tokenId } = raw;
+      return isDocumentId(instanceId) && isDocumentId(tokenId)
+        ? { type: "bindToken", sceneId, instanceId, tokenId }
+        : null;
     }
     default:
       return null;

@@ -3,7 +3,7 @@ import { isDefeated, type TokenState } from "../core/aggregate";
 import { readInstances, type Instance } from "../core/instances";
 import { readProfile, type Profile } from "../core/profile";
 import { rankOf } from "../core/ranks";
-import { buildViews, type HudViews, type SubjectInput } from "../core/view";
+import { buildViews, phaseEnterOf, type HudViews, type SubjectInput } from "../core/view";
 import { hasDefeatedStatus, readBar, readEffects, readHp } from "../integrations/dnd5e/actor";
 import { logger } from "../logger";
 import type { Layout } from "../core/layout";
@@ -105,19 +105,29 @@ function tokenState(scene: SceneDocument, token: TokenDocument, profile: Profile
   };
 }
 
-/** What the store needs for one instance; null when its token or actor is gone or has no readable profile. */
+/** The actor holding an instance's profile: a form's source, else the bound token's base actor or the bound actor. */
+export function profileActorOf(scene: SceneDocument, instance: Instance): ActorDocument | null | undefined {
+  if (instance.source) return game.actors.get(instance.source);
+  return instance.tokenId
+    ? scene.tokens.get(instance.tokenId)?.baseActor
+    : game.actors.get(instance.actorId ?? "");
+}
+
+/**
+ * What the store needs for one instance; null when its token or actor is gone or has no readable profile. On a
+ * form's token the name and image stay the boss's (spec §6); HP, mini-bars and statuses come from the token.
+ */
 export function subjectOf(scene: SceneDocument, instance: Instance): SubjectInput | null {
-  let actor: ActorDocument | null | undefined;
+  const actor = profileActorOf(scene, instance);
   let tokens: TokenDocument[];
   let name: string;
   if (instance.tokenId) {
     const token = scene.tokens.get(instance.tokenId);
     if (!token) return null;
-    actor = token.baseActor;
     tokens = [token];
-    name = token.name;
+    // The boss keeps the name its own tokens carry, not the form token's.
+    name = instance.source ? actor?.prototypeToken?.name || (actor?.name ?? "") : token.name;
   } else {
-    actor = game.actors.get(instance.actorId ?? "");
     tokens = scene.tokens.filter((token) => token.actorId === instance.actorId);
     name = actor?.name ?? "";
   }
@@ -127,7 +137,7 @@ export function subjectOf(scene: SceneDocument, instance: Instance): SubjectInpu
     instance,
     profile: profile.value,
     name,
-    actorImg: (tokens[0]?.actor ?? actor).img,
+    actorImg: instance.source ? actor.img : (tokens[0]?.actor ?? actor).img,
     tokens: tokens.map((token) => tokenState(scene, token, profile.value)),
   };
 }
@@ -150,11 +160,11 @@ function collectViews(warned: Set<string>, layout: Layout): HudViews {
     try {
       const subject = subjectOf(scene, instance);
       if (!subject) continue;
-      // Bosses wear their profile's look and overrides, elites their rank's look.
+      // Bosses wear their profile's look and overrides, then their phases' overrides; elites their rank's look.
       const { profile } = subject;
       subject.look =
         profile.kind === "boss"
-          ? lookFor(profile.look, profile.overrides)
+          ? lookFor(profile.look, { ...profile.overrides, ...phaseEnterOf(subject).overrides })
           : lookFor(rankOf(ranks, profile.rank).rank.look);
       subjects.push(subject);
     } catch (error) {

@@ -18,6 +18,19 @@
     {{/each}}
   </div>
   {{/if}}
+  {{#if phases.length}}
+  <div class="bb5e-panel__extras" role="group" aria-label="{{localize "BB5E.Panel.Phase"}}">
+    {{#each phases}}
+    <button type="button" class="bb5e-panel__custom" data-action="setPhase" data-phase-id="{{id}}" aria-pressed="{{#if selected}}true{{else}}false{{/if}}">{{label}}</button>
+    {{/each}}
+  </div>
+  {{/if}}
+  {{#if waiting}}
+  <div class="bb5e-panel__extras bb5e-panel__waiting">
+    <span>{{localize "BB5E.Panel.FormWaiting"}}</span>
+    <button type="button" data-action="bindToken"><i class="fa-solid fa-link" inert></i> {{localize "BB5E.Panel.BindToken"}}</button>
+  </div>
+  {{/if}}
   {{#if customs.length}}
   <div class="bb5e-panel__extras">
     {{#each customs}}

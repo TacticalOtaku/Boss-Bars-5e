@@ -64,6 +64,76 @@ export function playHpChange(
   }
 }
 
+export interface PhaseTargets {
+  meter: HTMLElement;
+  fill: HTMLElement;
+  flash: HTMLElement;
+  crack: HTMLElement;
+  banner: HTMLElement;
+}
+
+/**
+ * The phase change of the new phase's look (spec §9, decision 5): frame crack, flash, refill sweep, palette blend
+ * from `palette` (the old fill's background) and a banner with `text`. Reduced motion keeps the opacity ones: the
+ * flash, the blend and the banner.
+ */
+export function playPhaseChange(
+  style: LookStyle,
+  targets: PhaseTargets,
+  shown: number,
+  text: string,
+  palette: string | null,
+  reduced: boolean,
+): void {
+  const motion = style.motion;
+  if (motion.phaseFlash) run(targets.flash, [{ opacity: 1 }, { opacity: 0 }], 600);
+  if (motion.phaseCrack && !reduced) {
+    run(
+      targets.crack,
+      [
+        { opacity: 0, transform: "scale(1.04)" },
+        { opacity: 1, transform: "scale(1)", offset: 0.1 },
+        { opacity: 1, offset: 0.6 },
+        { opacity: 0 },
+      ],
+      1400,
+    );
+  }
+  if (motion.phaseRefill && !reduced) {
+    run(targets.fill, [{ transform: "scaleX(0)" }, { transform: `scaleX(${shown})` }], 700);
+  }
+  if (palette) {
+    // The old palette lies over the new one and fades out.
+    const layer = document.createElement("div");
+    layer.className = "bb5e-fx bb5e-fx--palette";
+    layer.style.background = palette;
+    layer.style.transform = `scaleX(${shown})`;
+    targets.meter.append(layer);
+    const blend = run(layer, [{ opacity: 1 }, { opacity: 0 }], 800);
+    if (blend)
+      void blend.finished.then(
+        () => layer.remove(),
+        () => layer.remove(),
+      );
+    else layer.remove();
+  }
+  if (motion.phaseBanner && text) {
+    const { banner } = targets;
+    banner.textContent = text;
+    banner.hidden = false;
+    const show = run(
+      banner,
+      [{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }],
+      2000,
+    );
+    const hide = () => {
+      banner.hidden = true;
+    };
+    if (show) void show.finished.then(hide, hide);
+    else hide();
+  }
+}
+
 /** Entry of a bar or card as its look says; reduced motion keeps the fade only. */
 export function enterFrames(style: LookStyle, reduced: boolean): Keyframe[] {
   if (reduced) return [{ opacity: 0 }, { opacity: 1 }];

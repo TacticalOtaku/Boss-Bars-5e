@@ -4,7 +4,7 @@ import { resolveLook, type LookSources } from "../core/look/resolve";
 import type { Category, Library } from "../core/look/schema";
 import { lookStyle, type LookStyle } from "../core/look/style";
 import type { Rank } from "../core/ranks";
-import { isVideoPath, type BossBarView, type EliteCardView } from "../core/view";
+import { isVideoPath, type BossBarView, type EliteCardView, type PhaseView } from "../core/view";
 import { createBossStack } from "../ui/boss-stack";
 import { createEliteColumn } from "../ui/elite-column";
 
@@ -84,6 +84,11 @@ export interface PreviewState {
   defeated: boolean;
   /** false: the bar has left (defeat or reset replays the exit and entry). */
   shown: boolean;
+  /** A phase of the profile: its label, ticks and entry changes; a new key plays the phase change. */
+  phase?: PhaseView | null;
+  ticks?: number[];
+  title?: string;
+  img?: string;
 }
 
 export const freshPreview = (): PreviewState => ({ fraction: 0.74, defeated: false, shown: true });
@@ -101,6 +106,7 @@ export function previewBoss(host: HTMLElement, look: LookStyle, state: PreviewSt
         collapse: "",
         expand: "",
         defeated: game.i18n.localize("BB5E.Bar.Defeated"),
+        phase: game.i18n.localize("BB5E.Phase.Default"),
       },
       onCollapse: () => undefined,
       reducedMotion: () =>
@@ -112,8 +118,10 @@ export function previewBoss(host: HTMLElement, look: LookStyle, state: PreviewSt
   const view: BossBarView = {
     id: "preview",
     label,
-    title: game.i18n.localize("BB5E.Look.SampleTitle"),
-    portrait: { src: SAMPLE_IMG, video: false },
+    title: state.title ?? game.i18n.localize("BB5E.Look.SampleTitle"),
+    phase: state.phase ?? null,
+    ticks: state.ticks ?? [],
+    portrait: { src: state.img || SAMPLE_IMG, video: isVideoPath(state.img ?? "") },
     size: 100,
     fraction: state.fraction,
     defeated: state.defeated,

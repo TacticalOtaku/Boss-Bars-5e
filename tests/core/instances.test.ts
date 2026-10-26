@@ -3,10 +3,12 @@ import {
   hideAll,
   hideInstance,
   INSTANCES_VERSION,
+  moveInstance,
   pruneInstances,
   readInstances,
   rebindInstances,
   setCounter,
+  setPhaseState,
   showInstance,
   toggleStatus,
 } from "../../src/core/instances";
@@ -22,7 +24,7 @@ describe("readInstances", () => {
     const raw = { dataVersion: 1, extra: true, items: [{ id: "a", kind: "boss", tokenId: "t1", order: 1 }] };
     expect(readInstances(raw)).toEqual({
       status: "ok",
-      value: { dataVersion: 2, extra: true, items: [{ id: "a", kind: "boss", tokenId: "t1", order: 1 }] },
+      value: { dataVersion: 3, extra: true, items: [{ id: "a", kind: "boss", tokenId: "t1", order: 1 }] },
     });
   });
 
@@ -152,5 +154,78 @@ describe("counters and custom statuses", () => {
     expect(on.items[0]?.customStatuses).toEqual(["rage"]);
     expect(toggleStatus(on, "a", "rage", true)).toBe(on);
     expect(toggleStatus(on, "a", "rage", false).items[0]?.customStatuses).toEqual([]);
+  });
+});
+
+describe("phases and forms", () => {
+  const S = "SourceActor00001";
+  it("reads the phase state and source, dropping bad ones", () => {
+    const raw = {
+      dataVersion: 2,
+      items: [
+        {
+          id: "a",
+          kind: "boss",
+          tokenId: "t1",
+          order: 1,
+          phase: { id: "p2", mark: 140, waiting: true },
+          source: S,
+        },
+        { id: "b", kind: "boss", tokenId: "t2", order: 2, phase: { id: "bad id", mark: 1 }, source: "x" },
+      ],
+    };
+    const read = readInstances(raw);
+    expect(read.status === "ok" && read.value).toEqual({
+      dataVersion: 3,
+      items: [
+        {
+          id: "a",
+          kind: "boss",
+          tokenId: "t1",
+          order: 1,
+          phase: { id: "p2", mark: 100, waiting: true },
+          source: S,
+        },
+        { id: "b", kind: "boss", tokenId: "t2", order: 2 },
+      ],
+    });
+  });
+
+  it("sets the phase state, returning the same state when nothing changes", () => {
+    const state = { dataVersion: 3, items: [{ id: "a", kind: "boss" as const, tokenId: "t1", order: 1 }] };
+    const next = setPhaseState(state, "a", { id: "p2", mark: 50 });
+    expect(next.items[0]?.phase).toEqual({ id: "p2", mark: 50 });
+    expect(setPhaseState(next, "a", { id: "p2", mark: 50 })).toBe(next);
+  });
+
+  it("moves an instance onto a form's token in its place, replacing the one already there", () => {
+    const state = {
+      dataVersion: 3,
+      items: [
+        { id: "a", kind: "boss" as const, actorId: "boss", order: 1 },
+        { id: "b", kind: "boss" as const, tokenId: "form1", order: 2 },
+        { id: "c", kind: "elite" as const, tokenId: "t3", order: 3 },
+      ],
+    };
+    expect(moveInstance(state, "a", { tokenId: "form1" }, S, { id: "p4", mark: 100 }).items).toEqual([
+      { id: "a", kind: "boss", tokenId: "form1", order: 1, source: S, phase: { id: "p4", mark: 100 } },
+      { id: "c", kind: "elite", tokenId: "t3", order: 3 },
+    ]);
+  });
+
+  it("does not rebind a form's instance by the display mode of the actor under it", () => {
+    const state = {
+      dataVersion: 3,
+      items: [{ id: "a", kind: "boss" as const, tokenId: "form1", order: 1, source: S }],
+    };
+    const info = () => ({ actorId: "x", mode: "actor" as const, kind: "boss" as const });
+    expect(
+      rebindInstances(
+        state,
+        info,
+        () => [],
+        () => "n",
+      ),
+    ).toBe(state);
   });
 });

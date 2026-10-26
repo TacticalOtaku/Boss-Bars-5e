@@ -3,6 +3,8 @@ import { PLAYER_SCREENS } from "../src/core/screens";
 import { DEFAULT_LAYOUT, type Direction } from "../src/core/layout";
 import { BUILTIN_LOOKS, BUILTIN_SOURCES, CLASSIC } from "../src/core/look/builtin";
 import { resolveLook } from "../src/core/look/resolve";
+import { hpFraction } from "../src/core/hp";
+import { nextPhase, phaseIndex, pickPhase } from "../src/core/phases";
 import { buildViews, ELITE_COLUMN_ID, type SubjectInput } from "../src/core/view";
 import { FONT_FACES } from "../src/core/look/fonts";
 import { createBossStack } from "../src/ui/boss-stack";
@@ -62,7 +64,7 @@ const reducedMotion = () =>
 
 const overlay = mountOverlay(host);
 const stack = createBossStack(overlay, {
-  labels: { collapse: "Свернуть", expand: "Развернуть", defeated: "Повержен" },
+  labels: { collapse: "Свернуть", expand: "Развернуть", defeated: "Повержен", phase: "Фаза {n}" },
   onCollapse(id, collapsed) {
     if (collapsed) state.collapsed.add(id);
     else state.collapsed.delete(id);
@@ -82,7 +84,18 @@ const column = createEliteColumn(overlay, {
   },
 });
 
+/** The active GM's phase engine, run in place: damage through a threshold changes the phase. */
+function runPhases(): void {
+  for (const subject of state.bosses) {
+    const hp = subject.tokens[0]?.hp;
+    if (subject.profile.kind !== "boss" || !hp) continue;
+    const step = nextPhase(subject.profile.phases, subject.instance.phase, hpFraction(hp));
+    if (step) subject.instance.phase = step.state;
+  }
+}
+
 function render(): void {
+  runPhases();
   const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true, mayCollapseElites: true };
   const look = looks[lookIndex];
   const subjects = [...state.bosses, ...state.elites].map((subject) => ({ ...subject, look }));
@@ -134,6 +147,23 @@ const ACTIONS: Record<string, () => void> = {
   "Свой статус": () => {
     const instance = state.bosses[0]?.instance;
     if (instance) instance.customStatuses = instance.customStatuses?.length ? [] : ["rage"];
+  },
+  "Фаза →": () => {
+    const subject = state.bosses[0];
+    if (subject?.profile.kind !== "boss") return;
+    const { phases } = subject.profile;
+    const next = phases[(phaseIndex(phases, subject.instance.phase) + 1) % phases.length];
+    const hp = subject.tokens[0]?.hp;
+    const step = next ? pickPhase(phases, next.id, hp ? hpFraction(hp) : null) : null;
+    if (step) subject.instance.phase = step.state;
+  },
+  "Сегменты / перезаливка": () => {
+    const profile = state.bosses[0]?.profile;
+    if (profile?.kind === "boss") profile.fillMode = profile.fillMode === "segments" ? "refill" : "segments";
+  },
+  "Засечки игрокам": () => {
+    const profile = state.bosses[0]?.profile;
+    if (profile?.kind === "boss") profile.playerTicks = !profile.playerTicks;
   },
   "Урон элите": () => state.elites.forEach((elite) => hurt(elite, 0.2)),
   "Лимит 12 / 3": () => (state.limit = state.limit === 12 ? 3 : 12),
