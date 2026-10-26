@@ -1,9 +1,8 @@
 import { MODULE_ID } from "../constants";
-import { readInstances } from "../core/instances";
 import { readProfile } from "../core/profile";
 import { baseActorOf, hasHp } from "../integrations/dnd5e/actor";
 import { writeOrNotify } from "./authority";
-import { instanceFor } from "./store";
+import { instanceFor, sceneItems } from "./store";
 
 const HUD_LABELS = {
   boss: { show: "BB5E.Hud.ShowBoss", hide: "BB5E.Hud.HideBoss" },
@@ -28,8 +27,7 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
       if (!actor || !scene || !hasHp(actor)) return;
       const profile = readProfile(actor.flags[MODULE_ID]?.profile);
       const hasProfile = profile.status === "ok";
-      const read = readInstances(scene.flags[MODULE_ID]?.instances);
-      const instance = read.status === "ok" ? instanceFor(read.value.items, token) : undefined;
+      const instance = instanceFor(sceneItems(scene), token);
 
       const button = document.createElement("button");
       button.type = "button"; // the HUD root is a <form> that submits on change

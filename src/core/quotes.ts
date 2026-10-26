@@ -74,7 +74,8 @@ export interface QuoteContext {
   random: () => number;
 }
 
-const KNOWN = [
+/** Every trigger type this version knows. */
+export const QUOTE_TRIGGER_TYPES: readonly string[] = [
   "appear",
   "heal",
   "turn",
@@ -112,7 +113,9 @@ function readTrigger(raw: unknown): QuoteTrigger {
     }
     default:
       // A newer version's trigger never matches here and is written back as it is.
-      return KNOWN.includes(raw.type) ? { type: raw.type as "appear" } : (raw as unknown as QuoteTrigger);
+      return QUOTE_TRIGGER_TYPES.includes(raw.type)
+        ? { type: raw.type as "appear" }
+        : (raw as unknown as QuoteTrigger);
   }
 }
 

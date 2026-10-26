@@ -79,6 +79,12 @@ export function uiScale(): number {
   return typeof scale === "number" && scale > 0 ? scale : 1;
 }
 
+/** A scene's shown instances; none while the flag is unreadable or written by a newer version. */
+export function sceneItems(scene: SceneDocument | null | undefined): Instance[] {
+  const read = readInstances(scene?.flags[MODULE_ID]?.instances);
+  return read.status === "ok" ? read.value.items : [];
+}
+
 /** The instance that covers a token: bound to it, or to its actor. */
 export function instanceFor(items: Instance[], token: TokenDocument): Instance | undefined {
   return items.find((item) => item.tokenId === token.id || (item.actorId && item.actorId === token.actorId));
@@ -147,11 +153,9 @@ export function subjectOf(scene: SceneDocument, instance: Instance): SubjectInpu
  * hides the others.
  */
 export function sceneSubjects(scene: SceneDocument, warned = new Set<string>()): SubjectInput[] {
-  const read = readInstances(scene.flags[MODULE_ID]?.instances);
-  if (read.status !== "ok") return [];
   const subjects: SubjectInput[] = [];
   const ranks = currentRanks();
-  for (const instance of read.value.items) {
+  for (const instance of sceneItems(scene)) {
     try {
       const subject = subjectOf(scene, instance);
       if (!subject) continue;

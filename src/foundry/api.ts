@@ -8,14 +8,14 @@ import {
   type WriteAction,
 } from "../core/actions";
 import { activeEntries, type ActiveEntry } from "../core/entries";
-import { readInstances, type Instance } from "../core/instances";
+import type { Instance } from "../core/instances";
 import { readProfile } from "../core/profile";
 import { buildViews } from "../core/view";
 import { baseActorOf } from "../integrations/dnd5e/actor";
 import { logger } from "../logger";
 import { errorKey, requestWrite } from "./authority";
 import { currentRanks } from "./settings";
-import { instanceFor, sceneSubjects, subjectOf } from "./store";
+import { instanceFor, sceneItems, sceneSubjects, subjectOf } from "./store";
 
 const SOCKET = `module.${MODULE_ID}`;
 const LAYOUT_PANEL = "bb5e-layout";
@@ -52,20 +52,15 @@ const documentOf = (value: unknown, name: "Token" | "Actor"): unknown => {
   return inner?.documentName === name ? inner : null;
 };
 
-const itemsOf = (scene: SceneDocument | null | undefined) => {
-  const read = readInstances(scene?.flags[MODULE_ID]?.instances);
-  return read.status === "ok" ? read.value.items : [];
-};
-
 function resolve(ref: InstanceRef): { scene: SceneDocument; item: Instance } {
   const token = documentOf(ref, "Token") as TokenDocument | null;
   if (token) {
-    const item = token.parent ? instanceFor(itemsOf(token.parent), token) : undefined;
+    const item = token.parent ? instanceFor(sceneItems(token.parent), token) : undefined;
     return token.parent && item ? { scene: token.parent, item } : fail("BB5E.Error.NoInstance");
   }
   const id = typeof ref === "string" ? ref : (ref as { id?: unknown }).id;
   for (const scene of game.scenes.values()) {
-    const item = itemsOf(scene).find((each) => each.id === id);
+    const item = sceneItems(scene).find((each) => each.id === id);
     if (item) return { scene, item };
   }
   return fail("BB5E.Error.NoInstance");
