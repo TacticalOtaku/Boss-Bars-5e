@@ -38,6 +38,7 @@ const THEMES: { id: string; name: string; values: Raw; layouts: [string, string]
       },
       hpEffect: {
         damageShake: false,
+        sparkColor: "#cfefff",
         healWave: true,
         lowPulse: false,
         lowFlicker: true,
@@ -96,6 +97,7 @@ const THEMES: { id: string; name: string; values: Raw; layouts: [string, string]
         lowPulse: false,
         lowFlicker: true,
         trailColor: "#ffffff",
+        sparkColor: "#ff2bd6",
         trailDelay: 250,
         trailSpeed: 400,
         trailAccumulate: false,

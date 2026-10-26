@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.10.0
+
+- Live fills on boss bars: liquid, energy, flame, ice and void are now drawn by WebGL2 shaders on the look's palette
+  (2–5 colours), including the HP share, which catches up smoothly. One WebGL context serves every bar on the page
+  (its frame is copied into each bar), so many bars never hit the browser's context limit.
+- About 15 frames per second at rest, 60 while the fill catches up, none when no live bar is visible. Collapsed and
+  leaving bars and background tabs are not drawn. Reduced motion shows a still frame.
+- Without WebGL2, or when the GPU drops the context, a bar falls back to the CSS version of the same palette at once
+  and goes live again when the context returns. Elite cards keep their CSS fills.
+- Particles on the HUD: sparks fly from the fill's edge on damage (new HP effect options "Sparks on damage" and "Spark
+  colour"; more sparks for bigger hits) and a defeated bar with the "dissolve" exit crumbles into ash. One canvas
+  exists only while particles live, at most 200 at a time; none with reduced motion.
+- Built-in looks: Permafrost gets icy sparks, Neon magenta ones, Classic RPG golden sparks.
+
 ## 0.9.0
 
 - Boss music (profile tab "Music"): a track or a whole playlist (played in its own mode), a priority and a

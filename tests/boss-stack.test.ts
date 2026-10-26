@@ -264,3 +264,37 @@ describe("boss bar quotes", () => {
     Object.defineProperty(Element.prototype, "animate", { value: animate, configurable: true });
   });
 });
+
+describe("live fills without WebGL2", () => {
+  it("keep the CSS fill: no canvas, no live mode", () => {
+    const stack = make();
+    const look = { ...CLASSIC_STYLE, key: "ice", attrs: { ...CLASSIC_STYLE.attrs, fill: "ice" } };
+    stack.update([view("a", { look })], BLOCK, 1);
+    const meter = overlay.querySelector(".bb5e-boss__meter")!;
+    expect(meter.querySelector("canvas")).toBeNull();
+    expect(meter.classList.contains("bb5e-live")).toBe(false);
+  });
+});
+
+describe("boss bar particles", () => {
+  it("throws sparks on damage only, when the look has them", () => {
+    const emit = vi.fn();
+    const stack = createBossStack(overlay, {
+      labels: { collapse: "C", expand: "E", defeated: "D", phase: "P {n}" },
+      onCollapse,
+      reducedMotion: () => true,
+      particles: { emit },
+    });
+    stack.update([view("a", { fraction: 0.8 })], BLOCK, 1);
+    stack.update([view("a", { fraction: 0.5 })], BLOCK, 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]?.[0]?.[0]).toMatchObject({
+      kind: "spark",
+      color: CLASSIC_STYLE.effects.sparkColor,
+    });
+    stack.update([view("a", { fraction: 0.9 })], BLOCK, 1);
+    const off = { ...CLASSIC_STYLE, key: "off", effects: { ...CLASSIC_STYLE.effects, sparks: false } };
+    stack.update([view("a", { fraction: 0.2, look: off })], BLOCK, 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+});

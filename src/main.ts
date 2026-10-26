@@ -13,6 +13,7 @@ import { logger } from "./logger";
 import { createBossStack } from "./ui/boss-stack";
 import { FONT_FACES } from "./core/look/fonts";
 import { createEliteColumn } from "./ui/elite-column";
+import { createParticleLayer } from "./ui/particles";
 import { registerFonts } from "./ui/look";
 import { mountOverlay } from "./ui/overlay";
 
@@ -81,6 +82,7 @@ Hooks.once("ready", () => {
     },
     onCollapse: collapse,
     reducedMotion,
+    particles: createParticleLayer(overlay, reducedMotion),
   });
   const column = createEliteColumn(overlay, {
     reducedMotion,
