@@ -40,6 +40,8 @@ let scene: ReturnType<typeof makeScene>;
 const queries: Record<string, (data: unknown, context: { user: { isGM: boolean } }) => Promise<unknown>> = {};
 const activeGM = { isGM: true, query: vi.fn() };
 let nextId = 0;
+/** A module's pre-hook answer: false cancels. */
+const hookCall = vi.fn<(hook: string, info: { id?: string }) => boolean>(() => true);
 
 function stubWorld(user: { isGM: boolean; isActiveGM: boolean }, gm: object | null = activeGM) {
   vi.stubGlobal("game", {
@@ -50,6 +52,7 @@ function stubWorld(user: { isGM: boolean; isActiveGM: boolean }, gm: object | nu
   });
   vi.stubGlobal("CONFIG", { queries });
   vi.stubGlobal("foundry", { utils: { randomID: () => `Inst00000000000${++nextId}` } });
+  vi.stubGlobal("Hooks", { call: hookCall });
 }
 
 type Item = { kind: string; tokenId?: string; actorId?: string };
@@ -58,6 +61,8 @@ const items = () => (scene.flags["boss-bars-5e"]?.instances as { items: Item[] }
 beforeEach(() => {
   scene = makeScene(undefined);
   activeGM.query.mockReset();
+  hookCall.mockReset();
+  hookCall.mockReturnValue(true);
   vi.stubGlobal("CONFIG", { queries });
   registerAuthority();
 });
@@ -104,6 +109,38 @@ describe("requestWrite", () => {
     stubWorld({ isGM: true, isActiveGM: true });
     await expect(requestWrite({ type: "hideAll", sceneId: SCENE })).rejects.toThrow("NewerData");
     expect(scene.setFlag).not.toHaveBeenCalled();
+  });
+});
+
+describe("pre-hooks", () => {
+  it("asks preShow before a new bar and lets a module cancel it", async () => {
+    stubWorld({ isGM: true, isActiveGM: true });
+    hookCall.mockReturnValue(false);
+    await expect(requestWrite({ type: "show", sceneId: SCENE, tokenId: TOKEN })).rejects.toThrow("Cancelled");
+    expect(hookCall).toHaveBeenCalledWith("boss-bars-5e.preShow", {
+      sceneId: SCENE,
+      tokenId: TOKEN,
+      actorId: ACTOR,
+      kind: "elite",
+    });
+    expect(scene.setFlag).not.toHaveBeenCalled();
+  });
+
+  it("asks preHide for each bar: hide is refused, hideAll keeps the bars a module holds", async () => {
+    scene = makeScene({
+      dataVersion: 3,
+      items: [
+        { id: "a", kind: "boss", tokenId: TOKEN, order: 1 },
+        { id: "b", kind: "boss", tokenId: TOKEN2, order: 2 },
+      ],
+    });
+    stubWorld({ isGM: true, isActiveGM: true });
+    hookCall.mockImplementation((_hook, info) => info.id !== "a");
+    await expect(requestWrite({ type: "hide", sceneId: SCENE, instanceId: "a" })).rejects.toThrow(
+      "Cancelled",
+    );
+    await requestWrite({ type: "hideAll", sceneId: SCENE });
+    expect(items()).toEqual([expect.objectContaining({ id: "a" })]);
   });
 });
 
@@ -185,7 +222,7 @@ describe("counters and custom statuses", () => {
     for (const barId of ["leg", "nope"]) {
       await expect(
         requestWrite({ type: "setCounter", sceneId: SCENE, instanceId: INSTANCE, barId, value: 1 }),
-      ).rejects.toThrow("Invalid");
+      ).rejects.toThrow("NoCounter");
     }
   });
 
@@ -206,6 +243,6 @@ describe("counters and custom statuses", () => {
         statusId: "fake",
         active: true,
       }),
-    ).rejects.toThrow("Invalid");
+    ).rejects.toThrow("NoSuchStatus");
   });
 });

@@ -138,10 +138,18 @@ declare global {
   const Hooks: {
     once(hook: string, callback: (...args: never[]) => void): number;
     on(hook: string, callback: (...args: never[]) => unknown): number;
+    /** Stops at the first callback returning false and returns false then. */
+    call(hook: string, ...args: unknown[]): boolean;
+    callAll(hook: string, ...args: unknown[]): boolean;
   };
 
   const game: {
-    modules: Map<string, { active: boolean; version: string }>;
+    modules: Map<string, { active: boolean; version: string; api?: unknown }>;
+    /** Module channel `module.<id>`: the server relays to the other clients and passes the sender's id. */
+    socket: {
+      on(event: string, callback: (data: unknown, senderId: string) => void): void;
+      emit(event: string, data: unknown): void;
+    };
     user: UserDocument;
     users: FoundryCollection<UserDocument> & { activeGM: UserDocument | null };
     /** `active`: the scene the players stand on. */

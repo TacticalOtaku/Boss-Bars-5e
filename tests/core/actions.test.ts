@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAction } from "../../src/core/actions";
+import { parseAction, parseEffect } from "../../src/core/actions";
 
 const id = "AbCdEf0123456789";
 
@@ -94,5 +94,15 @@ describe("parseAction — quotes", () => {
     });
     expect(parseAction({ type: "say", sceneId: id, instanceId: id, text: "x".repeat(201) })).toBeNull();
     expect(parseAction({ type: "say", sceneId: id, instanceId: id, text: "  " })).toBeNull();
+  });
+});
+
+describe("parseEffect", () => {
+  it("accepts the four effects for one instance and nothing else", () => {
+    const message = { type: "effect", sceneId: id, instanceId: id, effect: "phase" };
+    expect(parseEffect({ ...message, extra: 1 })).toEqual(message);
+    expect(parseEffect({ ...message, effect: "explode" })).toBeNull();
+    expect(parseEffect({ ...message, instanceId: "../x" })).toBeNull();
+    expect(parseEffect({ ...message, type: "show" })).toBeNull();
   });
 });

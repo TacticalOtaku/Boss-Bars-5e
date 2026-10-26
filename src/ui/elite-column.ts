@@ -1,3 +1,4 @@
+import type { HudEffect } from "../core/actions";
 import { hpChange, isLow } from "../core/look/effects";
 import type { Block } from "../core/layout";
 import type { EliteCardView, HudViews } from "../core/view";
@@ -169,6 +170,27 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
   });
   return {
     element: column,
+    /** `api.playEffect` on a shown card: damage or healing of a quarter of the card, nothing else changes. */
+    play(id: string, effect: HudEffect) {
+      const shown = list.get(id);
+      if (!shown || (effect !== "damage" && effect !== "heal")) return;
+      const { item: card, view } = shown;
+      const fill = card.shown ?? 0;
+      const [from, to] = effect === "damage" ? [fill + 0.25, fill] : [fill - 0.25, fill];
+      playHpChange(
+        hpChange(from, to, view.look.effects.bigThreshold),
+        view.look,
+        {
+          root: card.el,
+          portrait: card.icon,
+          flash: card.flash,
+          crack: card.crack,
+          wave: card.wave,
+          name: card.name,
+        },
+        options.reducedMotion(),
+      );
+    },
     update(
       views: EliteCardView[],
       state: Pick<HudViews, "eliteOverflow" | "column">,

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0
+
+- Public API for macros and other modules: `game.modules.get("boss-bars-5e").api` (version 1) shows and hides bars,
+  sets phases, says quotes, plays effects, sets counters and custom statuses, lists what is shown (`getActive`, with
+  no hidden data for players) and opens the GM windows. Writes resolve once the active GM has saved them and reject
+  with a reason code. See [API.md](API.md).
+- Hooks: `boss-bars-5e.ready`, `preShow` / `preHide` (return `false` to cancel, for every source including
+  auto-show), and `show`, `hide`, `phaseChange`, `quote`, `defeated` on every client.
+- Clearer errors: no such bar, token, phase, quote, counter or custom status, and "cancelled by another module".
+- The README describes every feature; the HUD script size is checked against its budget on every build.
+
 ## 0.11.0
 
 - The full catalog: 30 built-in looks — Classic RPG, Ash and Flame, Permafrost, Storm, Undead, Abyss, Inferno,

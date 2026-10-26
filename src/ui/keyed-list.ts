@@ -64,6 +64,12 @@ export function createKeyedList<V extends { id: string }, I extends KeyedItem>(
   }
 
   return {
+    /** The shown item of a view id and its last view; nothing while it leaves. */
+    get(id: string): { item: I; view: V } | undefined {
+      const item = items.get(id);
+      const view = item && !item.leaving ? views.get(item) : undefined;
+      return item && view ? { item, view } : undefined;
+    },
     update(list: V[]) {
       const ids = new Set(list.map((view) => view.id));
       for (const [id, item] of items) if (!ids.has(id) && !item.leaving) leave(id, item);
