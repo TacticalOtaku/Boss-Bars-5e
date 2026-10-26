@@ -2,7 +2,7 @@ import { approach, palette, shaderTime } from "../../core/look/live";
 import type { BarMaterial } from "../../core/look/material";
 import { VFX_SLOTS, vfxAt, vfxFrameInterval, type VfxEvent, type VfxKind } from "../../core/look/vfx";
 import { logger } from "../../logger";
-import { BAR_FRAGMENT, BAR_VERTEX } from "./bar-shader";
+import { BAR_VERTEX, barFragment, variantKey, type BarVariant } from "./bar-shader";
 
 /** What a bar shows; the renderer animates the fill, the trail and defeat on its own. */
 export interface BarState {
@@ -46,6 +46,8 @@ interface Target {
   context: CanvasRenderingContext2D | null;
   material: BarMaterial | null;
   key: string;
+  /** The program variant of the frame on the canvas: while another one compiles, the CSS look shows instead. */
+  variant: string;
   state: BarState;
   drawn: number;
   trail: number;
@@ -81,7 +83,6 @@ const UNIFORMS = [
   "u_low",
   "u_ticks",
   "u_tickCount",
-  "u_fillType",
   "u_colors",
   "u_count",
   "u_empty",
@@ -98,13 +99,10 @@ const UNIFORMS = [
   "u_fxA",
   "u_fxB",
   "u_fxCount",
-  "u_card",
   "u_panel",
   "u_rank",
   "u_shape",
   "u_frameStyle",
-  "u_pattern",
-  "u_motes",
   "u_hit",
   "u_phase",
   "u_icon",
@@ -113,6 +111,10 @@ const UNIFORMS = [
   "u_text",
 ] as const;
 type Uniforms = Record<(typeof UNIFORMS)[number], WebGLUniformLocation | null>;
+interface Program {
+  program: WebGLProgram;
+  uniforms: Uniforms;
+}
 
 /** Room around the meter for light, flames and shards: more above (flames, embers) than at the sides. */
 /** An element's offset box inside an ancestor, summed along offset parents (transforms do not count). */
@@ -167,7 +169,12 @@ const padOf = (h: number) => ({ x: Math.round(Math.max(h * 1.4, 20)), y: Math.ro
 class VfxRenderer {
   readonly #canvas: HTMLCanvasElement;
   readonly #gl: WebGL2RenderingContext;
-  #program: { program: WebGLProgram; uniforms: Uniforms } | null | undefined;
+  #vertex: WebGLShader | null | undefined;
+  /** Programs by variant: ready, still compiling (`building`), or null when they failed. */
+  readonly #programs = new Map<string, Program | { building: WebGLProgram } | null>();
+  #parallel: KHR_parallel_shader_compile | null = null;
+  /** A program was still compiling in this frame: keep the loop going until it is ready. */
+  #waiting = false;
   readonly #targets = new Set<Target>();
   readonly #byElement = new Map<Element, Target>();
   readonly #reduced: () => boolean;
@@ -223,10 +230,12 @@ class VfxRenderer {
     this.#gl = gl;
     this.#reduced = reduced;
     this.#canvas = gl.canvas as HTMLCanvasElement;
+    this.#parallel = gl.getExtension("KHR_parallel_shader_compile");
     this.#canvas.addEventListener("webglcontextlost", (event) => {
       event.preventDefault();
       this.#lost = true;
-      this.#program = undefined;
+      this.#vertex = undefined;
+      this.#programs.clear();
       for (const target of this.#targets) this.#setLive(target, false);
     });
     this.#canvas.addEventListener("webglcontextrestored", () => {
@@ -269,6 +278,7 @@ class VfxRenderer {
       context: canvas.getContext("2d"),
       material: null,
       key: "",
+      variant: "",
       state: { fill: 1, shield: 0, ticks: [], low: false, defeated: false },
       drawn: -1,
       trail: -1,
@@ -381,8 +391,9 @@ class VfxRenderer {
       target.events = target.events.filter((event) => now - event.at < 3000);
       due.push([target, shaderTime(now)]);
     }
+    this.#waiting = false;
     this.#drawAll(due, now, reduced);
-    if (!reduced) this.#wake();
+    if (!reduced || this.#waiting) this.#wake();
   }
 
   /**
@@ -418,45 +429,85 @@ class VfxRenderer {
     flush();
   }
 
-  #build() {
-    if (this.#program !== undefined) return this.#program;
+  /**
+   * The program for a variant, compiled on first use without blocking: with KHR_parallel_shader_compile the link is
+   * polled each frame and the element keeps its CSS look meanwhile (a blocking link froze the page for seconds).
+   * Returns undefined while it compiles, null when it failed.
+   */
+  #programFor(variant: BarVariant): Program | null | undefined {
     const gl = this.#gl;
-    const compile = (kind: number, source: string) => {
-      const shader = gl.createShader(kind);
-      if (!shader) return null;
-      gl.shaderSource(shader, source);
-      gl.compileShader(shader);
-      if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
-      logger.warn("Bar shader failed", gl.getShaderInfoLog(shader));
-      return null;
-    };
-    const vertex = compile(gl.VERTEX_SHADER, BAR_VERTEX);
-    const fragment = compile(gl.FRAGMENT_SHADER, BAR_FRAGMENT);
-    const program = vertex && fragment ? gl.createProgram() : null;
-    this.#program = null;
-    if (program && vertex && fragment) {
-      gl.attachShader(program, vertex);
-      gl.attachShader(program, fragment);
-      gl.linkProgram(program);
-      if (gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        const uniforms = Object.fromEntries(
-          UNIFORMS.map((name) => [name, gl.getUniformLocation(program, name)]),
-        ) as Uniforms;
-        this.#program = { program, uniforms };
-      } else logger.warn("Bar program failed", gl.getProgramInfoLog(program));
+    const key = variantKey(variant);
+    const entry = this.#programs.get(key);
+    if (entry === null) return null;
+    if (entry && "uniforms" in entry) return entry;
+    if (!entry) {
+      const building = this.#compile(variant);
+      this.#programs.set(key, building ? { building } : null);
+      if (!building) return null;
+      if (this.#parallel) return undefined;
+      return this.#programFor(variant);
     }
-    return this.#program;
+    const program = entry.building;
+    if (this.#parallel && !gl.getProgramParameter(program, this.#parallel.COMPLETION_STATUS_KHR))
+      return undefined;
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      logger.warn("Bar program failed", key, gl.getProgramInfoLog(program));
+      this.#programs.set(key, null);
+      return null;
+    }
+    const uniforms = Object.fromEntries(
+      UNIFORMS.map((name) => [name, gl.getUniformLocation(program, name)]),
+    ) as Uniforms;
+    const ready = { program, uniforms };
+    this.#programs.set(key, ready);
+    return ready;
+  }
+
+  /** Starts compiling a variant; its status is read later (reading it now would wait for the compile). */
+  #compile(variant: BarVariant): WebGLProgram | null {
+    const gl = this.#gl;
+    const shader = (kind: number, source: string) => {
+      const each = gl.createShader(kind);
+      if (!each) return null;
+      gl.shaderSource(each, source);
+      gl.compileShader(each);
+      return each;
+    };
+    if (this.#vertex === undefined) this.#vertex = shader(gl.VERTEX_SHADER, BAR_VERTEX);
+    const fragment = shader(gl.FRAGMENT_SHADER, barFragment(variant));
+    const program = this.#vertex && fragment ? gl.createProgram() : null;
+    if (!program || !this.#vertex || !fragment) return null;
+    gl.attachShader(program, this.#vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    return program;
   }
 
   /** Draws one target into the strip of the GL canvas starting at row `y` (from the bottom); returns its copy. */
   #draw(target: Target, time: number, now: number, reduced: boolean, size: Size, y: number) {
-    const entry = this.#build();
-    const { canvas, context, material, box, pad } = target;
-    if (!entry || !context || !material) {
+    const { canvas, context, material, box, pad, card, panel } = target;
+    if (!context || !material) {
       this.#setLive(target, false);
       return null;
     }
-    const { card, panel } = target;
+    // A portrait needs none of the fill's variants, and motes are drawn on boss bars only: fewer programs to compile.
+    const mode = target.portrait ? 3 : card ? (target.state.accentTop ? 2 : 1) : 0;
+    const variant = {
+      mode,
+      fill: mode === 3 ? 0 : material.fillType,
+      pattern: mode === 3 ? 0 : material.pattern,
+      motes: mode === 0 ? material.motes : 0,
+    };
+    const entry = this.#programFor(variant);
+    if (entry === undefined) {
+      this.#waiting = true;
+      if (target.variant !== variantKey(variant)) this.#setLive(target, false);
+      return null;
+    }
+    if (!entry) {
+      this.#setLive(target, false);
+      return null;
+    }
     const { scale, cssH, width, height } = size;
     // The meter's place in the canvas, CSS px from the top left; GL counts rows from the bottom.
     const meterX = card ? pad.x + target.border.x + box.x : pad.x;
@@ -476,11 +527,8 @@ class VfxRenderer {
       (meterX + box.w) * scale,
       glY(meterY, box.h) + box.h * scale,
     );
-    gl.uniform1f(u.u_card, target.portrait ? 3 : card ? (state.accentTop ? 2 : 1) : 0);
     gl.uniform1i(u.u_shape, material.portraitShape);
     gl.uniform1i(u.u_frameStyle, material.frameStyle);
-    gl.uniform1i(u.u_pattern, material.pattern);
-    gl.uniform1i(u.u_motes, material.motes);
     gl.uniform3fv(u.u_hit, material.hit);
     gl.uniform2fv(u.u_phase, material.phase);
     gl.uniform4f(
@@ -516,7 +564,6 @@ class VfxRenderer {
     state.ticks.slice(0, 8).forEach((at, index) => (ticks[index] = at));
     gl.uniform1fv(u.u_ticks, ticks);
     gl.uniform1i(u.u_tickCount, Math.min(8, state.ticks.length));
-    gl.uniform1i(u.u_fillType, material.fillType);
     gl.uniform3fv(u.u_colors, material.colors);
     gl.uniform1i(u.u_count, material.colorCount);
     gl.uniform3fv(u.u_empty, material.empty);
@@ -560,6 +607,7 @@ class VfxRenderer {
       context.clearRect(0, 0, width, height);
       context.drawImage(source, 0, source.height - y - height, width, height, 0, 0, width, height);
       target.dirty = false;
+      target.variant = variantKey(variant);
       this.#setLive(target, true);
     };
   }

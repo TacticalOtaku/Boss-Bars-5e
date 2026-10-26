@@ -14,10 +14,15 @@ void main() {
  * glow, flames above a flame fill, and the running effects. Output is premultiplied alpha. Every motion turns in
  * whole cycles of TIME_PERIOD, so the wrap of `u_time` never jumps.
  */
-export const BAR_FRAGMENT = `#version 300 es
+const SOURCE = `#version 300 es
 precision highp float;
 
 uniform vec2 u_res;
+/**
+ * Always 0. FXC (ANGLE on Direct3D 11) unrolls every loop with a constant bound and inlines all calls into each copy:
+ * this shader took 55 s to compile there. A uniform bound keeps loops as loops.
+ */
+uniform int u_zero;
 /** Where this bar's strip starts in the shared GL canvas (GL px). */
 uniform vec2 u_origin;
 uniform vec4 u_box;
@@ -93,13 +98,13 @@ float noise(vec2 p) {
 float fbm(vec2 p) {
   float v = 0.0, a = 0.5;
   mat2 r = mat2(0.8, 0.6, -0.6, 0.8);
-  for (int i = 0; i < 5; i++) { v += a * noise(p); p = r * p * 2.03; a *= 0.5; }
+  for (int i = 0; i < 5 + u_zero; i++) { v += a * noise(p); p = r * p * 2.03; a *= 0.5; }
   return v;
 }
 float fbm3(vec2 p) {
   float v = 0.0, a = 0.55;
   mat2 r = mat2(0.8, 0.6, -0.6, 0.8);
-  for (int i = 0; i < 3; i++) { v += a * noise(p); p = r * p * 2.1; a *= 0.45; }
+  for (int i = 0; i < 3 + u_zero; i++) { v += a * noise(p); p = r * p * 2.1; a *= 0.45; }
   return v / 0.9;
 }
 /**
@@ -122,7 +127,7 @@ vec3 fire(float T) {
 vec2 voronoi(vec2 p) {
   vec2 g = floor(p), f = fract(p);
   float d1 = 8.0, d2 = 8.0;
-  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+  for (int y = -1; y <= 1 + u_zero; y++) for (int x = -1; x <= 1 + u_zero; x++) {
     vec2 c = vec2(x, y);
     vec2 r = c + vec2(hash(g + c), hash(g + c + 17.0)) - f;
     float d = dot(r, r);
@@ -143,7 +148,7 @@ float hexEdge(vec2 p) {
 float sdPolygon(vec2 p, vec2 v[6], int n) {
   float d = dot(p - v[0], p - v[0]);
   float sgn = 1.0;
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 6 + u_zero; i++) {
     if (i >= n) break;
     int j = i == 0 ? n - 1 : i - 1;
     vec2 e = v[j] - v[i];
@@ -182,7 +187,7 @@ vec4 materialOf(vec2 uv, vec2 px) {
     vec2 cq = px * vec2(3.2, 4.0) + vec2(13.7, 7.3);
     vec2 ci = cq;
     float cs = 0.0;
-    for (int k = 0; k < 3; k++) {
+    for (int k = 0; k < 3 + u_zero; k++) {
       float tk = turn(6.0 + float(k) * 2.0);
       ci = cq + vec2(cos(tk - ci.x) + sin(tk + ci.y), sin(tk - ci.y) + cos(tk + ci.x));
       cs += 1.0 / length(vec2(cq.x / (sin(ci.x + tk) / 0.02), cq.y / (cos(ci.y + tk) / 0.02)));
@@ -193,7 +198,7 @@ vec4 materialOf(vec2 uv, vec2 px) {
     c += (caustic * 0.28 + rays * 0.18) * mix(pal(1.0), vec3(1.0), 0.45);
     float meniscus = exp(-abs(uv.y - surface) * 40.0);
     c += meniscus * mix(pal(1.0), vec3(1.0), 0.6) * 0.8;
-    for (int j = 0; j < 7; j++) {
+    for (int j = 0; j < 7 + u_zero; j++) {
       float fj = float(j);
       float bx = hash1(fj * 3.7) * aspectOf(px, uv);
       float by = fract(cyc(20.0 + fj * 4.0) * 4.0 + hash1(fj * 9.1)) * surface;
@@ -246,7 +251,7 @@ vec4 materialOf(vec2 uv, vec2 px) {
     float neb = smoothstep(0.3, 0.95, n);
     vec3 c = mix(vec3(0.005, 0.0, 0.015), pal(0.3 + 0.55 * n), neb) * (0.4 + 0.95 * neb);
     c += pal(0.85) * smoothstep(0.62, 0.8, n) * smoothstep(1.0, 0.8, n) * 0.14;
-    for (int layer = 0; layer < 2; layer++) {
+    for (int layer = 0; layer < 2 + u_zero; layer++) {
       float sc = layer == 0 ? 18.0 : 42.0;
       vec2 sp = (px + vec2(-cyc(4.0 + float(layer) * 4.0) * 4.0 * (1.0 + float(layer)), 0.0)) * sc;
       vec2 cell = floor(sp), f = fract(sp) - 0.5;
@@ -268,7 +273,7 @@ vec4 materialOf(vec2 uv, vec2 px) {
 
 // ---- shards and motes of the running effects ----
 void shards(vec2 p, vec2 origin, float spread, float t, float s, float seed, float H, vec3 tint) {
-  for (int j = 0; j < 12; j++) {
+  for (int j = 0; j < 12 + u_zero; j++) {
     float fj = float(j);
     float h1 = hash1(seed + fj * 7.13), h2 = hash1(seed + fj * 3.71), h3 = hash1(seed + fj * 9.17);
     vec2 start = origin + vec2((h1 - 0.5) * spread, (h2 - 0.5) * H * 0.5);
@@ -291,7 +296,7 @@ void shards(vec2 p, vec2 origin, float spread, float t, float s, float seed, flo
 
 /** Thin bright streaks thrown out of a hit, fading as they fly. */
 void sparks(vec2 p, vec2 origin, float spread, float t, float s, float seed, float H, vec3 tint) {
-  for (int j = 0; j < 18; j++) {
+  for (int j = 0; j < 18 + u_zero; j++) {
     float fj = float(j);
     float h1 = hash1(seed + fj * 2.31), h2 = hash1(seed + fj * 5.77), h3 = hash1(seed + fj * 8.03);
     float life = 0.35 + 0.5 * h1;
@@ -311,7 +316,7 @@ void sparks(vec2 p, vec2 origin, float spread, float t, float s, float seed, flo
 }
 
 void motes(vec2 p, vec2 box0, float width, float t, float seed, float H, vec3 tint) {
-  for (int j = 0; j < 16; j++) {
+  for (int j = 0; j < 16 + u_zero; j++) {
     float fj = float(j);
     float h1 = hash1(seed + fj * 5.3), h2 = hash1(seed + fj * 1.9);
     vec2 pos = vec2(box0.x + width * h1, box0.y + H * (0.2 + 0.6 * h2) + H * 2.2 * t * (0.6 + h2));
@@ -332,7 +337,7 @@ float portraitShape(vec2 p, vec2 lo, vec2 hi, int shape, float squareR) {
   else if (shape == 4) { v[0] = vec2(25, 2); v[1] = vec2(75, 2); v[2] = vec2(100, 50); v[3] = vec2(75, 98); v[4] = vec2(25, 98); v[5] = vec2(0, 50); n = 6; }
   else if (shape == 5) { v[0] = vec2(0, 0); v[1] = vec2(100, 0); v[2] = vec2(78, 100); v[3] = vec2(0, 100); n = 4; }
   if (n > 0) {
-    for (int i = 0; i < 6; i++) v[i] = vec2(lo.x + v[i].x * 0.01 * size.x, hi.y - v[i].y * 0.01 * size.y);
+    for (int i = 0; i < 6 + u_zero; i++) v[i] = vec2(lo.x + v[i].x * 0.01 * size.x, hi.y - v[i].y * 0.01 * size.y);
     return sdPolygon(p, v, n);
   }
   vec2 c = (lo + hi) * 0.5;
@@ -350,8 +355,7 @@ void portrait(vec2 p) {
   // u_shieldOn carries the look's portrait frame switch here; the notch shape fades out instead of a frame.
   float ringOn = u_shape == 5 ? 0.0 : step(0.5, u_shieldOn);
   float reveal = 1.0;
-  for (int i = 0; i < ${VFX_SLOTS}; i++) {
-    if (i >= u_fxCount) break;
+  for (int i = 0; i < u_fxCount; i++) {
     if (int(u_fxA[i].x) == 4) {
       float a = atan(p.x - center.x, p.y - center.y) / TAU + 0.5;
       reveal = smoothstep(u_fxA[i].y * 1.2, u_fxA[i].y * 1.2 - 0.05, a);
@@ -398,8 +402,7 @@ void portrait(vec2 p) {
     over(metal, ringA);
   }
   // running effects, sized to the portrait
-  for (int i = 0; i < ${VFX_SLOTS}; i++) {
-    if (i >= u_fxCount) break;
+  for (int i = 0; i < u_fxCount; i++) {
     int kind = int(u_fxA[i].x);
     float t = u_fxA[i].y, st = u_fxA[i].z;
     float inside = smoothstep(0.75, -0.75, d);
@@ -453,8 +456,7 @@ void main() {
   // Entrance: what lies right of the sweep is not there yet.
   float reveal = 1.0;
   float sweepEdge = -1.0;
-  for (int i = 0; i < ${VFX_SLOTS}; i++) {
-    if (i >= u_fxCount) break;
+  for (int i = 0; i < u_fxCount; i++) {
     if (int(u_fxA[i].x) == 4) {
       float t = u_fxA[i].y;
       sweepEdge = t * 1.3 - 0.1;
@@ -558,7 +560,7 @@ void main() {
     over(vec3(0.03, 0.015, 0.0), behindText * mask * reveal * 0.45 * step(0.0, yy));
     add(fire(T), flame * mask * reveal * 0.95 * textCalm);
     add(pal(0.65), exp(-max(yy, 0.0) * 3.5) * mask * reveal * 0.22 * step(0.0, yy) * textCalm);
-    for (int j = 0; j < 10; j++) {
+    for (int j = 0; j < 10 + u_zero; j++) {
       float fj = float(j);
       float h1 = hash1(fj * 12.7), h2 = hash1(fj * 4.1);
       float life = fract(cyc(40.0 + fj * 3.0) * 6.0 + h2);
@@ -570,7 +572,7 @@ void main() {
   }
   // fireflies drifting around a glowing plain fill, blinking in the look's light
   if (u_motes == 1 && u_card < 0.5) {
-    for (int j = 0; j < 14; j++) {
+    for (int j = 0; j < 14 + u_zero; j++) {
       float fj = float(j);
       float h1 = hash1(fj * 7.7), h2 = hash1(fj * 3.1), h3 = hash1(fj * 5.9);
       float life = fract(cyc(6.0 + fj) * 3.0 + h3);
@@ -583,7 +585,7 @@ void main() {
   }
   // embers rising off the bar, swaying and fading as they climb
   if (u_motes == 2 && u_card < 0.5) {
-    for (int j = 0; j < 16; j++) {
+    for (int j = 0; j < 16 + u_zero; j++) {
       float fj = float(j);
       float h1 = hash1(fj * 12.7 + 3.0), h2 = hash1(fj * 4.1 + 1.0);
       float life = fract(cyc(30.0 + fj * 2.0) * 5.0 + h2);
@@ -595,7 +597,7 @@ void main() {
   }
   // twinkling sparkles: four-pointed stars around the bar, and soft beams of light above it
   if (u_motes == 3 && u_card < 0.5) {
-    for (int j = 0; j < 18; j++) {
+    for (int j = 0; j < 18 + u_zero; j++) {
       float fj = float(j);
       float h1 = hash1(fj * 9.3), h2 = hash1(fj * 2.7), h3 = hash1(fj * 6.1);
       float life = fract(cyc(5.0 + fj) * 2.0 + h3);
@@ -721,7 +723,7 @@ void main() {
       vec2 f = vec2(fract(gp.x) * 1.0, gp.y);
       vec2 q = (f - vec2(0.5)) * vec2(cellW / 0.62, 1.0) * 1.35 + vec2(0.5);
       float dRune = 9.0;
-      for (int k = 0; k < 4; k++) {
+      for (int k = 0; k < 4 + u_zero; k++) {
         float hk = hash1(id * 13.1 + float(k) * 7.7);
         float ha = floor(hk * 9.0), hb = floor(fract(hk * 31.7) * 9.0);
         vec2 a = vec2(mod(ha, 3.0), floor(ha / 3.0)) * vec2(0.3, 0.32) + vec2(0.2, 0.18);
@@ -778,7 +780,7 @@ void main() {
       }
     }
     // engraved ticks
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8 + u_zero; i++) {
       if (i >= u_tickCount) break;
       float dist = (fx - u_ticks[i]) * innerSize.x;
       col *= 1.0 - 0.55 * (1.0 - smoothstep(0.6, 1.6, abs(dist)));
@@ -797,8 +799,8 @@ void main() {
 
   // ---- running effects (sized to the card on a card: its meter is thin) ----
   float fxSize = u_card > 0.5 ? (u_panel.w - u_panel.y) * 0.26 : H;
-  for (int i = 0; i < ${VFX_SLOTS}; i++) {
-    if (i >= u_fxCount || hasMeter < 0.5) break;
+  for (int i = 0; i < u_fxCount; i++) {
+    if (hasMeter < 0.5) break;
     float H = fxSize;
     int kind = int(u_fxA[i].x);
     float t = u_fxA[i].y, s = u_fxA[i].z, x = u_fxA[i].w;
@@ -905,3 +907,25 @@ void main() {
   o = vec4(C, A) * edgeFade;
 }
 `;
+
+/** What one compiled program draws: the mode (0 bar, 1 card with a left strip, 2 with a top strip, 3 portrait) and the
+ * look's FILL_TYPES, FILL_PATTERNS and FILL_MOTES indices. */
+export interface BarVariant {
+  mode: number;
+  fill: number;
+  pattern: number;
+  motes: number;
+}
+
+export const variantKey = (v: BarVariant) => `${v.mode}.${v.fill}.${v.pattern}.${v.motes}`;
+
+/**
+ * The fragment shader for one variant (ADR 0003). Baking these in as constants lets the compiler drop the other
+ * materials, modes and extras: a first compile on Direct3D 11 went from 55 s for the whole shader to about 3 s.
+ */
+export function barFragment(v: BarVariant): string {
+  return SOURCE.replace("uniform float u_card;", `#define u_card ${v.mode.toFixed(1)}`)
+    .replace("uniform int u_fillType;", `#define u_fillType ${v.fill}`)
+    .replace("uniform int u_pattern;", `#define u_pattern ${v.pattern}`)
+    .replace("uniform int u_motes;", `#define u_motes ${v.motes}`);
+}
