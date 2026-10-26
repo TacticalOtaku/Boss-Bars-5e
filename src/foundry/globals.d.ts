@@ -122,6 +122,8 @@ declare global {
   interface ApplicationV2Instance {
     element: HTMLElement;
     rendered: boolean;
+    /** ApplicationV2.RENDER_STATES: a re-render is RENDERING, not RENDERED, until its HTML is replaced. */
+    state: number;
     title: string;
     document?: ActorDocument;
     render(options?: boolean | Record<string, unknown>): Promise<this>;
@@ -208,7 +210,9 @@ declare global {
       instances: Map<string, ApplicationV2Instance>;
       ux: { FormDataExtended: new (form: HTMLFormElement) => { object: Record<string, unknown> } };
       api: {
-        ApplicationV2: new (options?: Record<string, unknown>) => ApplicationV2Instance;
+        ApplicationV2: (new (options?: Record<string, unknown>) => ApplicationV2Instance) & {
+          RENDER_STATES: { RENDERING: number; RENDERED: number };
+        };
         HandlebarsApplicationMixin<T extends new (...args: never[]) => ApplicationV2Instance>(base: T): T;
         DialogV2: {
           confirm(options: { window: { title: string }; content: string }): Promise<boolean | null>;

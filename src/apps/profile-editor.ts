@@ -6,12 +6,7 @@ import {
   PROFILE_LIMITS,
   profileErrors,
   readProfile,
-  type CustomStatus,
-  type MiniBar,
-  type MiniBarSource,
   type Phase,
-  type PhaseEnter,
-  type PhaseTrigger,
   type ProfileInput,
   type ProfileKind,
 } from "../core/profile";
@@ -19,9 +14,9 @@ import { CATEGORIES, isCategory, LIBRARY_VERSION, readLibrary, type Category } f
 import { resolveLook } from "../core/look/resolve";
 import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
-import { autoDuration, QUOTE_LIMITS, speak, type Quote, type QuoteTrigger } from "../core/quotes";
+import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
 import { readMusicSource, type MusicSource } from "../core/music";
-import { isRecord } from "../core/schema";
+import { inputOf } from "../core/profile-form";
 import { phaseViewOf } from "../core/view";
 import { CATEGORY_LABELS } from "./look-labels";
 import { rankOf } from "../core/ranks";
@@ -88,42 +83,6 @@ const QUOTE_GROUP: Record<string, string> = {
   status: "status",
 };
 
-function quoteTriggerOf(raw: Record<string, unknown>): QuoteTrigger {
-  const percent = raw.percent === null ? Number.NaN : Number(raw.percent);
-  switch (raw.trigger) {
-    case "phase":
-      return { type: "phase", phaseId: str(raw.phaseId) };
-    case "below":
-    case "damage":
-      return { type: raw.trigger, percent };
-    case "status":
-      return { type: "status", status: str(raw.status).trim() };
-    case "newer":
-      return (newerTrigger(str(raw.newer)) as QuoteTrigger | null) ?? { type: "manual" };
-    default:
-      return KNOWN_QUOTE_TRIGGERS.has(str(raw.trigger))
-        ? { type: raw.trigger as "appear" }
-        : { type: "manual" };
-  }
-}
-
-/** A quote row of the form: the pool comes one variant per line. */
-function quoteOf(raw: Record<string, unknown>): Quote {
-  const duration = str(raw.duration).trim();
-  return {
-    id: str(raw.id) || foundry.utils.randomID(),
-    trigger: quoteTriggerOf(raw),
-    texts: str(raw.texts)
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
-    order: raw.order === "cycle" ? "cycle" : "random",
-    cooldown: raw.cooldown === null ? Number.NaN : Number(raw.cooldown),
-    once: raw.once === true,
-    duration: duration ? Number(duration) : null,
-  };
-}
-
 /** Tab of each field-name prefix, to bring the first invalid field into view. */
 const TAB_OF: [RegExp, string][] = [
   [/^miniBars/, "miniBars"],
@@ -134,28 +93,6 @@ const TAB_OF: [RegExp, string][] = [
   [/^autoShow/, "autoShow"],
 ];
 
-const entries = (value: unknown): Record<string, unknown>[] =>
-  isRecord(value) ? Object.values(value).filter(isRecord) : [];
-const str = (value: unknown) => (typeof value === "string" ? value : "");
-
-function sourceOf(raw: Record<string, unknown>): MiniBarSource {
-  switch (raw.type) {
-    case "item":
-      return { type: "item", itemId: str(raw.itemId) };
-    case "path": {
-      const max = str(raw.max).trim();
-      return { type: "path", path: str(raw.path).trim(), max: /^\d+(\.\d+)?$/.test(max) ? Number(max) : max };
-    }
-    case "counter":
-      return { type: "counter", max: Number(raw.counterMax) };
-    case "legact":
-    case "legres":
-      return { type: raw.type };
-    default:
-      return { type: "temp" };
-  }
-}
-
 /** Music in a select: "playlist:<id>" or "sound:<playlist id>:<sound id>"; "" — none (or "as before"). */
 const musicValue = (source: MusicSource | null | undefined) =>
   !source
@@ -163,11 +100,6 @@ const musicValue = (source: MusicSource | null | undefined) =>
     : source.type === "playlist"
       ? `playlist:${source.playlistId}`
       : `sound:${source.playlistId}:${source.soundId}`;
-function musicFrom(value: string): MusicSource | null {
-  const [type, playlistId, soundId] = value.split(":");
-  return readMusicSource({ type, playlistId, soundId });
-}
-
 /** The world's playlists as option groups: the whole playlist, then each track. */
 function musicChoices(selected: MusicSource | null | undefined) {
   const current = musicValue(selected);
@@ -184,102 +116,6 @@ function musicChoices(selected: MusicSource | null | undefined) {
           })),
         ].map((option) => ({ ...option, selected: option.value === current })),
       })),
-  };
-}
-
-/** A newer version's trigger rides along as JSON in a hidden field and is written back unchanged. */
-function newerTrigger(json: string): PhaseTrigger | null {
-  try {
-    const raw: unknown = JSON.parse(json);
-    return isRecord(raw) && typeof raw.type === "string" ? (raw as unknown as PhaseTrigger) : null;
-  } catch {
-    return null;
-  }
-}
-
-function triggerOf(raw: Record<string, unknown>, first: boolean): PhaseTrigger {
-  if (first) return { type: "start" };
-  switch (raw.trigger) {
-    case "hp":
-      return { type: "hp", below: raw.below === null ? Number.NaN : Number(raw.below) };
-    case "form":
-      return { type: "form", actorId: str(raw.actorId) };
-    case "newer":
-      return newerTrigger(str(raw.newer)) ?? { type: "manual" };
-    default:
-      return { type: "manual" };
-  }
-}
-
-/** Only what the phase changes: empty fields and "as before" categories are left out. */
-function enterOf(raw: unknown): PhaseEnter {
-  const value = isRecord(raw) ? raw : {};
-  const enter: PhaseEnter = {};
-  for (const key of ["playerName", "title", "portrait"] as const) {
-    const text = str(value[key]).trim();
-    if (text) enter[key] = text;
-  }
-  const overrides: Partial<Record<Category, string>> = {};
-  for (const [category, id] of Object.entries(isRecord(value.overrides) ? value.overrides : {})) {
-    if (isCategory(category) && typeof id === "string" && id) overrides[category] = id;
-  }
-  if (Object.keys(overrides).length) enter.overrides = overrides;
-  const music = musicFrom(str(value.music));
-  if (music) enter.music = music;
-  return enter;
-}
-
-/** The form, expanded: rows come as index-keyed objects, statuses as checkboxes plus a name list. */
-function inputOf(data: Record<string, unknown>): ProfileInput {
-  const autoShow = isRecord(data.autoShow) ? data.autoShow : {};
-  const statuses = isRecord(data.statuses) ? data.statuses : {};
-  const hiddenIds = isRecord(data.hiddenIds) ? data.hiddenIds : {};
-  const names = str(data.hiddenNames)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  return {
-    kind: data.kind === "elite" ? "elite" : "boss",
-    displayMode: data.displayMode === "actor" ? "actor" : "token",
-    playerName: str(data.playerName),
-    title: str(data.title),
-    portrait: str(data.portrait),
-    size: Number(data.size),
-    rank: str(data.rank),
-    autoShow: {
-      onCombatStart: autoShow.onCombatStart === true,
-      hideOnCombatEnd: autoShow.hideOnCombatEnd === true,
-      hideOnDefeat: autoShow.hideOnDefeat === true,
-      delay: autoShow.delay === null ? Number.NaN : Number(autoShow.delay),
-    },
-    statuses: {
-      hidden: [...Object.keys(hiddenIds).filter((id) => hiddenIds[id] === true), ...names],
-      custom: entries(statuses.custom).map((raw): CustomStatus => ({
-        id: str(raw.id),
-        name: str(raw.name).trim(),
-        img: str(raw.img).trim(),
-        description: str(raw.description).trim(),
-      })),
-    },
-    miniBars: entries(data.miniBars).map((raw): MiniBar => ({
-      id: str(raw.id),
-      label: str(raw.label).trim(),
-      view: raw.view === "pips" ? "pips" : "bar",
-      players: raw.players === true,
-      source: sourceOf(isRecord(raw.source) ? raw.source : {}),
-    })),
-    phases: entries(data.phases).map((raw, index): Phase => ({
-      id: str(raw.id) || foundry.utils.randomID(),
-      label: str(raw.label).trim(),
-      trigger: triggerOf(raw, index === 0),
-      enter: enterOf(raw.enter),
-    })),
-    fillMode: data.fillMode === "refill" ? "refill" : "segments",
-    playerTicks: data.playerTicks === true,
-    quotes: entries(data.quotes).map(quoteOf),
-    music: musicFrom(str(data.music)),
-    musicPriority: data.musicPriority === null ? Number.NaN : Number(data.musicPriority),
-    musicFade: data.musicFade === null ? Number.NaN : Math.round(Number(data.musicFade) * 1000),
   };
 }
 
@@ -468,7 +304,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #formInput(): ProfileInput {
     const form = new foundry.applications.ux.FormDataExtended(this.element as HTMLFormElement);
-    return inputOf(foundry.utils.expandObject(form.object));
+    return inputOf(foundry.utils.expandObject(form.object), foundry.utils.randomID);
   }
 
   override async _prepareContext(options: Record<string, unknown>) {
@@ -941,7 +777,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onSubmit(this: ProfileEditor, _event: Event, form: HTMLFormElement, formData: FormData) {
-    const input = inputOf(foundry.utils.expandObject(formData.object));
+    const input = inputOf(foundry.utils.expandObject(formData.object), foundry.utils.randomID);
     const errors = profileErrors(input);
     this.#showErrors(form, errors);
     if (Object.keys(errors).length) return;

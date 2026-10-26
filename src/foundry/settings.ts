@@ -39,7 +39,6 @@ export function registerSettings(onChange: () => void, openRanks: () => void, op
       onChange();
     },
   });
-  // Empty until the GM saves: the translated default ranks apply meanwhile.
   // What the boss music changed in the world's playlists (core/music snapshot); the active GM writes it.
   game.settings.register(MODULE_ID, "music", {
     scope: "world",
@@ -48,6 +47,7 @@ export function registerSettings(onChange: () => void, openRanks: () => void, op
     default: {},
   });
 
+  // Empty until the GM saves: the translated default ranks apply meanwhile.
   game.settings.register(MODULE_ID, "ranks", {
     scope: "world",
     config: false,

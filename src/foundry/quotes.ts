@@ -1,12 +1,11 @@
-import { MODULE_ID } from "../constants";
 import { aggregate } from "../core/aggregate";
 import { hpFraction } from "../core/hp";
-import { readInstances, type Instance } from "../core/instances";
-import { formPending } from "../core/phases";
+import type { Instance } from "../core/instances";
+import { defeatedOf } from "../core/view";
 import type { QuoteEvent } from "../core/quotes";
 import { dnd5eAttack, midiAttack, type AttackResult } from "../integrations/attacks";
 import { applyQuoteEvents } from "./authority";
-import { instanceFor, subjectOf, type BossHud } from "./store";
+import { instanceFor, sceneItems, subjectOf, type BossHud } from "./store";
 
 /** What the active GM last saw of a boss with quotes. */
 interface Seen {
@@ -23,11 +22,10 @@ function seenOf(scene: SceneDocument, item: Instance): Seen | null {
   const subject = subjectOf(scene, item);
   if (subject?.profile.kind !== "boss" || !subject.profile.quotes.length) return null;
   const total = aggregate(subject.tokens, true);
-  const phases = subject.profile.phases;
   return {
     fraction: total?.hp ? hpFraction(total.hp) : null,
     value: total?.hp?.value ?? null,
-    defeated: Boolean(total?.defeated) && !formPending(phases, item.phase),
+    defeated: defeatedOf(subject, total),
     statuses: new Set(
       (total?.tokens ?? []).flatMap((token) =>
         (token.effects ?? []).flatMap((effect) => [...effect.statuses, effect.name]),
@@ -61,14 +59,13 @@ function targetsOf(result: AttackResult): { scene: SceneDocument; instance: Inst
   for (const scene of game.scenes.values()) {
     const target = result.target;
     if ("sceneId" in target && target.sceneId !== scene.id) continue;
-    const read = readInstances(scene.flags[MODULE_ID]?.instances);
-    if (read.status !== "ok") continue;
+    const items = sceneItems(scene);
     const tokens =
       "tokenId" in target
         ? scene.tokens.filter((token) => token.id === target.tokenId)
         : scene.tokens.filter((token) => token.actorLink && token.actorId === target.actorId);
     for (const token of tokens) {
-      const instance = instanceFor(read.value.items, token);
+      const instance = instanceFor(items, token);
       if (instance && !found.some((each) => each.instance.id === instance.id))
         found.push({ scene, instance });
     }
@@ -95,9 +92,7 @@ export function startQuoteWatch(hud: BossHud): void {
     }
     const next = new Map<string, Seen>();
     for (const scene of game.scenes.values()) {
-      const read = readInstances(scene.flags[MODULE_ID]?.instances);
-      if (read.status !== "ok") continue;
-      for (const item of read.value.items) {
+      for (const item of sceneItems(scene)) {
         const now = item.kind === "boss" ? seenOf(scene, item) : null;
         if (!now) continue;
         next.set(item.id, now);
@@ -121,8 +116,7 @@ export function startQuoteWatch(hud: BossHud): void {
       const combatant = combat.combatants.get(current.combatantId);
       const scene = game.scenes.get(combatant?.sceneId ?? "");
       const token = scene?.tokens.get(combatant?.tokenId ?? "");
-      const read = readInstances(scene?.flags[MODULE_ID]?.instances);
-      const instance = token && read.status === "ok" ? instanceFor(read.value.items, token) : undefined;
+      const instance = token ? instanceFor(sceneItems(scene), token) : undefined;
       if (scene && instance) applyQuoteEvents(scene, instance.id, [{ type: "turn" }]);
     },
   );

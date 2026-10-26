@@ -1,9 +1,9 @@
 import { MODULE_ID } from "../constants";
-import { readInstances, type Instance } from "../core/instances";
+import type { Instance } from "../core/instances";
 import { phaseIndex, romanNumeral } from "../core/phases";
 import { readProfile, type Profile, type ProfileKind } from "../core/profile";
 import { writeOrNotify } from "../foundry/authority";
-import { instanceFor, profileActorOf, type BossHud } from "../foundry/store";
+import { instanceFor, profileActorOf, sceneItems, type BossHud } from "../foundry/store";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -94,8 +94,7 @@ function rowOf(
  * per actor (×N) in that mode.
  */
 function sceneRows(scene: SceneDocument): Row[] {
-  const read = readInstances(scene.flags[MODULE_ID]?.instances);
-  const items = read.status === "ok" ? read.value.items : [];
+  const items = sceneItems(scene);
   const rows: Row[] = [];
   for (const item of items) {
     const actor = profileActorOf(scene, item);
@@ -191,22 +190,35 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
-  /** Own lines being typed survive the re-render every HUD recompute brings. */
+  /**
+   * Own lines being typed and the quote picked survive the re-render every HUD recompute brings; the named fields
+   * keep their focus through Foundry's part sync.
+   */
   #drafts = new Map<string, string>();
+  #picked = new Map<string, string>();
 
   override async _preRender(context: Record<string, unknown>, options: Record<string, unknown>) {
     await super._preRender(context, options);
-    for (const input of this.element?.querySelectorAll<HTMLInputElement>("[data-say-text]") ?? []) {
-      const id = input.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
-      if (id) this.#drafts.set(id, input.value);
+    for (const row of this.element?.querySelectorAll<HTMLElement>("[data-instance-id]") ?? []) {
+      const id = row.dataset.instanceId ?? "";
+      const text = row.querySelector<HTMLInputElement>("[data-say-text]");
+      const quote = row.querySelector<HTMLSelectElement>("[data-say-quote]");
+      if (text) this.#drafts.set(id, text.value);
+      if (quote) this.#picked.set(id, quote.value);
     }
   }
 
   override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
     await super._onRender(context, options);
-    for (const input of this.element.querySelectorAll<HTMLInputElement>("[data-say-text]")) {
-      const id = input.closest<HTMLElement>("[data-instance-id]")?.dataset.instanceId;
-      input.value = (id && this.#drafts.get(id)) || "";
+    for (const row of this.element.querySelectorAll<HTMLElement>("[data-instance-id]")) {
+      const id = row.dataset.instanceId ?? "";
+      const text = row.querySelector<HTMLInputElement>("[data-say-text]");
+      const quote = row.querySelector<HTMLSelectElement>("[data-say-quote]");
+      if (text) text.value = this.#drafts.get(id) ?? "";
+      const picked = this.#picked.get(id);
+      // A quote removed from the profile meanwhile leaves the first one picked.
+      if (quote && picked && [...quote.options].some((option) => option.value === picked))
+        quote.value = picked;
     }
   }
 
