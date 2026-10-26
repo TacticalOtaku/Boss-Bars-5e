@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.11.0
+
+- The full catalog: 30 built-in looks — Classic RPG, Ash and Flame, Permafrost, Storm, Undead, Abyss, Inferno,
+  Celestial Light, Forest Spirit, Poison Bog, Dragon Scale, The Deep, Gothic, Ancient Rus, Runestone, Desert King,
+  Clockwork, Neon, Glitch, Astral, Shadow, Parchment and Ink, Minimal, Pixel, Nightmare, Crystal, Beast Fury, Royal
+  Court, Plague and Rot, Steel and Blood. Each brings its own preset in all eight styled categories (240 presets,
+  named after the theme), including live fills, sparks, phase change effects and the quote place.
+- 30 structural layouts for the boss bar and 30 for the elite card: classic, HP ring, cinematic banner, compact, wide,
+  portrait on the right or on top, no portrait, medallion, notched portrait, thin, segmented, two rows, name inside
+  or below, extras on the side or on the portrait, colossus, banner, slim and more.
+- 30 fonts with Cyrillic and Latin (SIL OFL 1.1, license texts in `fonts/`): Cormorant, Yeseva One, Philosopher,
+  Jura, Triodion, Oranienbaum, Rubik Wet Paint, Cormorant Unicase, Kurale, Underdog, Alegreya SC, Viaoda Libre,
+  Ponomar, Ruslan Display, Tektur, Forum, Exo 2, Russo One, Rubik Glitch, Prata, Shafarik, Marck Script, Unbounded,
+  Press Start 2P, Bad Script, Playfair Display SC, Oi, Bona Nova SC, Neucha, Dela Gothic One. A font file is
+  downloaded only when a bar in that font is shown.
+- Permafrost now uses the medallion layout, so its live ice shows; Crystal takes the HP ring. Layouts with a
+  medallion put the name under the bar.
+- Saved profiles and ranks keep their looks: built-in ids did not change, data versions stay the same.
+
 ## 0.10.0
 
 - Live fills on boss bars: liquid, energy, flame, ice and void are now drawn by WebGL2 shaders on the look's palette

@@ -1,12 +1,68 @@
+/** Fallback stacks while a font loads (or for "system"). */
+const SERIF = 'georgia, "Times New Roman", serif';
+const SANS = '"Arial Black", Arial, sans-serif';
+const SCRIPT = '"Segoe Script", cursive';
+const MONO = '"Courier New", monospace';
+
 /**
- * Built-in fonts: id → CSS family and whether a real bold face ships (spec §9: no synthetic bold).
- * Stage 5 ships the fonts of its three looks; stage 10 adds the rest of the 30.
+ * The 30 built-in fonts (spec §9, ticket #5; OFL 1.1, `latin` + `cyrillic` from Fontsource): id → file stem, the
+ * faces shipped ("wght" is a variable file covering `range`), the fallback stack. `bold` is true only when a real
+ * bold face ships: there is no synthetic bold.
  */
-export const FONTS: Record<string, { family: string; bold: boolean }> = {
-  system: { family: 'georgia, "Times New Roman", serif', bold: true },
-  cormorant: { family: '"BB5E Cormorant", georgia, serif', bold: true },
-  philosopher: { family: '"BB5E Philosopher", georgia, serif', bold: true },
-  "russo-one": { family: '"BB5E Russo One", "Arial Black", sans-serif', bold: false },
+const CATALOG: {
+  id: string;
+  name: string;
+  weights: string[];
+  range?: string;
+  fallback: string;
+}[] = [
+  { id: "cormorant", name: "Cormorant", weights: ["wght"], range: "300 700", fallback: SERIF },
+  { id: "yeseva-one", name: "Yeseva One", weights: ["400"], fallback: SERIF },
+  { id: "philosopher", name: "Philosopher", weights: ["400", "700"], fallback: SERIF },
+  { id: "jura", name: "Jura", weights: ["wght"], range: "300 700", fallback: SANS },
+  { id: "triodion", name: "Triodion", weights: ["400"], fallback: SERIF },
+  { id: "oranienbaum", name: "Oranienbaum", weights: ["400"], fallback: SERIF },
+  { id: "rubik-wet-paint", name: "Rubik Wet Paint", weights: ["400"], fallback: SANS },
+  { id: "cormorant-unicase", name: "Cormorant Unicase", weights: ["400", "700"], fallback: SERIF },
+  { id: "kurale", name: "Kurale", weights: ["400"], fallback: SERIF },
+  { id: "underdog", name: "Underdog", weights: ["400"], fallback: SANS },
+  { id: "alegreya-sc", name: "Alegreya SC", weights: ["400", "700"], fallback: SERIF },
+  { id: "viaoda-libre", name: "Viaoda Libre", weights: ["400"], fallback: SERIF },
+  { id: "ponomar", name: "Ponomar", weights: ["400"], fallback: SERIF },
+  { id: "ruslan-display", name: "Ruslan Display", weights: ["400"], fallback: SERIF },
+  { id: "tektur", name: "Tektur", weights: ["wght"], range: "400 900", fallback: SANS },
+  { id: "forum", name: "Forum", weights: ["400"], fallback: SERIF },
+  { id: "exo-2", name: "Exo 2", weights: ["wght"], range: "100 900", fallback: SANS },
+  { id: "russo-one", name: "Russo One", weights: ["400"], fallback: SANS },
+  { id: "rubik-glitch", name: "Rubik Glitch", weights: ["400"], fallback: SANS },
+  { id: "prata", name: "Prata", weights: ["400"], fallback: SERIF },
+  { id: "shafarik", name: "Shafarik", weights: ["400"], fallback: SERIF },
+  { id: "marck-script", name: "Marck Script", weights: ["400"], fallback: SCRIPT },
+  { id: "unbounded", name: "Unbounded", weights: ["wght"], range: "200 900", fallback: SANS },
+  { id: "press-start-2p", name: "Press Start 2P", weights: ["400"], fallback: MONO },
+  { id: "bad-script", name: "Bad Script", weights: ["400"], fallback: SCRIPT },
+  { id: "playfair-display-sc", name: "Playfair Display SC", weights: ["400", "700"], fallback: SERIF },
+  { id: "oi", name: "Oi", weights: ["400"], fallback: SANS },
+  { id: "bona-nova-sc", name: "Bona Nova SC", weights: ["400", "700"], fallback: SERIF },
+  { id: "neucha", name: "Neucha", weights: ["400"], fallback: SCRIPT },
+  { id: "dela-gothic-one", name: "Dela Gothic One", weights: ["400"], fallback: SANS },
+];
+
+const familyOf = (name: string) => `BB5E ${name}`;
+
+/** Built-in fonts: id → CSS family stack, whether a real bold face ships, and the font's own name (for forms). */
+export const FONTS: Record<string, { family: string; bold: boolean; name: string }> = {
+  system: { family: SERIF, bold: true, name: "Georgia" },
+  ...Object.fromEntries(
+    CATALOG.map((font) => [
+      font.id,
+      {
+        family: `"${familyOf(font.name)}", ${font.fallback}`,
+        bold: font.weights.includes("700") || font.weights.includes("wght"),
+        name: font.name,
+      },
+    ]),
+  ),
 };
 
 /** Fontsource subset ranges: the browser fetches a subset only for text that needs it. */
@@ -22,21 +78,17 @@ export interface FontFaceSpec {
   weight: string;
 }
 
-const faces = (family: string, stem: string, weights: string[]): FontFaceSpec[] =>
-  weights.flatMap((each) => {
-    const weight = each === "wght" ? "300 700" : each;
+/** Every face file shipped in `fonts/`: `<id>-<subset>-<weight>.woff2`. */
+export const FONT_FACES: FontFaceSpec[] = CATALOG.flatMap((font) =>
+  font.weights.flatMap((each) => {
+    const weight = each === "wght" ? (font.range ?? "400") : each;
+    const family = familyOf(font.name);
     return [
-      { family, file: `${stem}-latin-${each}.woff2`, unicodeRange: LATIN, weight },
-      { family, file: `${stem}-cyrillic-${each}.woff2`, unicodeRange: CYRILLIC, weight },
+      { family, file: `${font.id}-latin-${each}.woff2`, unicodeRange: LATIN, weight },
+      { family, file: `${font.id}-cyrillic-${each}.woff2`, unicodeRange: CYRILLIC, weight },
     ];
-  });
-
-/** Every face file shipped in `fonts/` ("wght" is a variable font covering 300–700). */
-export const FONT_FACES: FontFaceSpec[] = [
-  ...faces("BB5E Cormorant", "cormorant", ["wght"]),
-  ...faces("BB5E Philosopher", "philosopher", ["400", "700"]),
-  ...faces("BB5E Russo One", "russo-one", ["400"]),
-];
+  }),
+);
 
 /** A GM's own woff2 is registered under a family named after its preset. */
 export const customFamily = (presetId: string) => `bb5e-custom-${presetId}`;

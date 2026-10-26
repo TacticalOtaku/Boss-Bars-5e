@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Boss Bars 5e — каталог</title>
+    <link rel="stylesheet" href="./stand.css" />
+    <style>
+      body {
+        overflow: auto;
+      }
+      /* The sheet is a page, not the HUD overlay: it scrolls and takes clicks. */
+      #boss-bars-5e.catalog {
+        position: static;
+        pointer-events: auto;
+      }
+      .catalog {
+        padding: 16px 24px 48px;
+        color: #e8e2d6;
+        font:
+          14px/1.4 system-ui,
+          sans-serif;
+      }
+      .catalog h2 {
+        margin: 28px 0 10px;
+        font-size: 18px;
+      }
+      .catalog nav a {
+        margin-right: 12px;
+        color: #c9a45c;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(var(--tile, 420px), 1fr));
+        gap: 12px;
+      }
+      .tile {
+        padding: 10px 12px 12px;
+        border-radius: 10px;
+        background: #2b2f38;
+      }
+      .tile h3 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #c9a45c;
+      }
+      #boss-bars-5e .tile .bb5e-stack {
+        position: static;
+        translate: none;
+        align-items: flex-start;
+      }
+      #boss-bars-5e .tile .bb5e-column {
+        position: static;
+        translate: none;
+      }
+      #boss-bars-5e .tile .bb5e-boss {
+        max-width: 100%;
+      }
+      .tile-row {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="boss-bars-5e" class="catalog">
+      <h1>Каталог: 30 обликов и пресеты по категориям</h1>
+      <nav id="nav"></nav>
+      <div id="content"></div>
+    </div>
+    <script type="module" src="./catalog.ts"></script>
+  </body>
+</html>
