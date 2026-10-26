@@ -34,12 +34,12 @@
   {{#if canSay}}
   <div class="bb5e-panel__extras bb5e-panel__say">
     {{#if quotes.length}}
-    <select data-say-quote aria-label="{{localize "BB5E.Panel.ChooseQuote"}}">
+    <select name="sayQuote-{{instanceId}}" data-say-quote aria-label="{{localize "BB5E.Panel.ChooseQuote"}}">
       {{#each quotes}}<option value="{{id}}">{{label}}</option>{{/each}}
     </select>
     <button type="button" data-action="sayQuote">{{localize "BB5E.Panel.Say"}}</button>
     {{/if}}
-    <input type="text" data-say-text maxlength="200" placeholder="{{localize "BB5E.Panel.OwnText"}}" aria-label="{{localize "BB5E.Panel.OwnText"}}">
+    <input type="text" name="sayText-{{instanceId}}" data-say-text maxlength="200" placeholder="{{localize "BB5E.Panel.OwnText"}}" aria-label="{{localize "BB5E.Panel.OwnText"}}">
     <button type="button" data-action="sayText">{{localize "BB5E.Panel.Say"}}</button>
   </div>
   {{/if}}

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: in "On the scene", a quote picked in the list went back to the first one, and a line being typed was lost
+  with its focus, whenever a token moved or an actor changed. The hub rebuilt a section caught re-rendering; it now
+  keeps it, so no section loses its drafts or closes without asking about unsaved edits.
+- Fixed: a quote's own duration was saved as automatic.
+- Fixed: a bar hidden at the end of combat after its delay is kept when the boss is already in the next started
+  combat.
+- Fixed: bars and previews removed before their first shader frame were kept in memory for the rest of the session.
+- A scene's own layout is saved in one write: players no longer see the world layout flash in between.
+
 ## 1.2.0
 
 - **One window.** The Boss Bars hub replaces the separate windows: "On the scene" (the former Active bosses panel),
@@ -14,6 +25,8 @@
   presets of a category are the same.
 - Effect settings that the shader ignored now show: trail delay, speed and gathering, scale by damage, the heal wave,
   a low HP pulse or flicker, the phase refill and palette blend.
+- GM windows take the look of the AIM character sheet: warm night surfaces or parchment, a brass accent, Palatino
+  headings, underlined tabs and switches; the theme follows Foundry's interface theme.
 
 ## 1.1.1
 

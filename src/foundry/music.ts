@@ -1,6 +1,5 @@
 import { MODULE_ID } from "../constants";
 import { aggregate } from "../core/aggregate";
-import { readInstances } from "../core/instances";
 import {
   leadMusic,
   musicActive,
@@ -13,9 +12,10 @@ import {
   type MusicSource,
   type TrackRef,
 } from "../core/music";
-import { formPending, musicOf } from "../core/phases";
+import { musicOf } from "../core/phases";
+import { defeatedOf } from "../core/view";
 import { logger } from "../logger";
-import { subjectOf, type BossHud } from "./store";
+import { sceneItems, subjectOf, type BossHud } from "./store";
 
 /** Foundry 14 PLAYLIST_MODES (common/constants.mjs). */
 const MODES = { DISABLED: -1, SIMULTANEOUS: 2 } as const;
@@ -36,16 +36,15 @@ const inSource = (source: MusicSource | null, sound: PlaylistSoundDocument) =>
  */
 function candidates(): MusicCandidate[] {
   const scene = game.scenes.active;
-  const read = readInstances(scene?.flags[MODULE_ID]?.instances);
-  if (!scene || read.status !== "ok") return [];
-  return read.value.items.flatMap((item): MusicCandidate[] => {
+  if (!scene) return [];
+  return sceneItems(scene).flatMap((item): MusicCandidate[] => {
     const subject = subjectOf(scene, item);
     if (subject?.profile.kind !== "boss") return [];
     const { profile } = subject;
     const source = musicOf(profile, item.phase);
     const total = aggregate(subject.tokens, true);
     if (!source || !total || total.hidden) return [];
-    if (total.defeated && !formPending(profile.phases, item.phase)) return [];
+    if (defeatedOf(subject, total)) return [];
     return [
       {
         instanceId: item.id,

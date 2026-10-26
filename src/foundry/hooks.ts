@@ -2,16 +2,11 @@ import { MODULE_ID } from "../constants";
 import { aggregate } from "../core/aggregate";
 import { newlyDefeated } from "../core/combat";
 import { instanceEvents } from "../core/events";
-import { readInstances, type Instance } from "../core/instances";
-import { formPending, shownIndex } from "../core/phases";
+import type { Instance } from "../core/instances";
+import { shownIndex } from "../core/phases";
 import type { Phase } from "../core/profile";
-import { phaseViewOf } from "../core/view";
-import { subjectOf, type BossHud } from "./store";
-
-const itemsOf = (scene: SceneDocument) => {
-  const read = readInstances(scene.flags[MODULE_ID]?.instances);
-  return read.status === "ok" ? read.value.items : [];
-};
+import { defeatedOf, phaseViewOf } from "../core/view";
+import { sceneItems, subjectOf, type BossHud } from "./store";
 
 const phasesOf = (scene: SceneDocument, item: Instance): readonly Phase[] => {
   const profile = subjectOf(scene, item)?.profile;
@@ -51,13 +46,13 @@ function visible(scene: SceneDocument, item: Instance, gone: boolean): boolean {
  * and quote from the difference of the scene flag, defeat from the recompute. A load only takes the baseline.
  */
 export function startHookEvents(hud: BossHud): void {
-  const seen = new Map(game.scenes.contents.map((scene) => [scene.id, itemsOf(scene)]));
+  const seen = new Map(game.scenes.contents.map((scene) => [scene.id, sceneItems(scene)]));
   // Foundry catches and logs errors thrown by hook callbacks itself.
   const call = (hook: string, payload: object) => Hooks.callAll(`${MODULE_ID}.${hook}`, payload);
 
   Hooks.on("updateScene", (scene: SceneDocument) => {
     const before = seen.get(scene.id) ?? [];
-    const after = itemsOf(scene);
+    const after = sceneItems(scene);
     seen.set(scene.id, after);
     for (const event of instanceEvents(before, after, (item) => phaseKey(scene, item))) {
       const { item } = event;
@@ -77,17 +72,17 @@ export function startHookEvents(hud: BossHud): void {
     }
   });
 
-  // Same rule as the auto-hide: 0 HP, the defeated status or a defeated combatant, not while a form is ahead.
+  // Same rule as the auto-hide (defeatedOf).
   let previous: Map<string, boolean> | null = null;
   hud.subscribe(() => {
     const current = new Map<string, boolean>();
     const where = new Map<string, { sceneId: string; kind: Instance["kind"] }>();
     for (const scene of game.scenes.values()) {
-      for (const item of itemsOf(scene)) {
+      for (const item of sceneItems(scene)) {
         const subject = subjectOf(scene, item);
         const total = subject ? aggregate(subject.tokens, game.user.isGM) : null;
-        if (!total) continue;
-        current.set(item.id, total.defeated && !formPending(phasesOf(scene, item), item.phase));
+        if (!subject || !total) continue;
+        current.set(item.id, defeatedOf(subject, total));
         where.set(item.id, { sceneId: scene.id, kind: item.kind });
       }
     }

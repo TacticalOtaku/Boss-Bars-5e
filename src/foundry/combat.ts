@@ -1,12 +1,11 @@
 import { MODULE_ID } from "../constants";
 import { aggregate } from "../core/aggregate";
 import { isCombatStart, newlyDefeated } from "../core/combat";
-import { readInstances } from "../core/instances";
-import { formPending } from "../core/phases";
+import { defeatedOf } from "../core/view";
 import { readProfile, type AutoShow } from "../core/profile";
 import { logger } from "../logger";
 import { requestWrite } from "./authority";
-import { instanceFor, subjectOf, type BossHud } from "./store";
+import { instanceFor, sceneItems, subjectOf, type BossHud } from "./store";
 
 type Combatant = { sceneId: string; tokenId: string };
 
@@ -22,33 +21,38 @@ const write = (action: Parameters<typeof requestWrite>[0]) =>
 function covering({ sceneId, tokenId }: Combatant) {
   const scene = game.scenes.get(sceneId);
   const token = scene?.tokens.get(tokenId);
-  const read = readInstances(scene?.flags[MODULE_ID]?.instances);
-  const instance = token && read.status === "ok" ? instanceFor(read.value.items, token) : undefined;
+  const instance = token ? instanceFor(sceneItems(scene), token) : undefined;
   const subject = scene && instance ? subjectOf(scene, instance) : null;
   return scene && subject
     ? { sceneId: scene.id, instanceId: subject.instance.id, profile: subject.profile }
     : null;
 }
 
-/** Hides the instance covering a combatant's token, if it is still shown. */
+/** Whether a started combat holds a token the instance covers: the boss already fights again. */
+function fighting(sceneId: string, instanceId: string): boolean {
+  return game.combats.some(
+    (combat) =>
+      combat.started &&
+      combat.combatants.some((each) => covering(each)?.instanceId === instanceId && each.sceneId === sceneId),
+  );
+}
+
+/** Hides the instance covering a combatant's token, if it is still shown and not in a newer fight. */
 function hideCovering(combatant: Combatant): void {
   const found = covering(combatant);
-  if (found) void write({ type: "hide", sceneId: found.sceneId, instanceId: found.instanceId });
+  if (found && !fighting(found.sceneId, found.instanceId)) {
+    void write({ type: "hide", sceneId: found.sceneId, instanceId: found.instanceId });
+  }
 }
 
 /** Defeat state of every shown instance whose profile hides on defeat, on all scenes (id → defeated). */
 function defeatStates(): Map<string, { defeated: boolean; sceneId: string; delay: number }> {
   const states = new Map<string, { defeated: boolean; sceneId: string; delay: number }>();
   for (const scene of game.scenes.values()) {
-    const read = readInstances(scene.flags[MODULE_ID]?.instances);
-    if (read.status !== "ok") continue;
-    for (const instance of read.value.items) {
+    for (const instance of sceneItems(scene)) {
       const subject = subjectOf(scene, instance);
       if (!subject?.profile.autoShow.hideOnDefeat) continue;
-      const phases = subject.profile.kind === "boss" ? subject.profile.phases : [];
-      // 0 HP before a form is a transition, not a defeat (decision 8).
-      const defeated =
-        (aggregate(subject.tokens, true)?.defeated ?? false) && !formPending(phases, instance.phase);
+      const defeated = defeatedOf(subject, aggregate(subject.tokens, true));
       states.set(instance.id, { defeated, sceneId: scene.id, delay: subject.profile.autoShow.delay });
     }
   }
