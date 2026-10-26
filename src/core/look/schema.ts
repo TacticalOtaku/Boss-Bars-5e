@@ -49,20 +49,23 @@ const c = (value: string, optional = false) => ({ type: "color", default: value,
 export const PARAMS = {
   layoutBar: {
     portrait: e(["left", "right", "top", "medallion", "notch", "none"]),
-    bar: e(["thick", "thin", "segmented", "ring"]),
+    bar: e(["thick", "thin", "segmented"]),
     name: e(["above", "inside", "below"]),
     extras: e(["below", "above", "side", "portrait"]),
     /** Where the boss's quote shows (stage 7). */
     quote: e(["above", "below", "side"]),
     width: n(16, 80, 38.75, 0.25),
     height: n(0.25, 3, 1.125, 0.125),
+    /** The whole bar, on top of the profile's own size. */
+    size: e(["s", "m", "l", "xl"], "m"),
   },
   layoutCard: {
     icon: e(["left", "top", "tile"]),
-    fill: e(["horizontal", "vertical", "ring"]),
+    fill: e(["horizontal", "vertical"]),
     name: e(["beside", "below", "overlay"]),
     statuses: e(["below", "side"]),
     width: n(6, 30, 14.375, 0.125),
+    size: e(["s", "m", "l", "xl"], "m"),
   },
   font: {
     family: { type: "font", default: "cormorant" },
@@ -105,6 +108,10 @@ export const PARAMS = {
     segmentEvery: n(5, 50, 25),
     shine: b(false),
     edgeGlow: b(false),
+    /** Carved into the fill: glowing runes, dragon scales, gold damask, ink soaking into paper. */
+    pattern: e(["none", "runes", "scales", "damask", "ink"]),
+    /** Drifting around the bar: fireflies, rising embers, twinkling sparkles. */
+    motes: e(["none", "fireflies", "embers", "sparkles"]),
   },
   hpEffect: {
     damageShake: b(true),

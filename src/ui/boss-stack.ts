@@ -1,6 +1,5 @@
 import type { HudEffect } from "../core/actions";
 import { hpChange, isLow, type HpChange } from "../core/look/effects";
-import { isLiveFill } from "../core/look/live";
 import { ash, sparks, type Particle } from "../core/look/particles";
 import type { Block } from "../core/layout";
 import { QUOTE_LIMITS } from "../core/quotes";
@@ -19,7 +18,8 @@ import {
 import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 import { applyHpColor, applyLook } from "./look";
-import { liveRenderer, type LiveHandle } from "./live/renderer";
+import type { VfxEvent } from "../core/look/vfx";
+import { vfxRenderer, type VfxHandle } from "./vfx/renderer";
 
 export interface StackOptions {
   /** `defeated`: the defeat banner's text when the look gives none; `phase`: "Phase {n}". */
@@ -54,8 +54,12 @@ interface Bar extends KeyedItem {
   quote: HTMLElement;
   quoteKey: string | null;
   quoteTimer: ReturnType<typeof setTimeout> | undefined;
-  /** The live fill (WebGL2 frame in a canvas over the CSS fill), while the look's fill type is live. */
-  live: { handle: LiveHandle; canvas: HTMLCanvasElement; key: string } | null;
+  /** The bar's body drawn by the shared WebGL2 renderer around the meter (ADR 0003); null on the CSS look. */
+  vfx: { handle: VfxHandle; canvas: HTMLCanvasElement } | null;
+  /** The portrait's frame and light, drawn over the picture by the same renderer. */
+  portraitVfx: { handle: VfxHandle; canvas: HTMLCanvasElement } | null;
+  /** undefined until the first render: a bar shown already defeated plays no defeat. */
+  wasDefeated: boolean | undefined;
   view: BossBarView | null;
   shown: number | null;
   /** undefined until the first render: the first phase seen plays no effect. */
@@ -71,9 +75,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
 
   function createBar(): Bar {
     const el = part("section", "bb5e-boss");
-    // The avatar holds the portrait and, in the ring layout, the HP ring around it.
     const avatar = part("div", "bb5e-boss__avatar", el);
-    part("div", "bb5e-boss__ring", avatar);
     const portrait = part("div", "bb5e-boss__portrait bb5e-face", avatar);
     const body = part("div", "bb5e-boss__body", el);
     const head = part("div", "bb5e-boss__head", body);
@@ -135,7 +137,9 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       quote,
       quoteKey: null,
       quoteTimer: undefined,
-      live: null,
+      vfx: null,
+      portraitVfx: null,
+      wasDefeated: undefined,
       view: null,
       shown: null,
       phaseKey: undefined,
@@ -175,9 +179,23 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     if (!quiet) playHp(bar, view, hpChange(previous, shown, view.look.effects.bigThreshold), shown);
   }
 
+  /** An effect for the renderer: the bar body and the portrait play it together. */
+  function emit(bar: Bar, event: Omit<VfxEvent, "at">) {
+    bar.vfx?.handle.event(event);
+    bar.portraitVfx?.handle.event(event);
+  }
+
   /** HP effects of a change: sparks from the fill's edge on damage, then the look's flash, shake, crack, wave. */
   function playHp(bar: Bar, view: BossBarView, change: HpChange, shown: number) {
-    if (change?.kind === "damage" && view.look.effects.sparks && options.particles) {
+    if (change) {
+      emit(bar, {
+        kind: change.kind,
+        share: change.share,
+        x: shown,
+        big: change.kind === "damage" && change.big && view.look.effects.bigCrack,
+      });
+    }
+    if (change?.kind === "damage" && view.look.effects.sparks && options.particles && !bar.vfx) {
       const rect = bar.meter.getBoundingClientRect();
       const at = { x: rect.left + rect.width * shown, y: rect.top + rect.height / 2 };
       options.particles.emit(sparks(at, change.share, view.look.effects.sparkColor));
@@ -212,34 +230,55 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
   }
 
   /**
-   * Live fill types draw through the shared WebGL2 renderer into a canvas over the CSS fill, which hides only while
-   * the canvas draws (`bb5e-live`): without WebGL2 or after a lost context the CSS version shows (ADR 0002).
+   * The bar's body (frame, material, light, effects) is drawn by the shared WebGL2 renderer into a canvas larger than
+   * the meter; the CSS look hides only while the canvas draws (`bb5e-vfx`). Without WebGL2 or after a lost context
+   * the CSS look shows (ADR 0003).
    */
-  function updateLive(bar: Bar, view: BossBarView, shown: number) {
-    const type = view.look.attrs.fill ?? "";
-    if (!isLiveFill(type)) {
-      if (!bar.live) return;
-      bar.live.handle.detach();
-      bar.live.canvas.remove();
-      bar.meter.classList.remove("bb5e-live");
-      bar.live = null;
-      return;
-    }
-    if (!bar.live) {
-      const renderer = liveRenderer(options.reducedMotion);
-      if (!renderer) return;
+  function updateVfx(bar: Bar, view: BossBarView, shown: number, low: boolean) {
+    const renderer = vfxRenderer(options.reducedMotion);
+    if (!renderer) return;
+    if (!bar.vfx) {
       const canvas = document.createElement("canvas");
-      canvas.className = "bb5e-boss__live";
+      canvas.className = "bb5e-boss__vfx";
       canvas.setAttribute("aria-hidden", "true");
-      bar.fill.after(canvas);
-      const handle = renderer.attach(canvas, (live) => bar.meter.classList.toggle("bb5e-live", live));
-      bar.live = { handle, canvas, key: "" };
+      bar.meter.before(canvas);
+      const handle = renderer.attach(canvas, bar.meter, (live) => bar.el.classList.toggle("bb5e-vfx", live), {
+        text: [bar.name, bar.title],
+      });
+      bar.vfx = { handle, canvas };
     }
-    if (bar.live.key !== view.look.key) {
-      bar.live.key = view.look.key;
-      bar.live.handle.setLook(type, view.look.fill.colors);
+    if (!bar.portraitVfx) {
+      const canvas = document.createElement("canvas");
+      canvas.className = "bb5e-boss__pvfx";
+      canvas.setAttribute("aria-hidden", "true");
+      bar.portrait.after(canvas);
+      const handle = renderer.attach(
+        canvas,
+        bar.portrait,
+        (live) => bar.el.classList.toggle("bb5e-pvfx", live),
+        {
+          portrait: true,
+        },
+      );
+      bar.portraitVfx = { handle, canvas };
     }
-    bar.live.handle.setFill(shown);
+    const state = {
+      fill: shown,
+      shield: 0,
+      ticks: [],
+      low,
+      defeated: view.defeated,
+    };
+    bar.portraitVfx.handle.setMaterial(view.look.material, view.look.key);
+    bar.portraitVfx.handle.setState(state);
+    bar.vfx.handle.setMaterial(view.look.material, view.look.key);
+    bar.vfx.handle.setState({
+      fill: shown,
+      shield: view.defeated ? 0 : view.shield,
+      ticks: view.ticks,
+      low,
+      defeated: view.defeated,
+    });
   }
 
   /** Threshold ticks; elements are reused, so an unchanged render touches nothing. */
@@ -288,7 +327,10 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     else bar.meter.setAttribute("aria-valuenow", String(Math.round(shown * 100)));
     applyHpColor(bar.fill, look, shown);
     setFill(bar, view, shown, phaseChanged);
-    updateLive(bar, view, shown);
+    updateVfx(bar, view, shown, !view.defeated && isLow(shown, look.effects.lowThreshold));
+    if (phaseChanged) emit(bar, { kind: "phase", share: 0, x: 0.5 });
+    if (view.defeated && bar.wasDefeated === false) emit(bar, { kind: "defeat", share: 0, x: 0.5 });
+    bar.wasDefeated = view.defeated;
     renderTicks(bar, view.ticks);
     updateQuote(bar, view.quote);
     if (phaseChanged) {
@@ -318,6 +360,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
   const list = createKeyedList(stack, createBar, updateBar, options.reducedMotion, {
     enter(view, reduced, bar) {
       typeName(bar.name, view.look, reduced);
+      emit(bar, { kind: "appear", share: 0, x: 0 });
       return { frames: enterFrames(view.look, reduced), duration: view.look.motion.duration };
     },
     leave(view, reduced) {
@@ -344,6 +387,8 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     const { look } = view;
     const fill = bar.shown ?? 0;
     const reduced = options.reducedMotion();
+    // Damage and healing reach the renderer through playHp; the others are told here.
+    if (effect === "phase" || effect === "defeat") emit(bar, { kind: effect, share: 0, x: 0.5 });
     if (effect === "damage" || effect === "heal") {
       // A quarter of the bar, from where the fill is.
       const [from, to] = effect === "damage" ? [fill + 0.25, fill] : [fill - 0.25, fill];

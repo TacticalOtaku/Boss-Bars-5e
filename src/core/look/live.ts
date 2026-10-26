@@ -1,9 +1,6 @@
-/** Fill types the shared WebGL2 context draws on boss bars (spec §12); elite cards keep their CSS version. */
+/** Fill types with a moving material of their own (the stand cycles through them). */
 export const LIVE_FILLS = ["liquid", "energy", "flame", "ice", "void"] as const;
 export type LiveFill = (typeof LIVE_FILLS)[number];
-
-export const isLiveFill = (value: string): value is LiveFill =>
-  (LIVE_FILLS as readonly string[]).includes(value);
 
 /** Palette slots in the shaders. */
 export const PALETTE_SIZE = 5;
@@ -38,13 +35,4 @@ const CATCH_UP_MS = 150;
 export function approach(current: number, target: number, dt: number): number {
   const next = current + (target - current) * Math.min(1, dt / CATCH_UP_MS);
   return Math.abs(target - next) < 0.001 ? target : next;
-}
-
-/**
- * Milliseconds between frames (decision 3): ~60 fps while a fill catches up, ~15 fps at rest. With reduced motion
- * nothing moves (decision 5): null — draw only when something changed.
- */
-export function frameInterval(catchingUp: boolean, reduced: boolean): number | null {
-  if (reduced) return null;
-  return catchingUp ? 1000 / 60 : 1000 / 15;
 }

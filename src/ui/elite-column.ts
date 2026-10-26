@@ -8,8 +8,11 @@ import { enterFrames, leaveDuration, leaveFrames, playHpChange } from "./effects
 import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
 import { applyHpColor, applyLook } from "./look";
+import { vfxRenderer, type VfxHandle } from "./vfx/renderer";
 
 interface Card extends KeyedItem {
+  /** The card's plate and meter drawn by the shared WebGL2 renderer (ADR 0003); null on the CSS look. */
+  vfx: { handle: VfxHandle; canvas: HTMLCanvasElement } | null;
   icon: HTMLElement;
   info: HTMLElement;
   name: HTMLElement;
@@ -55,7 +58,6 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     const el = part("div", "bb5e-elite");
     // The avatar holds the icon and, in the ring layout, the HP ring around it.
     const avatar = part("div", "bb5e-elite__avatar", el);
-    part("div", "bb5e-elite__ring", avatar);
     const icon = part("div", "bb5e-elite__icon bb5e-face", avatar);
     const info = part("div", "bb5e-elite__info", el);
     const head = part("div", "bb5e-elite__head", info);
@@ -92,7 +94,50 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
       statuses,
       shown: null,
       leaving: null,
+      vfx: null,
     };
+  }
+
+  /**
+   * Cards of the horizontal layouts get their plate (and meter, when the rank shows it) from the shared renderer;
+   * vertical and ring fills keep the CSS look. The CSS look hides only while the canvas draws.
+   */
+  function updateVfx(card: Card, view: EliteCardView, shown: number, low: boolean) {
+    const wanted = view.look.attrs.cfill === "horizontal";
+    if (!wanted) {
+      if (!card.vfx) return;
+      card.vfx.handle.detach();
+      card.vfx.canvas.remove();
+      card.el.classList.remove("bb5e-vfx");
+      card.vfx = null;
+      return;
+    }
+    if (!card.vfx) {
+      const renderer = vfxRenderer(options.reducedMotion);
+      if (!renderer) return;
+      const canvas = document.createElement("canvas");
+      canvas.className = "bb5e-elite__vfx";
+      canvas.setAttribute("aria-hidden", "true");
+      card.el.prepend(canvas);
+      const handle = renderer.attach(
+        canvas,
+        card.meter,
+        (live) => card.el.classList.toggle("bb5e-vfx", live),
+        { card: card.el, icon: card.icon },
+      );
+      card.vfx = { handle, canvas };
+    }
+    card.vfx.handle.setMaterial(view.look.material, view.look.key);
+    card.vfx.handle.setState({
+      fill: shown,
+      shield: view.defeated ? 0 : view.shield,
+      ticks: [],
+      low,
+      defeated: view.defeated,
+      accent: view.rank.color,
+      accentTop: view.look.attrs.icon !== "left",
+      iconFrame: view.look.attrs.icon !== "tile",
+    });
   }
 
   function updateCard(card: Card, view: EliteCardView) {
@@ -129,9 +174,15 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     card.fill.style.transform = look.attrs.cfill === "vertical" ? `scaleY(${shown})` : `scaleX(${shown})`;
     el.style.setProperty("--bb5e-f", String(shown));
     applyHpColor(card.fill, look, shown);
+    const low = parts.fill && !view.defeated && isLow(shown, look.effects.lowThreshold);
+    updateVfx(card, view, shown, low);
     if (card.shown !== shown) {
+      const change = hpChange(card.shown, shown, look.effects.bigThreshold);
+      if (change && card.vfx) {
+        card.vfx.handle.event({ kind: change.kind, share: change.share, x: shown, big: false });
+      }
       playHpChange(
-        hpChange(card.shown, shown, look.effects.bigThreshold),
+        change,
         look,
         {
           root: el,
@@ -177,6 +228,7 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
       const { item: card, view } = shown;
       const fill = card.shown ?? 0;
       const [from, to] = effect === "damage" ? [fill + 0.25, fill] : [fill - 0.25, fill];
+      card.vfx?.handle.event({ kind: effect, share: 0.25, x: fill, big: false });
       playHpChange(
         hpChange(from, to, view.look.effects.bigThreshold),
         view.look,

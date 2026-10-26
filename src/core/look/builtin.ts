@@ -1,12 +1,12 @@
 import { resolveLook, type LookSources, type ResolvedLook } from "./resolve";
 import { readParams, type Category, type Look, type Preset } from "./schema";
 import { lookStyle, type LookStyle } from "./style";
-import { LAYOUTS } from "./catalog/layouts";
+import { BAR_LAYOUTS, CARD_LAYOUTS } from "./catalog/layouts";
 import { THEMES } from "./catalog/themes";
 
 /**
- * The built-in catalog (spec §9, ticket #9): 30 themed looks, each with one preset in each of the 8 styled
- * categories, and 30 structural layouts for the bar and the card. The data lives in catalog/; this file only builds
+ * The built-in catalog (spec §9, ticket #9): themed looks, each with one preset in each of the 8 styled
+ * categories, and the structural layouts of the bar and the card. The data lives in catalog/; this file only builds
  * read-only presets and looks from it. Names are i18n keys.
  */
 const STYLED = ["font", "frame", "fill", "hpEffect", "motion", "portrait", "miniBars", "statuses"] as const;
@@ -21,10 +21,10 @@ function preset<C extends Category>(
 }
 
 export const BUILTIN_PRESETS: Preset[] = [
-  ...LAYOUTS.flatMap((layout) => [
-    preset(`layout-bar-${layout.id}`, layout.name, "layoutBar", layout.bar),
-    preset(`layout-card-${layout.id}`, layout.name, "layoutCard", layout.card),
-  ]),
+  ...BAR_LAYOUTS.map((layout) => preset(`layout-bar-${layout.id}`, layout.name, "layoutBar", layout.params)),
+  ...CARD_LAYOUTS.map((layout) =>
+    preset(`layout-card-${layout.id}`, layout.name, "layoutCard", layout.params),
+  ),
   ...THEMES.flatMap((theme) =>
     STYLED.map((category) =>
       preset(`${theme.id}-${category}`, theme.name, category, theme.values[category] ?? {}),

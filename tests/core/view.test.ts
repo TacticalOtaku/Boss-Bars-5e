@@ -265,7 +265,7 @@ describe("buildViews — look", () => {
     const tokens = [token("n", { effects: Array.from({ length: 14 }, (_, i) => effect(`E${i}`)) })];
     const boss = { ...subject("Neon", bossProfile, tokens), look: neon };
     const view = buildViews([boss], ranks, gm, 12).bosses[0]!;
-    expect([view.statuses.length, view.statusOverflow, view.look.attrs.bar]).toEqual([12, 2, "thin"]);
+    expect([view.statuses.length, view.statusOverflow, view.look.attrs.bar]).toEqual([12, 2, "thick"]);
     const noShield = { ...neon, fill: { ...neon.fill, params: { ...neon.fill.params, shield: false } } };
     expect(buildViews([{ ...boss, look: noShield }], ranks, gm, 12).bosses[0]?.shield).toBe(0);
   });

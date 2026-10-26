@@ -371,6 +371,11 @@
   }
 }
 
+.bb5e-look[data-look-status="diamond"] .bb5e-statuses__icons {
+  gap: 0.55em;
+  padding: 0 0.2em;
+}
+
 .bb5e-look[data-look-status="diamond"] .bb5e-status {
   rotate: 45deg;
 
