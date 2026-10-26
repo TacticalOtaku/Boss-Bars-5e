@@ -1,9 +1,8 @@
 import { MODULE_ID } from "../constants";
 import { profileRows } from "../core/hub";
-import { readInstances } from "../core/instances";
 import { currentLibrary } from "../foundry/library";
 import { currentRanks } from "../foundry/settings";
-import type { BossHud } from "../foundry/store";
+import { sceneItems, type BossHud } from "../foundry/store";
 import { hostActiveBosses } from "./active-bosses";
 import { hostLibrary } from "./library";
 import { hostProfileEditor } from "./profile-editor";
@@ -30,6 +29,14 @@ const SECTIONS = [
 ] as const;
 
 const isSection = (value: unknown): value is HubSection => SECTIONS.some((each) => each.id === value);
+
+/**
+ * A section window is alive while it shows or re-renders: Foundry marks every re-render RENDERING, so `rendered`
+ * alone would remount a section caught mid-render and lose its drafts. One that closed itself (a removed profile)
+ * is not.
+ */
+const alive = (child: ApplicationV2Instance) =>
+  child.rendered || child.state === ApplicationV2.RENDER_STATES.RENDERING;
 
 /**
  * "Boss Bars" (stage 13): one window for everything a GM sets up. The navigation and the profile list are its own
@@ -98,8 +105,7 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
     const rows = this.#section === "profiles" ? profileRows(actors, this.#query) : null;
     // Who is on the viewed scene: the roster marks them, the navigation counts them.
     const scene = canvas?.scene ?? null;
-    const read = scene ? readInstances(scene.flags[MODULE_ID]?.instances) : null;
-    const items = read?.status === "ok" ? read.value.items : [];
+    const items = sceneItems(scene);
     const onStage = new Set(
       items.map(
         (item) =>
@@ -149,7 +155,7 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
     await super._onFirstRender(context, options);
     // Profiles come and go from actor sheets, the token HUD and the API: the list follows.
     const refresh = () => {
-      if (this.#child && !this.#child.rendered) this.#actorId = null;
+      if (this.#child && !alive(this.#child)) this.#actorId = null;
       if (this.#section === "profiles") void this.render({ parts: ["list"] });
     };
     this.#hooks = ["createActor", "updateActor", "deleteActor"].map((hook) => [
@@ -215,7 +221,7 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Mounts the section's window into the slot, once per section (and profile). */
   async #mount() {
     const key = `${this.#section}:${this.#section === "profiles" ? (this.#actorId ?? "") : ""}`;
-    if (key === this.#mounted && (this.#child?.rendered || !this.#child)) return;
+    if (key === this.#mounted && (!this.#child || alive(this.#child))) return;
     const slot = this.element.querySelector<HTMLElement>(".bb5e-hub__slot");
     if (!slot) return;
     this.#mounted = key;
@@ -250,9 +256,9 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Closes the shown section; false when its unsaved edits were kept. */
   async #release(): Promise<boolean> {
     const child = this.#child;
-    if (child?.rendered) {
+    if (child && alive(child)) {
       await child.close({ animate: false });
-      if (child.rendered) return false;
+      if (alive(child)) return false;
     }
     this.#child = null;
     this.#mounted = "";

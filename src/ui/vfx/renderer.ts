@@ -64,6 +64,8 @@ interface Target {
   pad: { x: number; y: number };
   dirty: boolean;
   live: boolean;
+  /** The canvas has been in the document: once it leaves, the target is forgotten, drawn or not. */
+  connected: boolean;
   onLive(live: boolean): void;
 }
 
@@ -295,6 +297,7 @@ class VfxRenderer {
       pad: { x: 0, y: 0 },
       dirty: true,
       live: false,
+      connected: canvas.isConnected,
       onLive,
     };
     this.#targets.add(target);
@@ -372,10 +375,12 @@ class VfxRenderer {
     const reduced = this.#reduced();
     const shown: Target[] = [];
     for (const target of this.#targets) {
+      // A bar removed before its first frame (a program still compiling, a lost context) is forgotten too.
       if (!target.canvas.isConnected) {
-        if (target.live) this.#forget(target);
+        if (target.connected) this.#forget(target);
         continue;
       }
+      target.connected = true;
       const sized = target.card ? target.panel.w > 0 : target.box.w > 0 && target.box.h > 0;
       if (sized && target.material) shown.push(target);
     }

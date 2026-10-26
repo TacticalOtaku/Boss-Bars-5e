@@ -1,4 +1,4 @@
-import { aggregate, type TokenState } from "./aggregate";
+import { aggregate, type Aggregate, type TokenState } from "./aggregate";
 import { hpFraction, type HpData } from "./hp";
 import type { Instance } from "./instances";
 import { numberLabels } from "./labels";
@@ -118,6 +118,13 @@ export function phaseEnterOf(subject: SubjectInput): PhaseEnter {
   return phases.length ? phaseChanges(phases, shownIndex(phases, subject.instance.phase)) : {};
 }
 
+/**
+ * Defeat as the bar, the hooks, auto-hide, quotes and music all read it: every counted token is down (0 HP, the
+ * defeated status or the tracker) and no form is next in line or waiting (decision 8).
+ */
+export const defeatedOf = (subject: SubjectInput, total: Aggregate | null) =>
+  Boolean(total?.defeated) && !formPending(phasesOf(subject), subject.instance.phase);
+
 /** The phase label everyone sees: its own label, or "Phase II" by number from the second phase on. */
 export function phaseViewOf(phases: readonly Phase[], index: number): PhaseView | null {
   const phase = phases[index];
@@ -200,7 +207,7 @@ export function buildViews(
         fraction !== null && profile.kind === "boss" && profile.fillMode === "refill" && phases.length
           ? refillFraction(phases, phaseAt, fraction)
           : fraction,
-      defeated: total.defeated && !formPending(phases, instance.phase),
+      defeated: defeatedOf(subject, total),
       muted: total.hidden,
       ...(profile.displayMode === "actor" && instance.actorId ? { count: total.count } : {}),
       ...numbersOf(total.hp, viewer.isGM),

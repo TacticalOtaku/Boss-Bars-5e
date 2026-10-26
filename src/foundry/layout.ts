@@ -42,12 +42,13 @@ export async function saveWorldLayout(layout: Layout): Promise<void> {
   await game.settings.set(MODULE_ID, "layout", { dataVersion: LAYOUT_VERSION, ...layout });
 }
 
-/** An empty override removes the flag; otherwise the flag is replaced whole, so reset blocks really go away. */
+/**
+ * An empty override removes the flag; otherwise the flag is replaced whole in one write, so reset blocks really go
+ * away and no client sees the world layout in between.
+ */
 export async function saveSceneOverride(scene: SceneDocument, override: LayoutOverride): Promise<void> {
-  await scene.unsetFlag(MODULE_ID, "layout");
-  if (override.bosses || override.elites) {
-    await scene.setFlag(MODULE_ID, "layout", { dataVersion: LAYOUT_VERSION, ...override });
-  }
+  if (!override.bosses && !override.elites) await scene.unsetFlag(MODULE_ID, "layout");
+  else await scene.setFlag(MODULE_ID, "layout", _replace({ dataVersion: LAYOUT_VERSION, ...override }));
 }
 
 export interface Zone {
