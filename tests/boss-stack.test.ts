@@ -9,6 +9,8 @@ const view = (id: string, extra: Partial<BossBarView> = {}): BossBarView => ({
   id,
   label: `Boss ${id}`,
   title: "",
+  phase: null,
+  ticks: [],
   portrait: { src: "boss.webp", video: false },
   size: 100,
   fraction: 0.5,
@@ -29,7 +31,7 @@ let overlay: HTMLElement;
 const onCollapse = vi.fn();
 const make = () =>
   createBossStack(overlay, {
-    labels: { collapse: "Collapse", expand: "Expand", defeated: "Defeated" },
+    labels: { collapse: "Collapse", expand: "Expand", defeated: "Defeated", phase: "Phase {n}" },
     onCollapse,
     reducedMotion: () => true,
   });
@@ -195,5 +197,46 @@ describe("look paths", () => {
     make().update([view("a", { look })], BLOCK, 1);
     const value = bars()[0]!.style.getPropertyValue("--bb5e-fill");
     expect(value).toBe(`url("${new URL("worlds/w/tex.webp", document.baseURI).href}") center / cover, #000`);
+  });
+});
+
+describe("boss bar phases", () => {
+  const phase = (key: string, label = "", numeral: string | null = null) => ({ key, label, numeral });
+
+  it("labels the phase by name or number and hides an empty label", () => {
+    const stack = make();
+    stack.update([view("a", { phase: phase("p1") })], BLOCK, 1);
+    const label = overlay.querySelector<HTMLElement>(".bb5e-boss__phase")!;
+    expect(label.hidden).toBe(true);
+    stack.update([view("a", { phase: phase("p2", "", "II") })], BLOCK, 1);
+    expect([label.hidden, label.textContent]).toEqual([false, "Phase II"]);
+    stack.update([view("a", { phase: phase("p3", "Пепел") })], BLOCK, 1);
+    expect(label.textContent).toBe("Пепел");
+  });
+
+  it("draws the threshold ticks and reuses them", () => {
+    const stack = make();
+    stack.update([view("a", { ticks: [0.66, 0.33] })], BLOCK, 1);
+    const ticks = [...overlay.querySelectorAll<HTMLElement>(".bb5e-boss__tick")];
+    expect(ticks.map((tick) => tick.style.getPropertyValue("--bb5e-at"))).toEqual(["0.66", "0.33"]);
+    stack.update([view("a", { ticks: [0.66] })], BLOCK, 1);
+    expect([...overlay.querySelectorAll(".bb5e-boss__tick")]).toEqual([ticks[0]]);
+  });
+
+  it("plays the phase effect on a phase change only, with no healing effect for the jump", () => {
+    const animate = vi.spyOn(Element.prototype, "animate");
+    const stack = make();
+    stack.update([view("a", { phase: phase("p1"), fraction: 0.2 })], BLOCK, 1);
+    const flash = overlay.querySelector(".bb5e-fx--flash")!;
+    const wave = overlay.querySelector(".bb5e-fx--wave")!;
+    animate.mockClear();
+    stack.update([view("a", { phase: phase("p1"), fraction: 0.2 })], BLOCK, 1);
+    expect(animate).not.toHaveBeenCalled();
+    stack.update([view("a", { phase: phase("p2", "Ярость"), fraction: 1 })], BLOCK, 1);
+    const targets = animate.mock.contexts;
+    expect(targets).toContain(flash);
+    expect(targets).not.toContain(wave);
+    expect(overlay.querySelector<HTMLElement>(".bb5e-banner--phase")?.textContent).toBe("Ярость");
+    animate.mockRestore();
   });
 });

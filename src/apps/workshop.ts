@@ -2,8 +2,10 @@ import { MODULE_ID } from "../constants";
 import { BUILTIN_IDS, CLASSIC } from "../core/look/builtin";
 import { resolveLook } from "../core/look/resolve";
 import { CATEGORIES, isCategory, LIBRARY_VERSION, readLibrary, type Category } from "../core/look/schema";
-import { readProfile } from "../core/profile";
+import { phaseChanges, phaseTicks } from "../core/phases";
+import { readProfile, type Phase } from "../core/profile";
 import { isRecord } from "../core/schema";
+import { phaseViewOf } from "../core/view";
 import { logger } from "../logger";
 import { CATEGORY_LABELS } from "./look-labels";
 import {
@@ -51,6 +53,9 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
   #look: string | null = null;
   #overrides: Partial<Record<Category, string>> = {};
   #preview: PreviewState = freshPreview();
+  /** The profile's phases and the one the preview shows ("Next phase"). */
+  #phases: Phase[] = [];
+  #phaseAt = 0;
   #dirty = false;
   #confirming = false;
 
@@ -61,6 +66,7 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (profile.status === "ok" && profile.value.kind === "boss") {
       this.#look = profile.value.look;
       this.#overrides = { ...profile.value.overrides };
+      this.#phases = profile.value.phases;
     }
   }
 
@@ -74,6 +80,7 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     const resolved = resolveLook(this.#look, {}, sources, CLASSIC);
     return {
       ...(await super._prepareContext(options)),
+      hasPhases: this.#phases.length > 1,
       looks: sources.looks.map((look) => ({
         id: look.id,
         name: displayName(look),
@@ -97,13 +104,21 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #draw() {
     const host = this.element.querySelector<HTMLElement>(".bb5e-workshop__preview");
-    if (host)
-      previewBoss(
-        host,
-        styleFor(sourcesOf(storedLibrary()), this.#look, this.#overrides),
-        this.#preview,
-        this.actor.name,
-      );
+    if (!host) return;
+    // The phase shown wears its changes on top of the chosen look, as on the HUD.
+    const changes = phaseChanges(this.#phases, this.#phaseAt);
+    previewBoss(
+      host,
+      styleFor(sourcesOf(storedLibrary()), this.#look, { ...this.#overrides, ...changes.overrides }),
+      {
+        ...this.#preview,
+        phase: phaseViewOf(this.#phases, this.#phaseAt),
+        ticks: phaseTicks(this.#phases, this.#phaseAt),
+        title: changes.title,
+        img: changes.portrait,
+      },
+      changes.playerName || this.actor.name,
+    );
   }
 
   override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
@@ -150,7 +165,7 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render();
   }
 
-  /** Test console: damage, healing, defeat and reset play on the preview only. */
+  /** Test console: damage, healing, the next phase, defeat and reset play on the preview only. */
   static async #onConsole(this: Workshop, _event: Event, target: HTMLElement) {
     const state = this.#preview;
     switch (target.dataset.step) {
@@ -163,6 +178,9 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
       case "heal":
         state.fraction = Math.min(1, state.fraction + 0.2);
         break;
+      case "phase":
+        this.#phaseAt = (this.#phaseAt + 1) % Math.max(1, this.#phases.length);
+        break;
       case "defeat":
         state.defeated = true;
         this.#draw();
@@ -170,6 +188,7 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
         break;
       default:
         this.#preview = freshPreview();
+        this.#phaseAt = 0;
     }
     this.#draw();
   }
@@ -210,11 +229,16 @@ class Workshop extends HandlebarsApplicationMixin(ApplicationV2) {
     if (current.status !== "ok" || current.value.kind !== "boss") {
       return ui.notifications.warn("BB5E.Workshop.NotBoss", { localize: true });
     }
-    await this.actor.setFlag(MODULE_ID, "profile", {
-      ...current.value,
-      look: this.#look,
-      overrides: this.#overrides,
-    });
+    // Written whole: a merge would keep removed overrides and entries.
+    await this.actor.setFlag(
+      MODULE_ID,
+      "profile",
+      _replace({
+        ...current.value,
+        look: this.#look,
+        overrides: this.#overrides,
+      }),
+    );
     this.#setDirty(false);
   }
 }

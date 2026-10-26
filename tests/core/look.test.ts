@@ -122,7 +122,7 @@ describe("readLibrary and import", () => {
       status: "ok",
       value: { dataVersion: LIBRARY_VERSION, looks: [], presets: [] },
     });
-    expect(readLibrary({ dataVersion: 2, looks: [], presets: [] }).status).toBe("newer");
+    expect(readLibrary({ dataVersion: 3, looks: [], presets: [] }).status).toBe("newer");
     expect(readLibrary({ dataVersion: 1, looks: {} }).status).toBe("invalid");
   });
 

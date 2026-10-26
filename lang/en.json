@@ -6,6 +6,10 @@
       "Expand": "Expand the boss bar",
       "Defeated": "Defeated"
     },
+    "Phase": {
+      "Default": "Phase {n}",
+      "FormWaiting": "{name}: the next form has no token on this scene. Select one and use “Bind selected token” in Active bosses."
+    },
     "Hud": {
       "Setup": "Set up a Boss Bars profile",
       "ShowBoss": "Show the boss bar",
@@ -26,6 +30,7 @@
         "Main": "Main",
         "MiniBars": "Mini-bars",
         "Statuses": "Statuses",
+        "Phases": "Phases",
         "AutoShow": "Auto-show"
       },
       "Kind": {
@@ -103,7 +108,47 @@
       "Empty": "No tokens with a Boss Bars profile on this scene.",
       "NoScene": "No scene is being viewed.",
       "Decrease": "Decrease",
-      "Increase": "Increase"
+      "Increase": "Increase",
+      "Phase": "Phase",
+      "FormWaiting": "The form waits for a token.",
+      "BindToken": "Bind selected token",
+      "NoSelection": "Select one token on this scene first."
+    },
+    "Phases": {
+      "Hint": "Up to 6 phases. The first is the start of the fight; later ones begin below an HP threshold, as a form (the bar moves onto another actor's token) or by hand from Active bosses. Thresholds only go forward.",
+      "Scale": "HP scale with the phase thresholds",
+      "Label": "Phase label",
+      "FirstPlaceholder": "Label (empty: none for the first phase)",
+      "Trigger": {
+        "Label": "Trigger",
+        "Start": "Start of the fight",
+        "Hp": "Below an HP threshold",
+        "Form": "Form: another actor's token",
+        "Manual": "By hand",
+        "Newer": "Trigger of a newer version (kept)"
+      },
+      "Below": "Below",
+      "FormActor": "Actor of the form",
+      "ChooseActor": "Choose an actor",
+      "OnEnter": "On entering the phase",
+      "AsBefore": "As before",
+      "Play": "Play",
+      "Up": "Move up",
+      "Down": "Move down",
+      "Remove": "Remove phase",
+      "Add": "Add phase",
+      "Limits": "Up to 6 phases; thresholds 5–95%, at least 8% apart.",
+      "EliteHint": "Phases are for bosses only.",
+      "FillMode": {
+        "Label": "Fill with phases",
+        "Segments": "Segments: the bar is all HP, ticks at thresholds",
+        "Refill": "Refill: the bar is the HP of the current phase",
+        "Hint": "Matters only for a boss with HP thresholds."
+      },
+      "PlayerTicks": {
+        "Label": "Ticks for players",
+        "Hint": "Players see the threshold ticks on the bar. The GM always does."
+      }
     },
     "Error": {
       "TooLong": "Too long.",
@@ -128,7 +173,10 @@
       "DelayRange": "The delay must be between 0 and 60 seconds.",
       "ImportTooLarge": "The file is larger than 256 KB.",
       "ImportInvalid": "This is not a Boss Bars 5e library file.",
-      "ImportEmpty": "The file holds no looks or presets."
+      "ImportEmpty": "The file holds no looks or presets.",
+      "ThresholdRange": "A threshold must be between 5 and 95%.",
+      "ThresholdGap": "Thresholds fall from phase to phase and keep at least 8% apart (a form starts over).",
+      "NoFormActor": "Choose the actor of the form."
     },
     "Column": {
       "Title": "Elites",
@@ -282,6 +330,7 @@
       "AsInLook": "As in the look ({name})",
       "Console": "Test console",
       "Heal": "Heal",
+      "NextPhase": "Next phase",
       "Defeat": "Defeat",
       "Reset": "Reset",
       "CopyLook": "Copy look",
@@ -352,6 +401,11 @@
       "Leave": "Exit",
       "Defeat": "Exit on defeat",
       "BannerText": "Banner text (empty: “Defeated”)",
+      "PhaseCrack": "Phase change: frame cracks",
+      "PhaseFlash": "Phase change: flash",
+      "PhaseRefill": "Phase change: bar refills",
+      "PhasePalette": "Phase change: colours blend",
+      "PhaseBanner": "Phase change: banner with the phase name",
       "Shape": "Shape",
       "PortraitShake": "Shake on damage",
       "Tint": "Tint by % HP",
@@ -404,6 +458,7 @@
       "Ice": "Ice",
       "Void": "Void",
       "Every": "Every N%",
+      "ByPhases": "At phase thresholds",
       "Slide": "Slide",
       "Expand": "Open from the centre",
       "Fade": "Fade",

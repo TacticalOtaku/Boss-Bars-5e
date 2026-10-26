@@ -55,3 +55,25 @@ describe("parseAction — counters and custom statuses", () => {
     }
   });
 });
+
+describe("parseAction — phases", () => {
+  it("accepts a phase pick and a token binding", () => {
+    expect(parseAction({ type: "setPhase", sceneId: id, instanceId: id, phaseId: "rage", x: 1 })).toEqual({
+      type: "setPhase",
+      sceneId: id,
+      instanceId: id,
+      phaseId: "rage",
+    });
+    expect(parseAction({ type: "bindToken", sceneId: id, instanceId: id, tokenId: id })).toEqual({
+      type: "bindToken",
+      sceneId: id,
+      instanceId: id,
+      tokenId: id,
+    });
+  });
+
+  it("rejects bad ids", () => {
+    expect(parseAction({ type: "setPhase", sceneId: id, instanceId: id, phaseId: "a b" })).toBeNull();
+    expect(parseAction({ type: "bindToken", sceneId: id, instanceId: id, tokenId: "x" })).toBeNull();
+  });
+});

@@ -1,0 +1,73 @@
+<section class="tab {{tabs.phases.cssClass}}" data-tab="phases" data-group="sheet">
+  <div class="bb5e-card" data-kind-group="boss" {{#if isElite}}hidden{{/if}}>
+    <p class="hint">{{localize "BB5E.Phases.Hint"}}</p>
+    <div class="bb5e-phase-scale" role="img" aria-label="{{scaleLabel}}">
+      {{#each scale}}<span class="bb5e-phase-scale__mark" style="--bb5e-at: {{at}}"><span>{{text}}</span></span>{{/each}}
+    </div>
+    <ol class="bb5e-rows">
+      {{#each phases}}
+      <li class="bb5e-rows__row" data-phase-index="{{index}}">
+        <input type="hidden" name="phases.{{index}}.id" value="{{id}}">
+        <input type="hidden" name="phases.{{index}}.newer" value="{{newer}}">
+        <div class="bb5e-rows__line">
+          <strong class="bb5e-phase__number">{{numeral}}</strong>
+          <input type="text" name="phases.{{index}}.label" value="{{label}}" maxlength="{{@root.limits.phaseLabel}}" placeholder="{{placeholder}}" aria-label="{{localize "BB5E.Phases.Label"}}">
+          {{#if first}}
+          <input type="hidden" name="phases.{{index}}.trigger" value="start">
+          <span class="bb5e-phase__start">{{localize "BB5E.Phases.Trigger.Start"}}</span>
+          {{else}}
+          <select name="phases.{{index}}.trigger" aria-label="{{localize "BB5E.Phases.Trigger.Label"}}">
+            {{#each triggers}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{localize label}}</option>{{/each}}
+          </select>
+          {{/if}}
+        </div>
+        <div class="bb5e-rows__line" data-trigger-group="hp">
+          <label>{{localize "BB5E.Phases.Below"}}
+            <input type="number" name="phases.{{index}}.below" value="{{below}}" min="{{@root.limits.thresholdMin}}" max="{{@root.limits.thresholdMax}}" step="1"> %
+          </label>
+        </div>
+        <div class="bb5e-rows__line" data-trigger-group="form">
+          <select name="phases.{{index}}.actorId" aria-label="{{localize "BB5E.Phases.FormActor"}}">
+            <option value="">{{localize "BB5E.Phases.ChooseActor"}}</option>
+            {{#each actors}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}
+          </select>
+        </div>
+        <details class="bb5e-phase__enter">
+          <summary>{{localize "BB5E.Phases.OnEnter"}}</summary>
+          <input type="text" name="phases.{{index}}.enter.playerName" value="{{enter.playerName}}" maxlength="{{@root.limits.text}}" placeholder="{{localize "BB5E.Profile.PlayerName.Label"}}" aria-label="{{localize "BB5E.Profile.PlayerName.Label"}}">
+          <input type="text" name="phases.{{index}}.enter.title" value="{{enter.title}}" maxlength="{{@root.limits.text}}" placeholder="{{localize "BB5E.Profile.TitleField.Label"}}" aria-label="{{localize "BB5E.Profile.TitleField.Label"}}">
+          <file-picker name="phases.{{index}}.enter.portrait" type="imagevideo" value="{{enter.portrait}}" aria-label="{{localize "BB5E.Profile.Portrait.Label"}}"></file-picker>
+          {{#each overrides}}
+          <label class="bb5e-phase__override">{{label}}
+            <select name="phases.{{../index}}.enter.overrides.{{category}}">
+              <option value="">{{localize "BB5E.Phases.AsBefore"}}</option>
+              {{#each options}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}
+            </select>
+          </label>
+          {{/each}}
+        </details>
+        <div class="bb5e-rows__line bb5e-phase__buttons">
+          <button type="button" data-action="playPhase" data-index="{{index}}"><i class="fa-solid fa-play" inert></i> {{localize "BB5E.Phases.Play"}}</button>
+          <button type="button" data-action="movePhase" data-index="{{index}}" data-delta="-1" aria-label="{{localize "BB5E.Phases.Up"}}" {{#if first}}disabled{{/if}}><i class="fa-solid fa-arrow-up" inert></i></button>
+          <button type="button" data-action="movePhase" data-index="{{index}}" data-delta="1" aria-label="{{localize "BB5E.Phases.Down"}}" {{#if last}}disabled{{/if}}><i class="fa-solid fa-arrow-down" inert></i></button>
+          <button type="button" class="bb5e-rows__remove" data-action="removePhase" data-index="{{index}}" aria-label="{{localize "BB5E.Phases.Remove"}}"><i class="fa-solid fa-trash" inert></i></button>
+        </div>
+        <p class="bb5e-field-error" data-error-for="phases.{{index}}.label" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="phases.{{index}}.below" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="phases.{{index}}.actorId" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="phases.{{index}}.enter.playerName" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="phases.{{index}}.enter.title" role="alert" hidden></p>
+        <p class="bb5e-field-error" data-error-for="phases.{{index}}.enter.portrait" role="alert" hidden></p>
+      </li>
+      {{/each}}
+    </ol>
+    <div class="bb5e-rows__line">
+      <button type="button" data-action="addPhase" {{#if phasesFull}}disabled{{/if}}><i class="fa-solid fa-plus" inert></i> {{localize "BB5E.Phases.Add"}}</button>
+      <span class="hint">{{localize "BB5E.Phases.Limits"}}</span>
+    </div>
+    <div class="bb5e-preview bb5e-workshop__preview bb5e-phase-preview" aria-label="{{localize "BB5E.Profile.Preview"}}"></div>
+  </div>
+  <div class="bb5e-card" data-kind-group="elite" {{#unless isElite}}hidden{{/unless}}>
+    <p class="hint">{{localize "BB5E.Phases.EliteHint"}}</p>
+  </div>
+</section>

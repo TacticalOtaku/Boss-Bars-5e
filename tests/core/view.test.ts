@@ -18,6 +18,9 @@ const bossProfile: BossProfile = {
   ...stage4,
   look: null,
   overrides: {},
+  phases: [],
+  fillMode: "segments",
+  playerTicks: true,
   dataVersion: 2,
   kind: "boss",
   playerName: "",
@@ -261,5 +264,72 @@ describe("buildViews — look", () => {
     expect([view.statuses.length, view.statusOverflow, view.look.attrs.bar]).toEqual([12, 2, "thin"]);
     const noShield = { ...neon, fill: { ...neon.fill, params: { ...neon.fill.params, shield: false } } };
     expect(buildViews([{ ...boss, look: noShield }], ranks, gm, 12).bosses[0]?.shield).toBe(0);
+  });
+});
+
+describe("buildViews — phases", () => {
+  const FORM = "FormActor0000001";
+  const phased: BossProfile = {
+    ...bossProfile,
+    playerName: "Ксар",
+    phases: [
+      { id: "p1", label: "", trigger: { type: "start" }, enter: {} },
+      {
+        id: "p2",
+        label: "",
+        trigger: { type: "hp", below: 50 },
+        enter: { title: "Ярость", portrait: "rage.webp" },
+      },
+      { id: "p3", label: "Пепел", trigger: { type: "form", actorId: FORM }, enter: { playerName: "Пепел" } },
+    ],
+  };
+  const at = (phase: SubjectInput["instance"]["phase"], profile = phased, tokens = [token("b")]) => {
+    const input = subject("b", profile, tokens);
+    return { ...input, instance: { ...input.instance, ...(phase ? { phase } : {}) } };
+  };
+
+  it("labels the phase, adds up entry changes and ticks the thresholds", () => {
+    const first = buildViews([at(undefined)], ranks, player, 12).bosses[0]!;
+    expect(first.phase).toEqual({ key: "p1", label: "", numeral: null });
+    expect(first.ticks).toEqual([0.5]);
+    const second = buildViews([at({ id: "p2", mark: 25 })], ranks, player, 12).bosses[0]!;
+    expect(second).toMatchObject({
+      phase: { key: "p2", label: "", numeral: "II" },
+      title: "Ярость",
+      portrait: { src: "rage.webp" },
+      label: "Ксар",
+    });
+  });
+
+  it("hides the ticks from players when the profile says so, never from the GM", () => {
+    const hidden = { ...phased, playerTicks: false };
+    expect(buildViews([at(undefined, hidden)], ranks, player, 12).bosses[0]?.ticks).toEqual([]);
+    expect(buildViews([at(undefined, hidden)], ranks, gm, 12).bosses[0]?.ticks).toEqual([0.5]);
+  });
+
+  it("refills the bar inside the phase and drops the ticks", () => {
+    const refill = { ...phased, fillMode: "refill" as const };
+    const view = buildViews([at({ id: "p2", mark: 25 }, refill)], ranks, player, 12).bosses[0]!;
+    expect(view.fraction).toBeCloseTo(0.5);
+    expect(view.ticks).toEqual([]);
+  });
+
+  it("is no defeat at 0 HP while a form is next, and hides a waiting form behind the phase before it", () => {
+    const dead = [token("b", { hp: { value: 0, effectiveMax: 120, temp: 0 }, defeated: true })];
+    expect(
+      buildViews([at({ id: "p2", mark: 25 }, phased, dead)], ranks, player, 12).bosses[0]?.defeated,
+    ).toBe(false);
+    const waiting = buildViews([at({ id: "p3", mark: 100, waiting: true }, phased, dead)], ranks, player, 12)
+      .bosses[0]!;
+    expect(waiting).toMatchObject({ defeated: false, phase: { key: "p2" }, label: "Ксар" });
+    const formed = buildViews([at({ id: "p3", mark: 100 }, phased)], ranks, player, 12).bosses[0]!;
+    expect(formed).toMatchObject({ phase: { key: "p3", label: "Пепел", numeral: null }, label: "Пепел" });
+  });
+
+  it("gives a boss without phases no phase and no ticks", () => {
+    expect(buildViews([subject("x", bossProfile)], ranks, player, 12).bosses[0]).toMatchObject({
+      phase: null,
+      ticks: [],
+    });
   });
 });

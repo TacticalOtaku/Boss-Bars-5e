@@ -9,15 +9,22 @@ import {
   type CustomStatus,
   type MiniBar,
   type MiniBarSource,
+  type Phase,
+  type PhaseEnter,
+  type PhaseTrigger,
   type ProfileInput,
   type ProfileKind,
 } from "../core/profile";
+import { CATEGORIES, isCategory, type Category } from "../core/look/schema";
+import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { isRecord } from "../core/schema";
+import { phaseViewOf } from "../core/view";
+import { CATEGORY_LABELS } from "./look-labels";
 import { rankOf } from "../core/ranks";
 import { currentRanks } from "../foundry/settings";
 import { BUILTIN_LOOKS } from "../core/look/builtin";
 import { currentLibrary, lookFor } from "../foundry/library";
-import { confirmDiscard, displayName, previewCard } from "./shared";
+import { confirmDiscard, displayName, previewBoss, previewCard, sourcesOf, styleFor } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
@@ -34,10 +41,19 @@ const SOURCES = [
   { value: "counter", label: "BB5E.MiniBars.SourceCounter" },
 ] as const;
 
+/** Phase triggers after the first phase; labels are literal keys. */
+const TRIGGERS = [
+  { value: "hp", label: "BB5E.Phases.Trigger.Hp" },
+  { value: "form", label: "BB5E.Phases.Trigger.Form" },
+  { value: "manual", label: "BB5E.Phases.Trigger.Manual" },
+] as const;
+const KNOWN_TRIGGERS = new Set(["start", "hp", "form", "manual"]);
+
 /** Tab of each field-name prefix, to bring the first invalid field into view. */
 const TAB_OF: [RegExp, string][] = [
   [/^miniBars/, "miniBars"],
   [/^statuses/, "statuses"],
+  [/^phases/, "phases"],
   [/^autoShow/, "autoShow"],
 ];
 
@@ -61,6 +77,46 @@ function sourceOf(raw: Record<string, unknown>): MiniBarSource {
     default:
       return { type: "temp" };
   }
+}
+
+/** A newer version's trigger rides along as JSON in a hidden field and is written back unchanged. */
+function newerTrigger(json: string): PhaseTrigger | null {
+  try {
+    const raw: unknown = JSON.parse(json);
+    return isRecord(raw) && typeof raw.type === "string" ? (raw as unknown as PhaseTrigger) : null;
+  } catch {
+    return null;
+  }
+}
+
+function triggerOf(raw: Record<string, unknown>, first: boolean): PhaseTrigger {
+  if (first) return { type: "start" };
+  switch (raw.trigger) {
+    case "hp":
+      return { type: "hp", below: raw.below === null ? Number.NaN : Number(raw.below) };
+    case "form":
+      return { type: "form", actorId: str(raw.actorId) };
+    case "newer":
+      return newerTrigger(str(raw.newer)) ?? { type: "manual" };
+    default:
+      return { type: "manual" };
+  }
+}
+
+/** Only what the phase changes: empty fields and "as before" categories are left out. */
+function enterOf(raw: unknown): PhaseEnter {
+  const value = isRecord(raw) ? raw : {};
+  const enter: PhaseEnter = {};
+  for (const key of ["playerName", "title", "portrait"] as const) {
+    const text = str(value[key]).trim();
+    if (text) enter[key] = text;
+  }
+  const overrides: Partial<Record<Category, string>> = {};
+  for (const [category, id] of Object.entries(isRecord(value.overrides) ? value.overrides : {})) {
+    if (isCategory(category) && typeof id === "string" && id) overrides[category] = id;
+  }
+  if (Object.keys(overrides).length) enter.overrides = overrides;
+  return enter;
 }
 
 /** The form, expanded: rows come as index-keyed objects, statuses as checkboxes plus a name list. */
@@ -102,10 +158,27 @@ function inputOf(data: Record<string, unknown>): ProfileInput {
       players: raw.players === true,
       source: sourceOf(isRecord(raw.source) ? raw.source : {}),
     })),
+    phases: entries(data.phases).map((raw, index): Phase => ({
+      id: str(raw.id) || foundry.utils.randomID(),
+      label: str(raw.label).trim(),
+      trigger: triggerOf(raw, index === 0),
+      enter: enterOf(raw.enter),
+    })),
+    fillMode: data.fillMode === "refill" ? "refill" : "segments",
+    playerTicks: data.playerTicks === true,
   };
 }
 
-/** Boss or elite profile: "Main", "Mini-bars", "Statuses", "Auto-show". It always edits the world actor. */
+/** A new phase: the start first, then a threshold 25% under the last one (or 50%). */
+function newPhase(phases: Phase[]): Phase {
+  const id = foundry.utils.randomID();
+  if (!phases.length) return { id, label: "", trigger: { type: "start" }, enter: {} };
+  const last = [...phases].reverse().find((phase) => phase.trigger.type === "hp")?.trigger;
+  const below = last?.type === "hp" ? Math.max(PROFILE_LIMITS.thresholdMin, last.below - 25) : 50;
+  return { id, label: "", trigger: { type: "hp", below }, enter: {} };
+}
+
+/** Boss or elite profile: "Main", "Mini-bars", "Statuses", "Phases", "Auto-show". It always edits the world actor. */
 class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     classes: ["bb5e-app"],
@@ -135,6 +208,16 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         input.statuses.custom.push({ id: foundry.utils.randomID(), name: "", img: "", description: "" }),
       ),
       removeStatus: ProfileEditor.#edit((input, index) => input.statuses.custom.splice(index, 1)),
+      addPhase: ProfileEditor.#edit((input) => {
+        if (input.phases.length < PROFILE_LIMITS.phases) input.phases.push(newPhase(input.phases));
+      }),
+      removePhase: ProfileEditor.#edit((input, index) => input.phases.splice(index, 1)),
+      movePhase: ProfileEditor.#edit((input, index, target) => {
+        const to = index + Number(target.dataset.delta);
+        const [phase] = input.phases.splice(index, 1);
+        if (phase) input.phases.splice(Math.max(0, Math.min(input.phases.length, to)), 0, phase);
+      }),
+      playPhase: ProfileEditor.#onPlayPhase,
     },
   };
 
@@ -143,6 +226,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     main: { template: `${TEMPLATES}/profile-main.hbs` },
     miniBars: { template: `${TEMPLATES}/profile-minibars.hbs` },
     statuses: { template: `${TEMPLATES}/profile-statuses.hbs` },
+    phases: { template: `${TEMPLATES}/profile-phases.hbs` },
     autoShow: { template: `${TEMPLATES}/profile-autoshow.hbs` },
     footer: { template: `${TEMPLATES}/editor-footer.hbs` },
   };
@@ -153,6 +237,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         { id: "main", icon: "fa-solid fa-id-card", label: "BB5E.Profile.Tab.Main" },
         { id: "miniBars", icon: "fa-solid fa-bars-progress", label: "BB5E.Profile.Tab.MiniBars" },
         { id: "statuses", icon: "fa-solid fa-circle-half-stroke", label: "BB5E.Profile.Tab.Statuses" },
+        { id: "phases", icon: "fa-solid fa-layer-group", label: "BB5E.Profile.Tab.Phases" },
         { id: "autoShow", icon: "fa-solid fa-eye", label: "BB5E.Profile.Tab.AutoShow" },
       ],
       initial: "main",
@@ -175,10 +260,10 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Edits the current form state and re-renders with it, keeping unsaved edits. */
-  static #edit(change: (input: ProfileInput, index: number) => void) {
+  static #edit(change: (input: ProfileInput, index: number, target: HTMLElement) => void) {
     return async function (this: ProfileEditor, _event: Event, target: HTMLElement) {
       const input = this.#formInput();
-      change(input, Number(target.dataset.index));
+      change(input, Number(target.dataset.index), target);
       this.#draft = input;
       this.#setDirty(true);
       await this.render();
@@ -241,6 +326,66 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       hiddenNames: values.statuses.hidden.filter((entry) => !statusIds.has(entry)).join("\n"),
       customStatuses: values.statuses.custom.map((status, index) => ({ ...status, index })),
       statusesFull: values.statuses.custom.length >= PROFILE_LIMITS.custom,
+      refill: values.fillMode === "refill",
+      ...this.#phasesContext(Array.isArray(values.phases) ? (values.phases as Phase[]) : []),
+    };
+  }
+
+  /** The "Phases" tab: rows with triggers, form actors and entry changes, and the HP scale with its thresholds. */
+  #phasesContext(phases: Phase[]) {
+    const presets = sourcesOf(currentLibrary()).presets;
+    const actors = game.actors
+      .filter((actor) => actor.type === "npc" && actor.id !== this.actor.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const nameOf = (phase: Phase, index: number) =>
+      phase.label ||
+      (index ? game.i18n.format("BB5E.Phase.Default", { n: romanNumeral(index + 1) }) : romanNumeral(1));
+    return {
+      phases: phases.map((phase, index) => {
+        const { trigger } = phase;
+        const newer = !KNOWN_TRIGGERS.has(trigger.type);
+        return {
+          index,
+          id: phase.id,
+          label: phase.label,
+          first: index === 0,
+          last: index === phases.length - 1,
+          numeral: romanNumeral(index + 1),
+          placeholder: index
+            ? game.i18n.format("BB5E.Phase.Default", { n: romanNumeral(index + 1) })
+            : game.i18n.localize("BB5E.Phases.FirstPlaceholder"),
+          triggers: [
+            ...TRIGGERS.map((each) => ({ ...each, selected: each.value === trigger.type })),
+            ...(newer ? [{ value: "newer", label: "BB5E.Phases.Trigger.Newer", selected: true }] : []),
+          ],
+          newer: newer ? JSON.stringify(trigger) : "",
+          below: trigger.type === "hp" ? trigger.below : 50,
+          actors: actors.map((actor) => ({
+            id: actor.id,
+            name: actor.name,
+            selected: trigger.type === "form" && trigger.actorId === actor.id,
+          })),
+          enter: phase.enter,
+          overrides: CATEGORIES.map((category) => ({
+            category,
+            label: game.i18n.localize(CATEGORY_LABELS[category]),
+            options: presets
+              .filter((preset) => preset.category === category)
+              .map((preset) => ({
+                id: preset.id,
+                name: displayName(preset),
+                selected: phase.enter.overrides?.[category] === preset.id,
+              })),
+          })),
+        };
+      }),
+      phasesFull: phases.length >= PROFILE_LIMITS.phases,
+      scale: phases.flatMap((phase, index) =>
+        phase.trigger.type === "hp"
+          ? [{ at: phase.trigger.below / 100, text: `${phase.trigger.below}% · ${nameOf(phase, index)}` }]
+          : [],
+      ),
+      scaleLabel: game.i18n.localize("BB5E.Phases.Scale"),
     };
   }
 
@@ -249,6 +394,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#setDirty(this.#dirty);
     this.#syncKind();
     this.#syncSources();
+    this.#syncTriggers();
     // Re-rendering replaces the parts, so listening on the form root survives every render.
     if (options.isFirstRender) {
       this.element.addEventListener("input", () => this.#setDirty(true));
@@ -257,6 +403,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         const target = event.target as HTMLInputElement;
         if (target.name === "kind") this.#syncKind();
         else if (target.name.endsWith(".source.type")) this.#onSourceChange(target);
+        else if (/^phases\.\d+\.trigger$/.test(target.name)) this.#syncTriggers();
         else this.#updatePreview();
       });
     }
@@ -289,6 +436,51 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         group.hidden = group.dataset.sourceGroup !== type;
       }
     }
+  }
+
+  /** Each phase row shows the fields of its trigger only. */
+  #syncTriggers() {
+    for (const row of this.element.querySelectorAll<HTMLElement>("[data-phase-index]")) {
+      const type = row.querySelector<HTMLInputElement>('[name$=".trigger"]')?.value;
+      for (const group of row.querySelectorAll<HTMLElement>("[data-trigger-group]")) {
+        group.hidden = group.dataset.triggerGroup !== type;
+      }
+    }
+  }
+
+  /**
+   * "Play": the phase's entry on the tab's preview, from the phase before it, in the look the phases build up.
+   * Nothing is written to the actor.
+   */
+  static async #onPlayPhase(this: ProfileEditor, _event: Event, target: HTMLElement) {
+    const host = this.element.querySelector<HTMLElement>(".bb5e-phase-preview");
+    const input = this.#formInput();
+    const index = Number(target.dataset.index);
+    if (!host || !input.phases[index]) return;
+    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
+    const boss = read.status === "ok" && read.value.kind === "boss" ? read.value : null;
+    const sources = sourcesOf(currentLibrary());
+    const draw = (at: number, key?: string) => {
+      const changes = phaseChanges(input.phases, at);
+      const trigger = input.phases[index]?.trigger;
+      previewBoss(
+        host,
+        styleFor(sources, boss?.look ?? null, { ...boss?.overrides, ...changes.overrides }),
+        {
+          fraction: trigger?.type === "hp" ? Math.max(0, trigger.below - 1) / 100 : 1,
+          defeated: false,
+          shown: true,
+          phase: key ? { key, label: "", numeral: null } : phaseViewOf(input.phases, at),
+          ticks: input.fillMode === "segments" ? phaseTicks(input.phases, at) : [],
+          title: changes.title || input.title,
+          img: changes.portrait || input.portrait || this.actor.img,
+        },
+        changes.playerName || input.playerName || this.actor.name,
+      );
+    };
+    // The phase before (or a stand-in for the first one), then the phase itself: the change plays.
+    draw(Math.max(0, index - 1), index ? undefined : "before");
+    draw(index);
   }
 
   /** Legendary actions and resistances read best as pips: switching to them picks pips. */
@@ -353,21 +545,34 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const stored = current.status === "ok" ? current.value : defaultProfile(input.kind);
     // Only the chosen kind's fields are written; the other kind's stay in the flag for a switch back.
     const kindFields =
-      input.kind === "boss" ? { title: input.title.trim(), size: input.size } : { rank: input.rank };
-    await this.actor.setFlag(MODULE_ID, "profile", {
-      ...stored,
-      kind: input.kind,
-      playerName: input.playerName.trim(),
-      portrait: input.portrait.trim() || null,
-      displayMode: input.displayMode,
-      autoShow: { ...DEFAULT_AUTO_SHOW, ...input.autoShow },
-      statuses: {
-        hidden: input.statuses.hidden,
-        custom: input.kind === "boss" ? input.statuses.custom : stored.statuses.custom,
-      },
-      miniBars: input.miniBars,
-      ...kindFields,
-    });
+      input.kind === "boss"
+        ? {
+            title: input.title.trim(),
+            size: input.size,
+            phases: input.phases,
+            fillMode: input.fillMode,
+            playerTicks: input.playerTicks,
+          }
+        : { rank: input.rank };
+    // Written whole: a merge would keep removed overrides and entries.
+    await this.actor.setFlag(
+      MODULE_ID,
+      "profile",
+      _replace({
+        ...stored,
+        kind: input.kind,
+        playerName: input.playerName.trim(),
+        portrait: input.portrait.trim() || null,
+        displayMode: input.displayMode,
+        autoShow: { ...DEFAULT_AUTO_SHOW, ...input.autoShow },
+        statuses: {
+          hidden: input.statuses.hidden,
+          custom: input.kind === "boss" ? input.statuses.custom : stored.statuses.custom,
+        },
+        miniBars: input.miniBars,
+        ...kindFields,
+      }),
+    );
     this.#draft = null;
     this.#setDirty(false);
     await this.render();

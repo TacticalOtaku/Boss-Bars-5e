@@ -2,7 +2,7 @@ import "../styles/boss-bars-5e.scss";
 import type { LayoutHost } from "./apps/layout-panel";
 import { MODULE_ID } from "./constants";
 import { ELITE_COLUMN_ID } from "./core/view";
-import { pruneScenes, registerAuthority } from "./foundry/authority";
+import { pruneScenes, registerAuthority, syncPhases } from "./foundry/authority";
 import { startCombatWatch } from "./foundry/combat";
 import { registerEntryPoints } from "./foundry/entry-points";
 import { registerSettings, setCollapsed } from "./foundry/settings";
@@ -75,6 +75,7 @@ Hooks.once("ready", () => {
       collapse: game.i18n.localize("BB5E.Bar.Collapse"),
       expand: game.i18n.localize("BB5E.Bar.Expand"),
       defeated: game.i18n.localize("BB5E.Bar.Defeated"),
+      phase: game.i18n.localize("BB5E.Phase.Default"),
     },
     onCollapse: collapse,
     reducedMotion,
@@ -98,6 +99,8 @@ Hooks.once("ready", () => {
   layoutHost = { host, overlay, blocks: { bosses: stack.element, elites: column.element }, hud, uiScale };
   // Before the first recompute: its defeat check hides what fell while no page was watching.
   startCombatWatch(hud);
+  // Boss phases follow HP on the active GM; one that returns catches up on its first recompute.
+  hud.subscribe(() => syncPhases(game.scenes.contents));
   hud.refresh();
 
   // Automatic clean-up, active GM only: deleted tokens and removed profiles take their bars and cards along.

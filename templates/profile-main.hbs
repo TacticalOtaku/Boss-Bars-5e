@@ -47,6 +47,23 @@
         <p class="bb5e-field-error" data-error-for="size" role="alert" hidden></p>
       </div>
       <div class="form-group">
+        <label for="{{partId}}-fillMode">{{localize "BB5E.Phases.FillMode.Label"}}</label>
+        <div class="form-fields">
+          <select id="{{partId}}-fillMode" name="fillMode">
+            <option value="segments" {{#unless refill}}selected{{/unless}}>{{localize "BB5E.Phases.FillMode.Segments"}}</option>
+            <option value="refill" {{#if refill}}selected{{/if}}>{{localize "BB5E.Phases.FillMode.Refill"}}</option>
+          </select>
+        </div>
+        <p class="hint">{{localize "BB5E.Phases.FillMode.Hint"}}</p>
+      </div>
+      <div class="form-group">
+        <label for="{{partId}}-playerTicks">{{localize "BB5E.Phases.PlayerTicks.Label"}}</label>
+        <div class="form-fields">
+          <input type="checkbox" id="{{partId}}-playerTicks" name="playerTicks" {{#if values.playerTicks}}checked{{/if}}>
+        </div>
+        <p class="hint">{{localize "BB5E.Phases.PlayerTicks.Hint"}}</p>
+      </div>
+      <div class="form-group">
         <label>{{localize "BB5E.Workshop.Look"}}</label>
         <div class="form-fields">
           <span class="bb5e-look-name">{{lookName}}</span>

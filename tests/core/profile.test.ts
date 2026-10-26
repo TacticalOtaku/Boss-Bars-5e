@@ -5,6 +5,7 @@ import {
   PROFILE_VERSION,
   profileErrors,
   readProfile,
+  type Phase,
   type ProfileInput,
 } from "../../src/core/profile";
 
@@ -12,6 +13,14 @@ import {
 const stage4 = { autoShow: DEFAULT_AUTO_SHOW, statuses: { hidden: [], custom: [] }, miniBars: [] };
 /** Stage 5 boss fields: no look chosen yet. */
 const stage5 = { look: null, overrides: {} };
+/** Stage 6 boss fields: no phases. */
+const stage6 = { phases: [], fillMode: "segments", playerTicks: true } as const;
+/** Stage 6 editor input: no phases. */
+const stage6Input: Pick<ProfileInput, "phases" | "fillMode" | "playerTicks"> = {
+  phases: [],
+  fillMode: "segments",
+  playerTicks: true,
+};
 
 const boss = {
   dataVersion: 2,
@@ -35,7 +44,7 @@ describe("readProfile", () => {
   it("reads boss and elite profiles and keeps unknown keys", () => {
     expect(readProfile({ ...boss, future: { x: 1 } })).toEqual({
       status: "ok",
-      value: { ...boss, ...stage4, ...stage5, future: { x: 1 } },
+      value: { ...boss, ...stage4, ...stage5, ...stage6, future: { x: 1 } },
     });
     expect(readProfile(elite)).toEqual({ status: "ok", value: { ...elite, ...stage4 } });
   });
@@ -44,7 +53,7 @@ describe("readProfile", () => {
     const v1 = { dataVersion: 1, kind: "boss", playerName: "A", title: "T", portrait: null, size: 80 };
     expect(readProfile(v1)).toEqual({
       status: "ok",
-      value: { ...v1, ...stage4, ...stage5, dataVersion: PROFILE_VERSION, displayMode: "token" },
+      value: { ...v1, ...stage4, ...stage5, ...stage6, dataVersion: PROFILE_VERSION, displayMode: "token" },
     });
   });
 
@@ -99,6 +108,7 @@ describe("profileErrors", () => {
     size: 50,
     rank: "",
     ...stage4,
+    ...stage6Input,
   };
 
   it("accepts valid input of both kinds", () => {
@@ -211,6 +221,7 @@ describe("profileErrors — stage 4 fields", () => {
     size: 100,
     rank: "",
     ...stage4,
+    ...stage6Input,
   };
 
   it("names bad mini-bar fields, custom statuses and the delay", () => {
@@ -271,5 +282,57 @@ describe("stage 5 look fields", () => {
     ).toEqual(["neon", { frame: "frost-frame" }]);
     const bad = readProfile({ ...boss, look: "<b>" });
     expect(bad.status === "ok" && bad.value.kind === "boss" && bad.value.look).toBeNull();
+  });
+});
+
+describe("profileErrors — phases", () => {
+  const FORM = "FormActor0000001";
+  const base: ProfileInput = {
+    kind: "boss",
+    displayMode: "token",
+    playerName: "",
+    title: "",
+    portrait: "",
+    size: 100,
+    rank: "",
+    ...stage4,
+    ...stage6Input,
+  };
+  const phase = (trigger: Phase["trigger"], extra: Partial<Phase> = {}): Phase => ({
+    id: "x",
+    label: "",
+    trigger,
+    enter: {},
+    ...extra,
+  });
+
+  it("accepts falling thresholds 8% apart, restarting after a form", () => {
+    const phases = [
+      phase({ type: "start" }),
+      phase({ type: "hp", below: 66 }),
+      phase({ type: "hp", below: 58 }),
+      phase({ type: "form", actorId: FORM }),
+      phase({ type: "hp", below: 90 }),
+    ];
+    expect(profileErrors({ ...base, phases })).toEqual({});
+  });
+
+  it("names thresholds out of range, too close or rising, a form without actor and long texts", () => {
+    const phases = [
+      phase({ type: "start" }, { label: "x".repeat(41) }),
+      phase({ type: "hp", below: 50 }),
+      phase({ type: "hp", below: 45 }),
+      phase({ type: "hp", below: 60 }),
+      phase({ type: "hp", below: 2 }),
+      phase({ type: "form", actorId: "" }, { enter: { title: "t".repeat(81) } }),
+    ];
+    expect(profileErrors({ ...base, phases })).toEqual({
+      "phases.0.label": "BB5E.Error.TooLong",
+      "phases.2.below": "BB5E.Error.ThresholdGap",
+      "phases.3.below": "BB5E.Error.ThresholdGap",
+      "phases.4.below": "BB5E.Error.ThresholdRange",
+      "phases.5.actorId": "BB5E.Error.NoFormActor",
+      "phases.5.enter.title": "BB5E.Error.TooLong",
+    });
   });
 });

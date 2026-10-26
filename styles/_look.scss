@@ -183,6 +183,14 @@
   --bb5e-segment: 10%;
 }
 
+// Segments "phases": the thresholds split the bar with gaps instead of thin ticks.
+.bb5e-look[data-look-segments="phases"] .bb5e-boss__tick {
+  width: 0.25em;
+  margin-left: -0.125em;
+  background: rgb(0 0 0 / 75%);
+  box-shadow: none;
+}
+
 // Gloss on the upper half.
 .bb5e-look[data-look-shine="1"] :is(.bb5e-boss__fill, .bb5e-elite__fill)::before {
   position: absolute;
@@ -269,6 +277,11 @@
   background: linear-gradient(90deg, transparent, rgb(190 255 200 / 70%), transparent);
 }
 
+// The old palette over the new one, fading out on a phase change.
+.bb5e-fx--palette {
+  transform-origin: left center;
+}
+
 .bb5e-fx--crack {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath d='M0 9 L22 12 L38 4 L55 14 L71 7 L90 13 L104 3 L121 11 L140 6 L158 15 L176 5 L200 10' fill='none' stroke='white' stroke-width='1.6'/%3E%3C/svg%3E")
     center / 100% 100% no-repeat;
@@ -324,6 +337,13 @@
   letter-spacing: 0.3em;
   text-shadow: var(--bb5e-name-shadow);
   text-transform: uppercase;
+}
+
+// Phase banner: the phase name over the bar for a moment (motion.phaseBanner).
+.bb5e-banner--phase {
+  color: var(--bb5e-title, var(--bb5e-gold));
+  font-size: 1.125em;
+  pointer-events: none;
 }
 
 // ---- statuses ----

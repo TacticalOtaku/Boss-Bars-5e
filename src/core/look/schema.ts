@@ -98,7 +98,8 @@ export const PARAMS = {
     texture: { type: "path", default: "" },
     shield: b(true),
     shieldColor: c("#6fb7f0"),
-    segments: e(["none", "every"]),
+    /** "phases": gaps at the phase thresholds instead of thin ticks. */
+    segments: e(["none", "every", "phases"]),
     segmentEvery: n(5, 50, 25),
     shine: b(false),
     edgeGlow: b(false),
@@ -125,6 +126,12 @@ export const PARAMS = {
     leave: e(["slide", "fade"]),
     defeat: e(["fade", "dissolve", "banner"]),
     bannerText: { type: "text", max: 40, default: "" },
+    // Phase change (spec §9, decision 5 of stage 6): any mix of these.
+    phaseCrack: b(false),
+    phaseFlash: b(true),
+    phaseRefill: b(false),
+    phasePalette: b(false),
+    phaseBanner: b(true),
   },
   portrait: {
     shape: e(["circle", "square", "diamond", "shield", "hexagon", "notch"]),
@@ -190,7 +197,8 @@ export interface Library {
   presets: Preset[];
 }
 
-export const LIBRARY_VERSION = 1;
+/** v2: phase change parameters and segments "phases" (0.6.0 would drop them on its next edit). */
+export const LIBRARY_VERSION = 2;
 /** Import limit (decision 4). */
 export const IMPORT_MAX_BYTES = 256 * 1024;
 export const LOOK_ID = /^[A-Za-z0-9_-]{1,40}$/;
@@ -276,7 +284,7 @@ export function readLibrary(raw: unknown, builtInIds: ReadonlySet<string> = new 
   };
   if (!isRecord(raw) || raw.dataVersion === undefined) return empty;
   if (!Array.isArray(raw.looks) || !Array.isArray(raw.presets)) return { status: "invalid" };
-  const migrated = migrate(raw, LIBRARY_VERSION, {});
+  const migrated = migrate(raw, LIBRARY_VERSION, { 1: (value) => value });
   if (migrated.status !== "ok") return migrated;
   const own = <T extends { id: string }>(item: T | null): item is T =>
     item !== null && !builtInIds.has(item.id);

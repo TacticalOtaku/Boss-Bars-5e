@@ -77,7 +77,14 @@ const BOSS_BARS: MiniBar[] = [
   { id: "armour", label: "Броня", view: "bar", players: false, source: { type: "counter", max: 5 } },
 ];
 
-const boss = { kind: "boss", title: "", size: 100 } as const;
+const boss = {
+  kind: "boss" as const,
+  title: "",
+  size: 100,
+  phases: [],
+  fillMode: "segments" as const,
+  playerTicks: true,
+};
 const elite = (rank: string) => ({ kind: "elite", rank }) as const;
 
 /** Fixtures in the shape the store hands to buildViews. */
@@ -88,6 +95,16 @@ export const FIXTURE_BOSSES: SubjectInput[] = [
     {
       ...boss,
       title: "Пожиратель пепла",
+      phases: [
+        { id: "wake", label: "", trigger: { type: "start" }, enter: {} },
+        { id: "rage", label: "", trigger: { type: "hp", below: 66 }, enter: {} },
+        {
+          id: "ash",
+          label: "Пепельная ярость",
+          trigger: { type: "hp", below: 33 },
+          enter: { title: "Пепел и пламя" },
+        },
+      ],
       miniBars: BOSS_BARS,
       statuses: {
         hidden: [],

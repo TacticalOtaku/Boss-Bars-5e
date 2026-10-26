@@ -29,6 +29,8 @@ const panelRow = {
   count: 3,
   counters: [{ barId: "a", label: "<b>C</b>", value: 1, max: 3 }],
   customs: [{ id: "s", name: "<b>S</b>", img: "s.webp", active: true }],
+  phases: [{ id: "p", label: "<b>P</b>", selected: true }],
+  waiting: true,
 };
 /** A context that switches every optional branch on, with markup in every user-written text. */
 const context = {
@@ -63,6 +65,30 @@ const context = {
     { index: 0, id: "s", name: "<b>S</b>", img: "s.webp", description: "</textarea><b>D</b>" },
   ],
   statusesFull: true,
+  phases: [
+    {
+      index: 0,
+      id: "p",
+      label: '"><b>L</b>',
+      first: false,
+      last: false,
+      numeral: "I",
+      placeholder: '"><b>P</b>',
+      triggers: [{ value: "hp", label: "<b>T</b>", selected: true }],
+      newer: '"><b>n</b>',
+      below: 50,
+      actors: [{ id: "a", name: "<b>A</b>", selected: true }],
+      enter: { playerName: '"><b>N</b>', title: '"><b>T</b>', portrait: '"><b>p</b>' },
+      overrides: [
+        { category: "frame", label: "<b>F</b>", options: [{ id: "p", name: "<b>P</b>", selected: true }] },
+      ],
+    },
+  ],
+  phasesFull: true,
+  scale: [{ at: 0.5, text: "<b>S</b>" }],
+  scaleLabel: '"><b>L</b>',
+  refill: true,
+  hasPhases: true,
   isElite: true,
   byActor: true,
   ranks: [{ id: "r", name: "<b>R</b>", selected: true }],

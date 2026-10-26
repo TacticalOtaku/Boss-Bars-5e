@@ -1,19 +1,26 @@
 import { MODULE_ID } from "../constants";
 import { parseAction, type WriteAction } from "../core/actions";
+import { aggregate } from "../core/aggregate";
+import { hpFraction } from "../core/hp";
 import {
   hideAll,
   hideInstance,
+  moveInstance,
   pruneInstances,
   readInstances,
   rebindInstances,
   setCounter,
+  setPhaseState,
   showInstance,
   toggleStatus,
   type Instance,
   type InstanceState,
+  type InstanceTarget,
 } from "../core/instances";
-import { readProfile, type Profile } from "../core/profile";
+import { nextPhase, pickPhase, type PhaseStep } from "../core/phases";
+import { readProfile, type BossProfile, type Profile } from "../core/profile";
 import { logger } from "../logger";
+import { profileActorOf, subjectOf } from "./store";
 
 const QUERY = `${MODULE_ID}.write`;
 
@@ -89,11 +96,18 @@ async function apply(action: WriteAction): Promise<void> {
         : !(item.actorId && item.actorId === token.actorId),
     );
     const target = byActor ? { actorId: byActor } : { tokenId: token.id };
-    next = showInstance(next, profile.value.kind, target, foundry.utils.randomID());
+    const id = foundry.utils.randomID();
+    next = showInstance(next, profile.value.kind, target, id);
+    // A wounded boss appears in the phase its HP calls for, with no effect (decision 7).
+    const shown = next.items.find((item) => item.id === id);
+    const step = shown ? phaseStepOf(scene, shown) : null;
+    if (shown && step) next = applyStep(scene, next, shown, step);
   } else if (action.type === "hide") {
     next = hideInstance(next, action.instanceId);
   } else if (action.type === "hideAll") {
     next = hideAll(next);
+  } else if (action.type === "setPhase" || action.type === "bindToken") {
+    next = applyPhaseAction(scene, next, action);
   } else {
     next = applyInstanceEdit(scene, next, action);
   }
@@ -101,11 +115,97 @@ async function apply(action: WriteAction): Promise<void> {
 }
 
 function instanceProfile(scene: SceneDocument, item: Instance): Profile | null {
-  const actor = item.tokenId
-    ? scene.tokens.get(item.tokenId)?.baseActor
-    : game.actors.get(item.actorId ?? "");
-  const profile = readProfile(actor?.flags[MODULE_ID]?.profile);
+  const profile = readProfile(profileActorOf(scene, item)?.flags[MODULE_ID]?.profile);
   return profile.status === "ok" ? profile.value : null;
+}
+
+function phasedProfile(scene: SceneDocument, item: Instance): BossProfile | null {
+  const profile = instanceProfile(scene, item);
+  return profile?.kind === "boss" && profile.phases.length ? profile : null;
+}
+
+/** The HP share the phase engine reads: the bound token, or the sum of the actor's tokens, as the GM sees it. */
+function fractionOf(scene: SceneDocument, item: Instance): number | null {
+  const subject = subjectOf(scene, item);
+  const hp = subject ? aggregate(subject.tokens, true)?.hp : null;
+  return hp ? hpFraction(hp) : null;
+}
+
+function phaseStepOf(scene: SceneDocument, item: Instance): PhaseStep | null {
+  const profile = phasedProfile(scene, item);
+  return profile ? nextPhase(profile.phases, item.phase, fractionOf(scene, item)) : null;
+}
+
+/** Where a form's bar goes: the form actor's token nearest the fallen one, or the form actor (one per actor). */
+function formTarget(scene: SceneDocument, item: Instance, actorId: string): InstanceTarget | null {
+  const candidates = scene.tokens.filter((token) => token.actorId === actorId);
+  if (!candidates.length) return null;
+  if (item.actorId) return { actorId };
+  const from = scene.tokens.get(item.tokenId ?? "");
+  const distance = (token: TokenDocument) => (from ? (token.x - from.x) ** 2 + (token.y - from.y) ** 2 : 0);
+  const nearest = candidates.reduce((best, token) => (distance(token) < distance(best) ? token : best));
+  return { tokenId: nearest.id };
+}
+
+/** Writes an engine step; a form moves the bar onto its token, or waits for one and tells the GM. */
+function applyStep(
+  scene: SceneDocument,
+  state: InstanceState,
+  item: Instance,
+  step: PhaseStep,
+): InstanceState {
+  if (!step.formActorId) return setPhaseState(state, item.id, step.state);
+  const source = item.source ?? profileActorOf(scene, item)?.id;
+  if (!source) return state;
+  const target = formTarget(scene, item, step.formActorId);
+  if (target) return moveInstance(state, item.id, target, source, step.state);
+  const actor = game.actors.get(source);
+  const name = instanceProfile(scene, item)?.playerName || actor?.prototypeToken?.name || actor?.name || "";
+  ui.notifications.warn(game.i18n.format("BB5E.Phase.FormWaiting", { name }));
+  return setPhaseState(state, item.id, { ...step.state, waiting: true }, source);
+}
+
+/** A phase picked by a GM, or the token a GM selected for a waiting form. */
+function applyPhaseAction(
+  scene: SceneDocument,
+  state: InstanceState,
+  action: Extract<WriteAction, { type: "setPhase" | "bindToken" }>,
+): InstanceState {
+  const item = state.items.find((each) => each.id === action.instanceId);
+  const profile = item ? phasedProfile(scene, item) : null;
+  if (!item || !profile) throw new WriteError("BB5E.Error.Invalid");
+  if (action.type === "setPhase") {
+    const step = pickPhase(profile.phases, action.phaseId, fractionOf(scene, item));
+    if (!step) throw new WriteError("BB5E.Error.Invalid");
+    return applyStep(scene, state, item, step);
+  }
+  const token = scene.tokens.get(action.tokenId);
+  const source = item.source ?? profileActorOf(scene, item)?.id;
+  if (!item.phase?.waiting || !token || !source) throw new WriteError("BB5E.Error.Invalid");
+  const target = item.actorId && token.actorId ? { actorId: token.actorId } : { tokenId: token.id };
+  return moveInstance(state, item.id, target, source, { id: item.phase.id, mark: 100 });
+}
+
+/**
+ * The phase engine, active GM only, after each recompute: scenes where a boss's phase should change are written.
+ * The flag is read again inside the queue, so a reload or a second GM client never changes a phase twice.
+ */
+export function syncPhases(scenes: Iterable<SceneDocument>): void {
+  if (!game.user.isActiveGM) return;
+  for (const scene of scenes) {
+    const read = sceneInstances(scene);
+    if (read.status !== "ok" || !read.value.items.some((item) => phaseStepOf(scene, item))) continue;
+    void enqueue(async () => {
+      const again = sceneInstances(scene);
+      if (again.status !== "ok") return;
+      let next = again.value;
+      for (const item of again.value.items) {
+        const step = phaseStepOf(scene, item);
+        if (step) next = applyStep(scene, next, item, step);
+      }
+      if (next !== again.value) await scene.setFlag(MODULE_ID, "instances", next);
+    }).catch((error) => logger.error("Phase change failed", scene.id, error));
+  }
 }
 
 /** Counters and custom statuses must exist in the instance's profile; a counter is clamped to its maximum. */
@@ -140,15 +240,12 @@ export function pruneScenes(scenes: Iterable<SceneDocument>): void {
       const read = sceneInstances(scene);
       if (read.status !== "ok") return;
       const pruned = pruneInstances(read.value, (item) => {
-        if (item.tokenId) {
-          const token = scene.tokens.get(item.tokenId);
-          return Boolean(token) && profileStatus(token?.baseActor) !== "none";
-        }
+        if (profileStatus(profileActorOf(scene, item)) === "none") return false;
+        // A waiting form keeps its bar even when the fallen token is gone (ticket #12).
+        if (item.phase?.waiting) return true;
+        if (item.tokenId) return Boolean(scene.tokens.get(item.tokenId));
         // Bound to an actor: kept while the actor has a token on the scene.
-        const actor = game.actors.get(item.actorId ?? "");
-        return (
-          scene.tokens.some((token) => token.actorId === item.actorId) && profileStatus(actor) !== "none"
-        );
+        return scene.tokens.some((token) => token.actorId === item.actorId);
       });
       // A profile whose display mode or kind changed gets its shown items rebound to match.
       const next = rebindInstances(

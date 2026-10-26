@@ -1,7 +1,9 @@
+import type { PhaseState } from "./phases";
 import { PROFILE_ID, type DisplayMode, type ProfileKind } from "./profile";
-import { isRecord, migrate, type ReadResult } from "./schema";
+import { isDocumentId, isRecord, migrate, type ReadResult } from "./schema";
 
-export const INSTANCES_VERSION = 2;
+/** v3: a form moves an instance onto another actor's token, the profile stays in `source` (0.6.0 would prune it). */
+export const INSTANCES_VERSION = 3;
 
 /** One shown boss bar or elite card, stored in the scene's flags; bound to one token or to an actor. */
 export interface Instance {
@@ -15,6 +17,10 @@ export interface Instance {
   counters?: Record<string, number>;
   /** Ids of the profile's custom statuses switched on for this instance. */
   customStatuses?: string[];
+  /** Boss phases (stage 6); missing — the first phase, mark 100. */
+  phase?: PhaseState;
+  /** The actor holding the profile once a form moved the instance onto another actor's token or tokens. */
+  source?: string;
 }
 
 export interface InstanceState {
@@ -31,13 +37,32 @@ const isInstance = (item: unknown): item is Instance =>
   (typeof item.tokenId === "string") !== (typeof item.actorId === "string") &&
   Number.isFinite(item.order);
 
-// v2 added elites and actor-bound instances; v1 items are valid v2 items.
-const STEPS = { 1: (raw: Record<string, unknown>) => raw };
+// v2 added elites and actor-bound instances, v3 forms; older items are valid newer items.
+const STEPS = { 1: (raw: Record<string, unknown>) => raw, 2: (raw: Record<string, unknown>) => raw };
 
-/** Counters and custom statuses are optional (stage 4): bad entries are dropped, the instance stays. */
+function readPhaseState(raw: unknown): PhaseState | undefined {
+  if (!isRecord(raw) || typeof raw.id !== "string" || !PROFILE_ID.test(raw.id)) return undefined;
+  const mark = typeof raw.mark === "number" && Number.isFinite(raw.mark) ? raw.mark : 100;
+  const state: PhaseState = { id: raw.id, mark: Math.min(100, Math.max(0, mark)) };
+  if (raw.waiting === true) state.waiting = true;
+  return state;
+}
+
+/** Counters, custom statuses, phase and source are optional: bad entries are dropped, the instance stays. */
 function cleanInstance(item: Instance): Instance {
-  const { counters, customStatuses } = item as { counters?: unknown; customStatuses?: unknown };
+  const { counters, customStatuses, phase, source } = item as {
+    counters?: unknown;
+    customStatuses?: unknown;
+    phase?: unknown;
+    source?: unknown;
+  };
   const clean: Instance = { ...item };
+  if (phase !== undefined) {
+    const state = readPhaseState(phase);
+    if (state) clean.phase = state;
+    else delete clean.phase;
+  }
+  if (source !== undefined && !isDocumentId(source)) delete clean.source;
   if (counters !== undefined) {
     const entries = isRecord(counters)
       ? Object.entries(counters).filter(
@@ -99,6 +124,48 @@ export function toggleStatus(
   });
 }
 
+/**
+ * Sets the phase state, and the profile's actor when a form starts waiting (the fallen token may go meanwhile).
+ * The same state when nothing changes.
+ */
+export function setPhaseState(
+  state: InstanceState,
+  id: string,
+  phase: PhaseState,
+  source?: string,
+): InstanceState {
+  return updateItem(state, id, (item) => {
+    const same =
+      item.phase?.id === phase.id &&
+      item.phase.mark === phase.mark &&
+      item.phase.waiting === phase.waiting &&
+      (source === undefined || item.source === source);
+    return same ? item : { ...item, phase, ...(source ? { source } : {}) };
+  });
+}
+
+/**
+ * A form begins: the instance moves onto the form's token (or, one per actor, onto the form actor), keeping its
+ * place, and remembers the actor holding the profile. Another instance already on that target goes.
+ */
+export function moveInstance(
+  state: InstanceState,
+  id: string,
+  target: InstanceTarget,
+  source: string,
+  phase: PhaseState,
+): InstanceState {
+  const item = state.items.find((each) => each.id === id);
+  if (!item) return state;
+  const moved: Instance = { ...item, ...target, source, phase };
+  if ("tokenId" in target) delete moved.actorId;
+  else delete moved.tokenId;
+  const items = state.items.flatMap((each) =>
+    each === item ? [moved] : sameTarget(each, target) ? [] : [each],
+  );
+  return { ...state, items };
+}
+
 const sameTarget = (item: Instance, target: InstanceTarget) =>
   "tokenId" in target ? item.tokenId === target.tokenId : item.actorId === target.actorId;
 
@@ -147,7 +214,8 @@ export function rebindInstances(
   const items: Instance[] = [];
   let changed = false;
   for (const item of state.items) {
-    const now = info(item);
+    // A form's instance follows its form, not the display mode of the actor under it.
+    const now = item.source ? null : info(item);
     if (!now) {
       items.push(item);
       continue;
