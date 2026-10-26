@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Fixed: opening "Looks and presets" (or the first bar of a session) froze Foundry for seconds, up to a minute on
+  Windows. The shader is now compiled per variant (bar, card or portrait; fill type, pattern, motes) without blocking
+  the page; a bar keeps its CSS look until its variant is ready, and the browser caches it for the next time.
+
 ## 1.1.0
 
 - Boss bars, elite card plates and boss portrait frames are now drawn by one WebGL2 shader instead of CSS: lit
