@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
 
 - **Settings file.** The hub's ⋮ menu exports the world's Boss Bars settings (elite ranks, own looks and presets,
   screen layout) as one file and imports it into another world, after a confirmation. Tools that move a world's
