@@ -17,6 +17,7 @@ const form = {
   playerName: " The Lich ",
   title: "Lord of Bones",
   portrait: "",
+  portraitFocus: { x: 40, y: 15, zoom: 150 },
   size: 120,
   rank: "",
   autoShow: { onCombatStart: true, hideOnCombatEnd: false, hideOnDefeat: true, delay: 5 },
@@ -99,6 +100,7 @@ describe("inputOf", () => {
       kind: "boss",
       displayMode: "actor",
       playerName: " The Lich ",
+      portraitFocus: { x: 40, y: 15, zoom: 150 },
       size: 120,
       autoShow: { onCombatStart: true, hideOnCombatEnd: false, hideOnDefeat: true, delay: 5 },
       statuses: {

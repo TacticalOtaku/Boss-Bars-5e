@@ -213,3 +213,18 @@
   color: var(--bb5e-app-danger);
   font-size: var(--font-size-12, 12px);
 }
+
+// The panel can be taller than a laptop screen, which Foundry clips without a scroll: its fields scroll instead,
+// and Save and Cancel stay in view at the bottom.
+#bb5e-layout .window-content {
+  overflow-y: auto;
+}
+
+#bb5e-layout .bb5e-footer {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--bb5e-app-line);
+  background: var(--bb5e-app-s0);
+}

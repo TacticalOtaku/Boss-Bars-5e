@@ -1,13 +1,14 @@
 import { isCategory, type Category } from "./look/schema";
 import { readMusicSource, type MusicSource } from "./music";
-import type {
-  CustomStatus,
-  MiniBar,
-  MiniBarSource,
-  Phase,
-  PhaseEnter,
-  PhaseTrigger,
-  ProfileInput,
+import {
+  readFocus,
+  type CustomStatus,
+  type MiniBar,
+  type MiniBarSource,
+  type Phase,
+  type PhaseEnter,
+  type PhaseTrigger,
+  type ProfileInput,
 } from "./profile";
 import { QUOTE_TRIGGER_TYPES, type Quote, type QuoteTrigger } from "./quotes";
 import { isRecord } from "./schema";
@@ -137,6 +138,7 @@ export function inputOf(data: Record<string, unknown>, newId: () => string): Pro
     playerName: str(data.playerName),
     title: str(data.title),
     portrait: str(data.portrait),
+    portraitFocus: readFocus(data.portraitFocus),
     size: Number(data.size),
     rank: str(data.rank),
     autoShow: {

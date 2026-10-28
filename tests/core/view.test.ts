@@ -85,6 +85,21 @@ describe("buildViews — boss bars", () => {
     });
   });
 
+  it("frames the portrait of a bar and of a card at the profile's focus", () => {
+    const focus = { x: 30, y: 12, zoom: 160 };
+    const framed = buildViews(
+      [
+        subject("Лич", { ...bossProfile, portraitFocus: focus }),
+        subject("Гоблин", eliteProfile("veteran", { portraitFocus: focus })),
+      ],
+      ranks,
+      player,
+      12,
+    );
+    expect(framed.bosses[0]?.portrait).toEqual({ src: "actor.webp", video: false, focus });
+    expect(framed.elites[0]?.portrait).toEqual({ src: "actor.webp", video: false, focus });
+  });
+
   it("hides a hidden token from players and mutes it for the GM", () => {
     const hidden = { ...boss, tokens: [token("h", { hidden: true })] };
     expect(buildViews([hidden], ranks, player, 12).bosses).toEqual([]);
