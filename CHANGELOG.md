@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Settings file.** The hub's ⋮ menu exports the world's Boss Bars settings (elite ranks, own looks and presets,
+  screen layout) as one file and imports it into another world, after a confirmation. Tools that move a world's
+  documents, such as SC World Gate, carry the profiles on actors but not world settings. A file from another
+  module, a damaged one or one written by a newer version changes nothing.
+- **Boss music survives a move to another world.** A profile now keeps the names of its playlist and track next to
+  their ids; where the ids are new (World Gate leaves playlists behind, so they are rebuilt), the music is found by
+  name, both when it plays and in the profile. Open and save each boss with music once before moving the world, so
+  its profile has the names.
+
 ## 1.3.1
 
 - Fixed: the music search gave no suggestions and only hid entries inside the closed list, and a playlist added

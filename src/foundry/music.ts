@@ -5,9 +5,11 @@ import {
   musicActive,
   readSnapshot,
   rememberFade,
+  resolveMusic,
   sameSource,
   emptySnapshot,
   type MusicCandidate,
+  type PlaylistInfo,
   type MusicSnapshot,
   type MusicSource,
   type TrackRef,
@@ -30,18 +32,27 @@ const inSource = (source: MusicSource | null, sound: PlaylistSoundDocument) =>
   sound.parent.id === source.playlistId &&
   (source.type === "playlist" || sound.id === source.soundId);
 
+/** The world's playlists and tracks by id and name, for finding a boss's music (core/music resolveMusic). */
+export const worldPlaylists = (): PlaylistInfo[] =>
+  game.playlists.contents.map((playlist) => ({
+    id: playlist.id,
+    name: playlist.name,
+    sounds: playlist.sounds.contents.map((sound) => ({ id: sound.id, name: sound.name })),
+  }));
+
 /**
  * Bosses with music on the scene the players stand on (decision 9): shown, not hidden (decision 4), not defeated
- * (decision 5; a form next in line is no defeat).
+ * (decision 5; a form next in line is no defeat). The music is found by id, else by its saved names.
  */
 function candidates(): MusicCandidate[] {
   const scene = game.scenes.active;
   if (!scene) return [];
+  const playlists = worldPlaylists();
   return sceneItems(scene).flatMap((item): MusicCandidate[] => {
     const subject = subjectOf(scene, item);
     if (subject?.profile.kind !== "boss") return [];
     const { profile } = subject;
-    const source = musicOf(profile, item.phase);
+    const source = resolveMusic(musicOf(profile, item.phase), playlists);
     const total = aggregate(subject.tokens, true);
     if (!source || !total || total.hidden) return [];
     if (defeatedOf(subject, total)) return [];

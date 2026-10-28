@@ -1,16 +1,67 @@
-import { isDocumentId, isRecord, migrate, type ReadResult } from "./schema";
+import { isDocumentId, isRecord, migrate, text, type ReadResult } from "./schema";
 
-/** A boss's music (spec §8): one track, or a whole playlist played in its own mode. */
+/**
+ * A boss's music (spec §8): one track, or a whole playlist played in its own mode. The names find it again in a
+ * world where its playlist got a new id (a world moved by World Gate and the like, which leaves playlists behind).
+ */
 export type MusicSource =
-  { type: "sound"; playlistId: string; soundId: string } | { type: "playlist"; playlistId: string };
+  | { type: "sound"; playlistId: string; soundId: string; playlistName?: string; soundName?: string }
+  | { type: "playlist"; playlistId: string; playlistName?: string };
 
-export const MUSIC_LIMITS = { priorityMax: 100, fadeMax: 10_000, fadeDefault: 2000 } as const;
+export const MUSIC_LIMITS = { priorityMax: 100, fadeMax: 10_000, fadeDefault: 2000, name: 200 } as const;
+
+const nameOf = (raw: unknown) => text(raw, MUSIC_LIMITS.name) || undefined;
 
 export function readMusicSource(raw: unknown): MusicSource | null {
   if (!isRecord(raw) || !isDocumentId(raw.playlistId)) return null;
-  if (raw.type === "playlist") return { type: "playlist", playlistId: raw.playlistId };
+  const playlistName = nameOf(raw.playlistName);
+  const named = playlistName ? { playlistName } : {};
+  if (raw.type === "playlist") return { type: "playlist", playlistId: raw.playlistId, ...named };
+  const soundName = nameOf(raw.soundName);
   return raw.type === "sound" && isDocumentId(raw.soundId)
-    ? { type: "sound", playlistId: raw.playlistId, soundId: raw.soundId }
+    ? {
+        type: "sound",
+        playlistId: raw.playlistId,
+        soundId: raw.soundId,
+        ...named,
+        ...(soundName ? { soundName } : {}),
+      }
+    : null;
+}
+
+/** A world playlist as the boss music needs it. */
+export interface PlaylistInfo {
+  id: string;
+  name: string;
+  sounds: { id: string; name: string }[];
+}
+
+/**
+ * The music in this world, with its current names: its playlist and track by id, else by their saved names;
+ * null — gone.
+ */
+export function resolveMusic(
+  source: MusicSource | null,
+  playlists: readonly PlaylistInfo[],
+): MusicSource | null {
+  if (!source) return null;
+  const playlist =
+    playlists.find((each) => each.id === source.playlistId) ??
+    (source.playlistName ? playlists.find((each) => each.name === source.playlistName) : undefined);
+  if (!playlist) return null;
+  if (source.type === "playlist")
+    return { type: "playlist", playlistId: playlist.id, playlistName: playlist.name };
+  const sound =
+    playlist.sounds.find((each) => each.id === source.soundId) ??
+    (source.soundName ? playlist.sounds.find((each) => each.name === source.soundName) : undefined);
+  return sound
+    ? {
+        type: "sound",
+        playlistId: playlist.id,
+        soundId: sound.id,
+        playlistName: playlist.name,
+        soundName: sound.name,
+      }
     : null;
 }
 
