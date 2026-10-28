@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Portrait focus.** The profile's "Main" tab moves the picked point of the portrait to the centre of the round
+  frame, at any zoom, and zooms in (100–300%), with a live frame next to the sliders. Bars, cards and every preview
+  follow it.
+- **Quotes fold.** Each quote folds to one line, its trigger and first line; a click opens it, only one stays open,
+  a new quote opens and folds the others, and a quote with an error opens itself on save.
+- **Music search.** A search above every music list keeps the playlists and tracks that match, in any case; the
+  picked track never disappears.
+- The look preview and its play buttons stay in view while the "Look" tab scrolls.
+- Fixed: the layout panel was taller than a 768 px screen and hid Save and Cancel, so the layout could not be saved.
+  Its fields now scroll, and Save and Cancel stay at the bottom.
+
 ## 1.2.1
 
 - Fixed: in "On the scene", a quote picked in the list went back to the first one, and a line being typed was lost

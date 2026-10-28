@@ -3,7 +3,8 @@
     <p class="hint">{{localize "BB5E.Music.Hint"}}</p>
     <div class="form-group">
       <label for="{{partId}}-music">{{localize "BB5E.Music.Source"}}</label>
-      <div class="form-fields">
+      <div class="form-fields bb5e-music-pick">
+        <input type="search" data-music-search placeholder="{{localize "BB5E.Music.Search"}}" aria-label="{{localize "BB5E.Music.Search"}}">
         <select id="{{partId}}-music" name="music">
           <option value="">{{localize "BB5E.Music.None"}}</option>
           {{#each music.groups}}

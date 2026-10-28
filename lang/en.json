@@ -52,6 +52,12 @@
         "Label": "Portrait",
         "Hint": "Image, GIF, WebP or a webm video. Empty: the actor's image."
       },
+      "Focus": {
+        "X": "Portrait centre, across, %",
+        "Y": "Portrait centre, down, %",
+        "Zoom": "Portrait zoom, %",
+        "Hint": "Which part of the picture the round frame shows: the centre point moves to the middle of the frame, the zoom brings it closer. 50 / 50 / 100: the whole picture, centred."
+      },
       "DisplayMode": {
         "Label": "Display",
         "Token": "One per token",
@@ -122,6 +128,7 @@
       "OwnText": "Own line"
     },
     "Music": {
+      "Search": "Search playlists and tracks",
       "Hint": "The boss's music: when the first boss with music is shown, whatever plays fades out and resumes after the fight from where it stopped. Only the scene the players stand on counts.",
       "Source": "Music",
       "None": "None",
