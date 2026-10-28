@@ -7,6 +7,7 @@ import {
   readSnapshot,
   rememberFade,
   sameSource,
+  resolveMusic,
   suggestMusic,
   type MusicCandidate,
 } from "../../src/core/music";
@@ -160,5 +161,58 @@ describe("suggestMusic", () => {
     expect(suggestMusic([battle, tavern], "lute")).toEqual([
       { value: "sound:P2:S3", label: "Таверна — Lute" },
     ]);
+  });
+});
+
+describe("music in another world", () => {
+  const P = "Playlist00000001";
+  const S = "Sound00000000001";
+  const local = [{ id: P, name: "Битва", sounds: [{ id: S, name: "Барабаны" }] }];
+  // The same playlist after World Gate or a manual rebuild: same names, new ids.
+  const moved = [
+    { id: "Playlist0000000N", name: "Таверна", sounds: [] },
+    { id: "Playlist0000000M", name: "Битва", sounds: [{ id: "Sound0000000000M", name: "Барабаны" }] },
+  ];
+
+  it("keeps the names of the playlist and the track in the profile", () => {
+    const named = { type: "sound", playlistId: P, soundId: S, playlistName: "Битва", soundName: "Барабаны" };
+    expect(readMusicSource(named)).toEqual(named);
+  });
+
+  it("finds the music by id and remembers its current names", () => {
+    expect(resolveMusic({ type: "sound", playlistId: P, soundId: S }, local)).toEqual({
+      type: "sound",
+      playlistId: P,
+      soundId: S,
+      playlistName: "Битва",
+      soundName: "Барабаны",
+    });
+  });
+
+  it("finds it again by its names where the ids are new", () => {
+    const saved = {
+      type: "sound",
+      playlistId: P,
+      soundId: S,
+      playlistName: "Битва",
+      soundName: "Барабаны",
+    } as const;
+    expect(resolveMusic(saved, moved)).toEqual({
+      ...saved,
+      playlistId: "Playlist0000000M",
+      soundId: "Sound0000000000M",
+    });
+    expect(resolveMusic({ type: "playlist", playlistId: P, playlistName: "Таверна" }, moved)).toEqual({
+      type: "playlist",
+      playlistId: "Playlist0000000N",
+      playlistName: "Таверна",
+    });
+  });
+
+  it("finds nothing when neither the ids nor the names are in the world", () => {
+    expect(resolveMusic({ type: "sound", playlistId: P, soundId: S }, moved)).toBeNull();
+    expect(
+      resolveMusic({ type: "sound", playlistId: P, soundId: S, playlistName: "Битва" }, moved),
+    ).toBeNull();
   });
 });

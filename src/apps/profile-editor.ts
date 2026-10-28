@@ -16,7 +16,8 @@ import { resolveLook } from "../core/look/resolve";
 import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
-import { readMusicSource, suggestMusic, type MusicSource } from "../core/music";
+import { readMusicSource, resolveMusic, suggestMusic, type MusicSource } from "../core/music";
+import { worldPlaylists } from "../foundry/music";
 import { inputOf } from "../core/profile-form";
 import { isVideoPath, phaseViewOf } from "../core/view";
 import { setPortrait } from "../ui/dom";
@@ -372,7 +373,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       statusesFull: values.statuses.custom.length >= PROFILE_LIMITS.custom,
       refill: values.fillMode === "refill",
       ...this.#phasesContext(Array.isArray(values.phases) ? (values.phases as Phase[]) : []),
-      music: musicChoices(readMusicSource(values.music)),
+      music: musicChoices(resolveMusic(readMusicSource(values.music), worldPlaylists())),
       musicFadeSeconds: (Number(values.musicFade) || 0) / 1000,
       ...this.#quotesContext(
         Array.isArray(values.quotes) ? (values.quotes as Quote[]) : [],
@@ -501,6 +502,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The "Phases" tab: rows with triggers, form actors and entry changes, and the HP scale with its thresholds. */
   #phasesContext(phases: Phase[]) {
     const presets = sourcesOf(currentLibrary()).presets;
+    const playlists = worldPlaylists();
     const actors = game.actors
       .filter((actor) => actor.type === "npc" && actor.id !== this.actor.id)
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -533,7 +535,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             selected: trigger.type === "form" && trigger.actorId === actor.id,
           })),
           enter: phase.enter,
-          music: musicChoices(phase.enter.music),
+          music: musicChoices(resolveMusic(phase.enter.music ?? null, playlists)),
           overrides: CATEGORIES.map((category) => ({
             category,
             label: game.i18n.localize(CATEGORY_LABELS[category]),
@@ -890,17 +892,24 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const current = readProfile(this.actor.flags[MODULE_ID]?.profile);
     if (current.status === "newer") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
     const stored = current.status === "ok" ? current.value : defaultProfile(input.kind);
+    // Music keeps the names of its playlist and track: they find it again where the ids differ (another world).
+    const playlists = worldPlaylists();
+    const named = (music: MusicSource) => resolveMusic(music, playlists) ?? music;
     // Only the chosen kind's fields are written; the other kind's stay in the flag for a switch back.
     const kindFields =
       input.kind === "boss"
         ? {
             title: input.title.trim(),
             size: input.size,
-            phases: input.phases,
+            phases: input.phases.map((phase) =>
+              phase.enter.music
+                ? { ...phase, enter: { ...phase.enter, music: named(phase.enter.music) } }
+                : phase,
+            ),
             fillMode: input.fillMode,
             playerTicks: input.playerTicks,
             quotes: input.quotes,
-            music: input.music,
+            music: input.music && named(input.music),
             musicPriority: input.musicPriority,
             musicFade: input.musicFade,
             look: this.#look,

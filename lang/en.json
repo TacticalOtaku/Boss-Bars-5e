@@ -421,6 +421,13 @@
         "Bare": "Bare"
       }
     },
+    "SettingsFile": {
+      "Export": "Export Boss Bars settings",
+      "Import": "Import Boss Bars settings",
+      "Confirm": "Replace this world's elite ranks, own looks and presets, and screen layout with the ones in the file? Profiles on actors are not touched.",
+      "Imported": "Boss Bars settings imported: elite ranks, own looks and layout.",
+      "Invalid": "This is not a Boss Bars 5e settings file, or it is damaged. Nothing was changed."
+    },
     "Library": {
       "Title": "Looks and presets",
       "Open": "Open the library",
