@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: saving a profile in a world without the boss's playlist erased its music and the music of its phases (a
+  world moved before its playlists). Such music now shows as "Not found" with its saved names, is kept on save and
+  is found again by name once the playlist exists.
+
 ## 1.4.0
 
 - **Settings file.** The hub's ⋮ menu exports the world's Boss Bars settings (elite ranks, own looks and presets,
