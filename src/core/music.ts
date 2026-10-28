@@ -119,3 +119,24 @@ export function rememberFade(snapshot: MusicSnapshot, track: TrackRef, fade: num
   );
   return known ? snapshot : { ...snapshot, fades: [...snapshot.fades, { ...track, fade }] };
 }
+
+/** A playlist in a music select: the whole playlist, then its tracks. */
+export interface MusicGroup {
+  name: string;
+  options: { value: string; label: string; selected: boolean }[];
+}
+
+/**
+ * The playlists and tracks a search keeps, in any case: a playlist whose name matches keeps all of it, another
+ * keeps the tracks that match. The picked option always stays, so the select never loses its value.
+ */
+export function searchMusic(groups: readonly MusicGroup[], query: string): MusicGroup[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return [...groups];
+  const matches = (text: string) => text.toLocaleLowerCase().includes(needle);
+  return groups.flatMap((group) => {
+    if (matches(group.name)) return [group];
+    const options = group.options.filter((option) => option.selected || matches(option.label));
+    return options.length ? [{ ...group, options }] : [];
+  });
+}
