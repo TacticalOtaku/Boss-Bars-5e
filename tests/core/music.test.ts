@@ -7,7 +7,7 @@ import {
   readSnapshot,
   rememberFade,
   sameSource,
-  searchMusic,
+  suggestMusic,
   type MusicCandidate,
 } from "../../src/core/music";
 import { musicOf } from "../../src/core/phases";
@@ -127,7 +127,7 @@ describe("music snapshot", () => {
   });
 });
 
-describe("searchMusic", () => {
+describe("suggestMusic", () => {
   const option = (value: string, label: string, selected = false) => ({ value, label, selected });
   const battle = {
     name: "Battle",
@@ -142,27 +142,23 @@ describe("searchMusic", () => {
     options: [option("playlist:P2", "Whole playlist"), option("sound:P2:S3", "Lute")],
   };
 
-  it("lists everything while the search is empty", () => {
-    expect(searchMusic([battle, tavern], "  ")).toEqual([battle, tavern]);
+  it("suggests nothing until something is typed", () => {
+    expect(suggestMusic([battle, tavern], "  ")).toEqual([]);
   });
 
-  it("keeps a whole playlist whose name matches, in any case", () => {
-    expect(searchMusic([battle, tavern], "таВЕР")).toEqual([
-      { ...battle, options: [battle.options[2]] },
-      tavern,
+  it("suggests a whole playlist and all its tracks when its name matches, in any case", () => {
+    expect(suggestMusic([battle, tavern], "таВЕР")).toEqual([
+      { value: "playlist:P2", label: "Таверна — Whole playlist" },
+      { value: "sound:P2:S3", label: "Таверна — Lute" },
     ]);
   });
 
-  it("keeps only the matching tracks of the other playlists, and always the picked one", () => {
-    expect(searchMusic([battle, tavern], "drum")).toEqual(
-      [battle].map((group) => ({
-        ...group,
-        options: [group.options[1], group.options[2]],
-      })),
-    );
-    expect(searchMusic([battle, tavern], "lute")).toEqual([
-      { ...battle, options: [battle.options[2]] },
-      { ...tavern, options: [tavern.options[1]] },
+  it("suggests only the matching tracks of other playlists, picked or not", () => {
+    expect(suggestMusic([battle, tavern], "лед")).toEqual([
+      { value: "sound:P1:S2", label: "Battle — Ледяной трон" },
+    ]);
+    expect(suggestMusic([battle, tavern], "lute")).toEqual([
+      { value: "sound:P2:S3", label: "Таверна — Lute" },
     ]);
   });
 });

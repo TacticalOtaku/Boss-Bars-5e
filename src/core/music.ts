@@ -127,16 +127,19 @@ export interface MusicGroup {
 }
 
 /**
- * The playlists and tracks a search keeps, in any case: a playlist whose name matches keeps all of it, another
- * keeps the tracks that match. The picked option always stays, so the select never loses its value.
+ * What a music search suggests, as "Playlist — Track": a playlist whose name matches, in any case, brings all its
+ * options; another brings the tracks that match. Nothing until something is typed.
  */
-export function searchMusic(groups: readonly MusicGroup[], query: string): MusicGroup[] {
+export function suggestMusic(
+  groups: readonly MusicGroup[],
+  query: string,
+): { value: string; label: string }[] {
   const needle = query.trim().toLocaleLowerCase();
-  if (!needle) return [...groups];
+  if (!needle) return [];
   const matches = (text: string) => text.toLocaleLowerCase().includes(needle);
-  return groups.flatMap((group) => {
-    if (matches(group.name)) return [group];
-    const options = group.options.filter((option) => option.selected || matches(option.label));
-    return options.length ? [{ ...group, options }] : [];
-  });
+  return groups.flatMap((group) =>
+    group.options
+      .filter((option) => matches(group.name) || matches(option.label))
+      .map((option) => ({ value: option.value, label: `${group.name} — ${option.label}` })),
+  );
 }

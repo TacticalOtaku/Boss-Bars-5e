@@ -16,7 +16,7 @@ import { resolveLook } from "../core/look/resolve";
 import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
-import { readMusicSource, searchMusic, type MusicSource } from "../core/music";
+import { readMusicSource, suggestMusic, type MusicSource } from "../core/music";
 import { inputOf } from "../core/profile-form";
 import { isVideoPath, phaseViewOf } from "../core/view";
 import { setPortrait } from "../ui/dom";
@@ -616,6 +616,10 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         // A range-picker's slider has no name while dragged: the picker around it carries it.
         if (target.closest('[name^="portraitFocus."]')) this.#drawFocus();
       });
+      this.element.addEventListener("click", (event) => {
+        const hit = (event.target as HTMLElement).closest<HTMLElement>("[data-music-hit]");
+        if (hit) this.#pickMusic(hit);
+      });
       this.element.addEventListener(
         "toggle",
         (event) => this.#onQuoteToggle(event.target as HTMLElement),
@@ -796,27 +800,44 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
-  /** Hides the playlists and tracks a music search leaves out; the select keeps its options and its value. */
+  /** Suggestions under a music search, from the world's playlists as they are now: one added meanwhile shows up. */
   #searchMusic(search: HTMLInputElement) {
-    const select = search.parentElement?.querySelector("select");
-    if (!select) return;
-    const groups = [...select.querySelectorAll("optgroup")];
-    const listed = groups.map((group) => ({
-      name: group.label,
-      options: [...group.querySelectorAll("option")].map((option) => ({
-        value: option.value,
-        label: option.text,
-        selected: option.selected,
-      })),
-    }));
-    const kept = new Set(
-      searchMusic(listed, search.value).flatMap((group) => group.options.map((option) => option.value)),
+    const hits = search.parentElement?.querySelector<HTMLElement>("[data-music-hits]");
+    if (!hits) return;
+    const typed = search.value.trim() !== "";
+    const found = suggestMusic(musicChoices(null).groups, search.value).map(({ value, label }) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.musicHit = value;
+      button.textContent = label;
+      return button;
+    });
+    const none = document.createElement("span");
+    none.textContent = game.i18n.localize("BB5E.Music.NoMatch");
+    hits.replaceChildren(
+      ...(found.length ? found : [none]).map((item) => {
+        const li = document.createElement("li");
+        li.append(item);
+        return li;
+      }),
     );
-    for (const group of groups) {
-      const options = [...group.querySelectorAll("option")];
-      for (const option of options) option.hidden = !kept.has(option.value);
-      group.hidden = options.every((option) => option.hidden);
+    hits.hidden = !typed;
+  }
+
+  /** A picked suggestion becomes the list's value, added to it first when its playlist came after the render. */
+  #pickMusic(hit: HTMLElement) {
+    const pick = hit.closest(".bb5e-music-pick");
+    const select = pick?.querySelector("select");
+    const search = pick?.querySelector<HTMLInputElement>("[data-music-search]");
+    const value = hit.dataset.musicHit ?? "";
+    if (!select || !search) return;
+    if (![...select.options].some((option) => option.value === value)) {
+      select.add(new Option(hit.textContent ?? value, value));
     }
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    search.value = "";
+    this.#searchMusic(search);
   }
 
   /** The round frame next to the focus sliders follows them while they move. */
