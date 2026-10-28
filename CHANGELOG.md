@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: the music search gave no suggestions and only hid entries inside the closed list, and a playlist added
+  while the profile was open could not be found. Typing now lists the matching playlists and tracks under the
+  field, from the world's playlists as they are now; a click picks one.
+
 ## 1.3.0
 
 - **Portrait focus.** The profile's "Main" tab moves the picked point of the portrait to the centre of the round
