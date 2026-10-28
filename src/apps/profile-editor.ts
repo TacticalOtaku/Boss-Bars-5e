@@ -16,7 +16,7 @@ import { resolveLook } from "../core/look/resolve";
 import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
-import { readMusicSource, resolveMusic, suggestMusic, type MusicSource } from "../core/music";
+import { keepMusic, readMusicSource, resolveMusic, suggestMusic, type MusicSource } from "../core/music";
 import { worldPlaylists } from "../foundry/music";
 import { inputOf } from "../core/profile-form";
 import { isVideoPath, phaseViewOf } from "../core/view";
@@ -106,22 +106,51 @@ const musicValue = (source: MusicSource | null | undefined) =>
     : source.type === "playlist"
       ? `playlist:${source.playlistId}`
       : `sound:${source.playlistId}:${source.soundId}`;
-/** The world's playlists as option groups: the whole playlist, then each track. */
-function musicChoices(selected: MusicSource | null | undefined) {
-  const current = musicValue(selected);
+/**
+ * The world's playlists as option groups: the whole playlist, then each track. Saved music this world lacks comes
+ * first as "Not found", picked, so a save keeps it (core/music keepMusic).
+ */
+function musicChoices(saved: MusicSource | null | undefined, playlists = worldPlaylists()) {
+  const found = resolveMusic(saved ?? null, playlists);
+  const current = musicValue(found ?? saved);
+  const missingLabel = game.i18n.localize("BB5E.Music.Missing");
+  const missing =
+    saved && !found
+      ? [
+          {
+            name: missingLabel,
+            options: [
+              {
+                value: current,
+                label:
+                  [
+                    saved.playlistName,
+                    saved.type === "sound" ? saved.soundName : game.i18n.localize("BB5E.Music.WholePlaylist"),
+                  ]
+                    .filter(Boolean)
+                    .join(" — ") || missingLabel,
+                selected: true,
+              },
+            ],
+          },
+        ]
+      : [];
   return {
-    groups: game.playlists.contents
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((playlist) => ({
-        name: playlist.name,
-        options: [
-          { value: `playlist:${playlist.id}`, label: game.i18n.localize("BB5E.Music.WholePlaylist") },
-          ...playlist.sounds.contents.map((sound) => ({
-            value: `sound:${playlist.id}:${sound.id}`,
-            label: sound.name,
-          })),
-        ].map((option) => ({ ...option, selected: option.value === current })),
-      })),
+    groups: [
+      ...missing,
+      ...game.playlists.contents
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((playlist) => ({
+          name: playlist.name,
+          options: [
+            { value: `playlist:${playlist.id}`, label: game.i18n.localize("BB5E.Music.WholePlaylist") },
+            ...playlist.sounds.contents.map((sound) => ({
+              value: `sound:${playlist.id}:${sound.id}`,
+              label: sound.name,
+            })),
+          ].map((option) => ({ ...option, selected: option.value === current })),
+        })),
+    ],
   };
 }
 
@@ -373,7 +402,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       statusesFull: values.statuses.custom.length >= PROFILE_LIMITS.custom,
       refill: values.fillMode === "refill",
       ...this.#phasesContext(Array.isArray(values.phases) ? (values.phases as Phase[]) : []),
-      music: musicChoices(resolveMusic(readMusicSource(values.music), worldPlaylists())),
+      music: musicChoices(keepMusic(readMusicSource(values.music), this.#savedMusic(), worldPlaylists())),
       musicFadeSeconds: (Number(values.musicFade) || 0) / 1000,
       ...this.#quotesContext(
         Array.isArray(values.quotes) ? (values.quotes as Quote[]) : [],
@@ -499,6 +528,14 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["look"] });
   }
 
+  /** The music saved in the flag, names and all: the profile's, or one phase's. */
+  #savedMusic(phaseId?: string): MusicSource | null {
+    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
+    const boss = read.status === "ok" && read.value.kind === "boss" ? read.value : null;
+    if (phaseId === undefined) return boss?.music ?? null;
+    return boss?.phases.find((phase) => phase.id === phaseId)?.enter.music ?? null;
+  }
+
   /** The "Phases" tab: rows with triggers, form actors and entry changes, and the HP scale with its thresholds. */
   #phasesContext(phases: Phase[]) {
     const presets = sourcesOf(currentLibrary()).presets;
@@ -535,7 +572,10 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             selected: trigger.type === "form" && trigger.actorId === actor.id,
           })),
           enter: phase.enter,
-          music: musicChoices(resolveMusic(phase.enter.music ?? null, playlists)),
+          music: musicChoices(
+            keepMusic(phase.enter.music ?? null, this.#savedMusic(phase.id), playlists),
+            playlists,
+          ),
           overrides: CATEGORIES.map((category) => ({
             category,
             label: game.i18n.localize(CATEGORY_LABELS[category]),
@@ -894,7 +934,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const stored = current.status === "ok" ? current.value : defaultProfile(input.kind);
     // Music keeps the names of its playlist and track: they find it again where the ids differ (another world).
     const playlists = worldPlaylists();
-    const named = (music: MusicSource) => resolveMusic(music, playlists) ?? music;
+    const named = (music: MusicSource, phaseId?: string) =>
+      keepMusic(music, this.#savedMusic(phaseId), playlists);
     // Only the chosen kind's fields are written; the other kind's stay in the flag for a switch back.
     const kindFields =
       input.kind === "boss"
@@ -903,7 +944,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             size: input.size,
             phases: input.phases.map((phase) =>
               phase.enter.music
-                ? { ...phase, enter: { ...phase.enter, music: named(phase.enter.music) } }
+                ? { ...phase, enter: { ...phase.enter, music: named(phase.enter.music, phase.id) } }
                 : phase,
             ),
             fillMode: input.fillMode,

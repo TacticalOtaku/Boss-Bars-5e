@@ -129,6 +129,7 @@
     },
     "Music": {
       "Search": "Search playlists and tracks",
+      "Missing": "Not found",
       "NoMatch": "Nothing found",
       "Hint": "The boss's music: when the first boss with music is shown, whatever plays fades out and resumes after the fight from where it stopped. Only the scene the players stand on counts.",
       "Source": "Music",
