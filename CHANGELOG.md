@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.1
 
 - Fixed: the music search gave no suggestions and only hid entries inside the closed list, and a playlist added
   while the profile was open could not be found. Typing now lists the matching playlists and tracks under the
