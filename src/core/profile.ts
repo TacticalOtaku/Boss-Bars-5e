@@ -48,11 +48,20 @@ export interface MiniBar {
   source: MiniBarSource;
 }
 
+/** Which point of the portrait stays in the frame (0–100%) and how close it is (100–300%). */
+export interface PortraitFocus {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 interface ProfileBase {
   dataVersion: number;
   playerName: string;
   /** null — the actor's image. Images, GIF, WebP or a video (webm, mp4). */
   portrait: string | null;
+  /** Missing — centred at full size. */
+  portraitFocus?: PortraitFocus;
   displayMode: DisplayMode;
   autoShow: AutoShow;
   statuses: StatusRules;
@@ -128,6 +137,7 @@ export interface ProfileInput {
   playerName: string;
   title: string;
   portrait: string;
+  portraitFocus?: PortraitFocus;
   size: number;
   rank: string;
   autoShow: AutoShow;
@@ -162,6 +172,7 @@ export const PROFILE_LIMITS = {
   thresholdMin: 5,
   thresholdMax: 95,
   thresholdGap: 8,
+  zoomMax: 300,
 } as const;
 
 export const DEFAULT_AUTO_SHOW: AutoShow = {
@@ -211,6 +222,17 @@ const clamp = (value: unknown, min: number, max: number, fallback: number) => {
   const number = typeof value === "number" || typeof value === "string" ? Number(value) : Number.NaN;
   return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
 };
+
+export const CENTRED_FOCUS: PortraitFocus = { x: 50, y: 50, zoom: 100 };
+
+export const readFocus = (raw: unknown): PortraitFocus | undefined =>
+  isRecord(raw)
+    ? {
+        x: clamp(raw.x, 0, 100, 50),
+        y: clamp(raw.y, 0, 100, 50),
+        zoom: clamp(raw.zoom, 100, PROFILE_LIMITS.zoomMax, 100),
+      }
+    : undefined;
 
 function readAutoShow(raw: unknown): AutoShow {
   const value = isRecord(raw) ? raw : {};
@@ -355,6 +377,7 @@ export function readProfile(raw: unknown): ReadResult<Profile> {
     dataVersion: PROFILE_VERSION,
     playerName: text(value.playerName, PROFILE_LIMITS.text),
     portrait: text(value.portrait, PROFILE_LIMITS.path) || null,
+    portraitFocus: readFocus(value.portraitFocus),
     displayMode: value.displayMode === "actor" ? "actor" : "token",
     autoShow: readAutoShow(value.autoShow),
     statuses: readStatuses(value.statuses),

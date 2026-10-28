@@ -24,6 +24,26 @@
       <p class="bb5e-field-error" data-error-for="portrait" role="alert" hidden></p>
     </div>
     <div class="form-group">
+      <label for="{{partId}}-focusX">{{localize "BB5E.Profile.Focus.X"}}</label>
+      <div class="form-fields">
+        <range-picker id="{{partId}}-focusX" name="portraitFocus.x" min="0" max="100" step="1" value="{{focus.x}}"></range-picker>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="{{partId}}-focusY">{{localize "BB5E.Profile.Focus.Y"}}</label>
+      <div class="form-fields">
+        <range-picker id="{{partId}}-focusY" name="portraitFocus.y" min="0" max="100" step="1" value="{{focus.y}}"></range-picker>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="{{partId}}-focusZoom">{{localize "BB5E.Profile.Focus.Zoom"}}</label>
+      <div class="form-fields">
+        <range-picker id="{{partId}}-focusZoom" name="portraitFocus.zoom" min="100" max="{{limits.zoomMax}}" step="5" value="{{focus.zoom}}"></range-picker>
+        <div class="bb5e-face bb5e-focus-preview" aria-hidden="true"></div>
+      </div>
+      <p class="hint">{{localize "BB5E.Profile.Focus.Hint"}}</p>
+    </div>
+    <div class="form-group">
       <label for="{{partId}}-displayMode">{{localize "BB5E.Profile.DisplayMode.Label"}}</label>
       <div class="form-fields">
         <select id="{{partId}}-displayMode" name="displayMode">

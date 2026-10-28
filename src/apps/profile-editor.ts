@@ -1,5 +1,6 @@
 import { MODULE_ID } from "../constants";
 import {
+  CENTRED_FOCUS,
   DEFAULT_AUTO_SHOW,
   defaultProfile,
   isLegendary,
@@ -15,9 +16,10 @@ import { resolveLook } from "../core/look/resolve";
 import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
-import { readMusicSource, type MusicSource } from "../core/music";
+import { readMusicSource, searchMusic, type MusicSource } from "../core/music";
 import { inputOf } from "../core/profile-form";
-import { phaseViewOf } from "../core/view";
+import { isVideoPath, phaseViewOf } from "../core/view";
+import { setPortrait } from "../ui/dom";
 import { CATEGORY_LABELS } from "./look-labels";
 import { rankOf } from "../core/ranks";
 import { currentRanks } from "../foundry/settings";
@@ -82,6 +84,9 @@ const QUOTE_GROUP: Record<string, string> = {
   damage: "percent",
   status: "status",
 };
+
+/** A folded quote row: its trigger and its first line. */
+const quoteSummary = (trigger: string, line: string) => `${trigger} — ${line.trim() || "…"}`;
 
 /** Tab of each field-name prefix, to bring the first invalid field into view. */
 const TAB_OF: [RegExp, string][] = [
@@ -169,8 +174,9 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       playPhase: ProfileEditor.#onPlayPhase,
       addQuote: ProfileEditor.#edit((input) => {
         if (input.quotes.length >= QUOTE_LIMITS.quotes) return;
+        const id = foundry.utils.randomID();
         input.quotes.push({
-          id: foundry.utils.randomID(),
+          id,
           trigger: { type: "appear" },
           texts: [],
           order: "random",
@@ -178,6 +184,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           once: false,
           duration: null,
         });
+        return id;
       }),
       removeQuote: ProfileEditor.#edit((input, index) => input.quotes.splice(index, 1)),
       moveQuote: ProfileEditor.#edit((input, index, target) => {
@@ -268,6 +275,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   #look: string | null = null;
   #overrides: Partial<Record<Category, string>> = {};
   #preview: PreviewState = freshPreview();
+  /** The quote row shown expanded; the others are folded to one line. */
+  #openQuote: string | null = null;
   #phaseAt = 0;
 
   constructor(
@@ -292,10 +301,12 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Edits the current form state and re-renders with it, keeping unsaved edits. */
-  static #edit(change: (input: ProfileInput, index: number, target: HTMLElement) => void) {
+  /** A change may return the id of the quote to show expanded (a new one); the others fold. */
+  static #edit(change: (input: ProfileInput, index: number, target: HTMLElement) => unknown) {
     return async function (this: ProfileEditor, _event: Event, target: HTMLElement) {
       const input = this.#formInput();
-      change(input, Number(target.dataset.index), target);
+      const opened = change(input, Number(target.dataset.index), target);
+      if (typeof opened === "string") this.#openQuote = opened;
       this.#draft = input;
       this.#setDirty(true);
       await this.render();
@@ -330,6 +341,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       values,
       isElite: values.kind === "elite",
       byActor: values.displayMode === "actor",
+      focus: (values.portraitFocus as ProfileInput["portraitFocus"]) ?? CENTRED_FOCUS,
       ranks: ranks.map((rank) => ({ id: rank.id, name: rank.name, selected: rank.id === values.rank })),
       hasProfile: read.status === "ok",
       look: this.#lookContext(),
@@ -412,6 +424,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         ticks: input.fillMode === "segments" ? phaseTicks(input.phases, this.#phaseAt) : [],
         title: changes.title || input.title,
         img: changes.portrait || input.portrait || this.actor.img,
+        focus: input.portraitFocus,
       },
       changes.playerName || input.playerName.trim() || this.actor.name,
     );
@@ -574,6 +587,14 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           cooldown: quote.cooldown,
           once: quote.once,
           duration: quote.duration ?? "",
+          open: quote.id === this.#openQuote,
+          summary: quoteSummary(
+            game.i18n.localize(
+              QUOTE_TRIGGERS.find((each) => each.value === trigger.type)?.label ??
+                "BB5E.Phases.Trigger.Newer",
+            ),
+            quote.texts[0] ?? "",
+          ),
         };
       }),
       quotesFull: quotes.length >= QUOTE_LIMITS.quotes,
@@ -588,10 +609,22 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#syncTriggers();
     // Re-rendering replaces the parts, so listening on the form root survives every render.
     if (options.isFirstRender) {
-      this.element.addEventListener("input", () => this.#setDirty(true));
-      this.element.addEventListener("change", (event) => {
-        this.#setDirty(true);
+      this.element.addEventListener("input", (event) => {
         const target = event.target as HTMLInputElement;
+        if (target.matches("[data-music-search]")) return this.#searchMusic(target);
+        this.#setDirty(true);
+        // A range-picker's slider has no name while dragged: the picker around it carries it.
+        if (target.closest('[name^="portraitFocus."]')) this.#drawFocus();
+      });
+      this.element.addEventListener(
+        "toggle",
+        (event) => this.#onQuoteToggle(event.target as HTMLElement),
+        true,
+      );
+      this.element.addEventListener("change", (event) => {
+        const target = event.target as HTMLInputElement;
+        if (target.matches("[data-music-search]")) return;
+        this.#setDirty(true);
         if (target.name === "kind") this.#syncKind();
         else if (target.name.startsWith("overrides.")) this.#onOverride(target);
         else if (target.name.endsWith(".source.type")) this.#onSourceChange(target);
@@ -682,6 +715,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         shown: true,
         title: input.title,
         img: input.portrait || this.actor.img,
+        focus: input.portraitFocus,
         quote: { key: shown.key, text: shown.text, until: now + shown.duration * 1000 },
       },
       name,
@@ -714,6 +748,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           ticks: input.fillMode === "segments" ? phaseTicks(input.phases, at) : [],
           title: changes.title || input.title,
           img: changes.portrait || input.portrait || this.actor.img,
+          focus: input.portraitFocus,
         },
         changes.playerName || input.playerName || this.actor.name,
       );
@@ -734,13 +769,62 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #updatePreview() {
     this.#drawLook();
+    this.#drawFocus();
     const host = this.element.querySelector<HTMLElement>(".bb5e-card-preview");
     if (!host || this.#kind() !== "elite") return;
     previewCard(host, {
       label: this.#field("playerName").trim() || this.actor.name,
       img: this.#field("portrait").trim() || this.actor.img,
+      focus: this.#formInput().portraitFocus,
       rank: rankOf(currentRanks(), this.#field("rank")).rank,
     });
+  }
+
+  /** The quote shown expanded survives re-renders; a folded one sums up its fields as they are now. */
+  #onQuoteToggle(details: HTMLElement) {
+    if (!(details instanceof HTMLDetailsElement) || !details.dataset.quoteId) return;
+    if (details.open) this.#openQuote = details.dataset.quoteId;
+    else if (this.#openQuote === details.dataset.quoteId) this.#openQuote = null;
+    const trigger = details.querySelector<HTMLSelectElement>('select[name$=".trigger"]');
+    const texts = details.querySelector<HTMLTextAreaElement>('textarea[name$=".texts"]');
+    const summary = details.querySelector("[data-quote-summary]");
+    if (summary && trigger && texts) {
+      summary.textContent = quoteSummary(
+        trigger.selectedOptions[0]?.text ?? "",
+        texts.value.split("\n")[0] ?? "",
+      );
+    }
+  }
+
+  /** Hides the playlists and tracks a music search leaves out; the select keeps its options and its value. */
+  #searchMusic(search: HTMLInputElement) {
+    const select = search.parentElement?.querySelector("select");
+    if (!select) return;
+    const groups = [...select.querySelectorAll("optgroup")];
+    const listed = groups.map((group) => ({
+      name: group.label,
+      options: [...group.querySelectorAll("option")].map((option) => ({
+        value: option.value,
+        label: option.text,
+        selected: option.selected,
+      })),
+    }));
+    const kept = new Set(
+      searchMusic(listed, search.value).flatMap((group) => group.options.map((option) => option.value)),
+    );
+    for (const group of groups) {
+      const options = [...group.querySelectorAll("option")];
+      for (const option of options) option.hidden = !kept.has(option.value);
+      group.hidden = options.every((option) => option.hidden);
+    }
+  }
+
+  /** The round frame next to the focus sliders follows them while they move. */
+  #drawFocus() {
+    const host = this.element.querySelector<HTMLElement>(".bb5e-focus-preview");
+    if (!host) return;
+    const src = this.#field("portrait").trim() || this.actor.img;
+    setPortrait(host, { src, video: isVideoPath(src), focus: this.#formInput().portraitFocus });
   }
 
   #setDirty(dirty: boolean) {
@@ -772,6 +856,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     const first = Object.keys(errors)[0];
     if (first === undefined) return;
+    form.querySelector(`[name="${first}"]`)?.closest("details")?.setAttribute("open", "");
     const tab = TAB_OF.find(([pattern]) => pattern.test(first))?.[1] ?? "main";
     this.changeTab(tab, "sheet");
   }
@@ -810,6 +895,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         kind: input.kind,
         playerName: input.playerName.trim(),
         portrait: input.portrait.trim() || null,
+        portraitFocus: input.portraitFocus,
         displayMode: input.displayMode,
         autoShow: { ...DEFAULT_AUTO_SHOW, ...input.autoShow },
         statuses: {

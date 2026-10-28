@@ -3,6 +3,7 @@ import { BUILTIN_IDS, BUILTIN_LOOKS, BUILTIN_PRESETS, CLASSIC, CLASSIC_STYLE } f
 import { resolveLook, type LookSources } from "../core/look/resolve";
 import type { Category, Library } from "../core/look/schema";
 import { lookStyle, type LookStyle } from "../core/look/style";
+import type { PortraitFocus } from "../core/profile";
 import type { Rank } from "../core/ranks";
 import { isVideoPath, type BossBarView, type EliteCardView, type PhaseView } from "../core/view";
 import { createBossStack } from "../ui/boss-stack";
@@ -47,7 +48,15 @@ const bars = new WeakMap<HTMLElement, ReturnType<typeof createBossStack>>();
  */
 export function previewCard(
   host: HTMLElement,
-  card: { label: string; img: string; rank: Rank; look?: LookStyle; fraction?: number; defeated?: boolean },
+  card: {
+    label: string;
+    img: string;
+    focus?: PortraitFocus;
+    rank: Rank;
+    look?: LookStyle;
+    fraction?: number;
+    defeated?: boolean;
+  },
 ): void {
   let column = cards.get(host);
   if (!column) {
@@ -58,7 +67,7 @@ export function previewCard(
   const view: EliteCardView = {
     id: "preview",
     label: card.label,
-    portrait: { src: card.img, video: isVideoPath(card.img) },
+    portrait: { src: card.img, video: isVideoPath(card.img), focus: card.focus },
     fraction: card.fraction ?? 0.66,
     defeated: card.defeated ?? false,
     muted: false,
@@ -89,6 +98,7 @@ export interface PreviewState {
   ticks?: number[];
   title?: string;
   img?: string;
+  focus?: PortraitFocus;
   quote?: BossBarView["quote"];
 }
 
@@ -181,7 +191,7 @@ export function previewBoss(host: HTMLElement, look: LookStyle, state: PreviewSt
     phase: state.phase ?? null,
     ticks: state.ticks ?? [],
     quote: state.quote ?? null,
-    portrait: { src: state.img || SAMPLE_IMG, video: isVideoPath(state.img ?? "") },
+    portrait: { src: state.img || SAMPLE_IMG, video: isVideoPath(state.img ?? ""), focus: state.focus },
     size: 100,
     fraction: state.fraction,
     defeated: state.defeated,
