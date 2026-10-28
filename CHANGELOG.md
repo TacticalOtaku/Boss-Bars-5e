@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 
 - **Portrait focus.** The profile's "Main" tab moves the picked point of the portrait to the centre of the round
   frame, at any zoom, and zooms in (100–300%), with a live frame next to the sliders. Bars, cards and every preview
