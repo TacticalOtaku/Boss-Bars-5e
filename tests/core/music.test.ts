@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   emptySnapshot,
+  keepMusic,
   leadMusic,
   musicActive,
   readMusicSource,
@@ -214,5 +215,23 @@ describe("music in another world", () => {
     expect(
       resolveMusic({ type: "sound", playlistId: P, soundId: S, playlistName: "Битва" }, moved),
     ).toBeNull();
+  });
+
+  it("keeps the saved music, names and all, while its playlist is not in this world", () => {
+    const saved = {
+      type: "sound",
+      playlistId: P,
+      soundId: S,
+      playlistName: "Битва",
+      soundName: "Барабаны",
+    } as const;
+    // The form gives back only the ids of the "not found" option.
+    expect(keepMusic({ type: "sound", playlistId: P, soundId: S }, saved, [])).toEqual(saved);
+    expect(keepMusic({ type: "sound", playlistId: P, soundId: S }, saved, moved)).toEqual({
+      ...saved,
+      playlistId: "Playlist0000000M",
+      soundId: "Sound0000000000M",
+    });
+    expect(keepMusic(null, saved, [])).toBeNull();
   });
 });

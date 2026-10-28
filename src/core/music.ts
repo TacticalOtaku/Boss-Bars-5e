@@ -73,6 +73,19 @@ export const sameSource = (a: MusicSource | null, b: MusicSource | null) =>
     a.playlistId === b.playlistId &&
     (a.type === "playlist" || (b.type === "sound" && a.soundId === b.soundId)));
 
+/**
+ * The music a profile form saves: what was picked, with its current names. The saved music, still picked but not
+ * in this world (its playlists not brought over yet), stays as it was, names and all.
+ */
+export function keepMusic(
+  picked: MusicSource | null,
+  saved: MusicSource | null,
+  playlists: readonly PlaylistInfo[],
+): MusicSource | null {
+  const base = sameSource(picked, saved) ? saved : picked;
+  return base && (resolveMusic(base, playlists) ?? base);
+}
+
 /** A shown boss of the active scene that has music right now. */
 export interface MusicCandidate {
   instanceId: string;
