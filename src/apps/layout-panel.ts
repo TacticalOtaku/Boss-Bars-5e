@@ -2,6 +2,7 @@ import { MODULE_ID } from "../constants";
 import {
   effectiveLayout,
   LAYOUT_LIMITS,
+  LAYOUT_VERSION,
   moveToScreen,
   offscreen,
   overlapping,
@@ -14,6 +15,7 @@ import {
   type Rect,
   type Size,
 } from "../core/layout";
+import { isRecord } from "../core/schema";
 import { PLAYER_SCREENS } from "../core/screens";
 import {
   measureZones,
@@ -332,7 +334,14 @@ class LayoutPanel extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
+/** Written by a newer module version: read as the default, so a save from here would replace it. */
+const newer = (raw: unknown) => isRecord(raw) && Number(raw.dataVersion) > LAYOUT_VERSION;
+
 export function openLayoutPanel(host: LayoutHost): void {
+  if (newer(game.settings.get(MODULE_ID, "layout")) || newer(canvas?.scene?.flags[MODULE_ID]?.layout)) {
+    ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
+    return;
+  }
   const existing = foundry.applications.instances.get("bb5e-layout");
   void (existing ?? new LayoutPanel(host)).render({ force: true });
 }

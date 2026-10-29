@@ -113,7 +113,7 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
       return;
     }
     if (!card.vfx) {
-      const renderer = vfxRenderer(options.reducedMotion);
+      const renderer = vfxRenderer();
       if (!renderer) return;
       const canvas = document.createElement("canvas");
       canvas.className = "bb5e-elite__vfx";

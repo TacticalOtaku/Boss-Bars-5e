@@ -2,6 +2,7 @@ import { approach, palette, shaderTime } from "../../core/look/live";
 import type { BarMaterial } from "../../core/look/material";
 import { VFX_SLOTS, vfxAt, vfxFrameInterval, type VfxEvent, type VfxKind } from "../../core/look/vfx";
 import { logger } from "../../logger";
+import { reducedMotion } from "../dom";
 import { BAR_VERTEX, barFragment, variantKey, type BarVariant } from "./bar-shader";
 
 /** What a bar shows; the renderer animates the fill, the trail and defeat on its own. */
@@ -323,6 +324,9 @@ class VfxRenderer {
         if (target.drawn < 0) {
           target.drawn = state.fill;
           target.trail = state.fill;
+          // The first state is where the bar starts, not a change: no trail from full, no defeat played again.
+          target.state = state;
+          target.defeatedAt = state.defeated ? now - DEFEAT_MS : null;
         }
         // A hit holds the trail where the fill was (a look that does not gather hits drops the older ones);
         // healing takes it along.
@@ -649,13 +653,16 @@ class VfxRenderer {
 
 let renderer: VfxRenderer | null | undefined;
 
-/** The shared renderer, created on first use; null without WebGL2 (bars keep their CSS look for the session). */
-export function vfxRenderer(reduced: () => boolean): VfxRenderer | null {
+/**
+ * The shared renderer, created on first use; null without WebGL2 (bars keep their CSS look for the session). It reads
+ * the page's reduced motion itself: an editor preview's own setting must not stick to every bar.
+ */
+export function vfxRenderer(): VfxRenderer | null {
   if (renderer !== undefined) return renderer;
   const gl = document
     .createElement("canvas")
     .getContext("webgl2", { alpha: true, premultipliedAlpha: true, antialias: false });
-  renderer = gl ? new VfxRenderer(gl, reduced) : null;
+  renderer = gl ? new VfxRenderer(gl, reducedMotion) : null;
   if (!gl) logger.info("WebGL2 unavailable: boss bars use their CSS look");
   return renderer;
 }
