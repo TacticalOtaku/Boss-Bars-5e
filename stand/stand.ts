@@ -13,6 +13,7 @@ import { FONT_FACES } from "../src/core/look/fonts";
 import { createBossStack } from "../src/ui/boss-stack";
 import { registerFonts } from "../src/ui/look";
 import { createEliteColumn } from "../src/ui/elite-column";
+import { reducedMotion } from "../src/ui/dom";
 import { mountOverlay } from "../src/ui/overlay";
 import { FIXTURE_BOSSES, FIXTURE_ELITES, FIXTURE_RANKS } from "./fixtures";
 
@@ -64,9 +65,6 @@ let lookIndex = 0;
 let quotePlace: "above" | "below" | "side" = "above";
 /** A live fill type forced onto the current look; null — the look's own. */
 let liveType: LiveFill | null = null;
-const reducedMotion = () =>
-  matchMedia("(prefers-reduced-motion: reduce)").matches ||
-  document.body.classList.contains("performance-low");
 
 const overlay = mountOverlay(host);
 const stack = createBossStack(overlay, {
@@ -248,7 +246,7 @@ const ACTIONS: Record<string, () => void> = {
     const next = liveType ? LIVE_FILLS.indexOf(liveType) + 1 : 0;
     liveType = LIVE_FILLS[next] ?? null;
   },
-  "Потеря контекста (2 с)": () => vfxRenderer(reducedMotion)?.simulateLoss(2000),
+  "Потеря контекста (2 с)": () => vfxRenderer()?.simulateLoss(2000),
   Сброс: () => {
     Object.assign(state, fresh());
     state.collapsed.clear();

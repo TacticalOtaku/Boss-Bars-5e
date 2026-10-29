@@ -18,7 +18,7 @@ import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
 import { keepMusic, readMusicSource, resolveMusic, suggestMusic, type MusicSource } from "../core/music";
 import { worldPlaylists } from "../foundry/music";
-import { inputOf } from "../core/profile-form";
+import { inputOf, keepChoice } from "../core/profile-form";
 import { isVideoPath, phaseViewOf } from "../core/view";
 import { setPortrait } from "../ui/dom";
 import { CATEGORY_LABELS } from "./look-labels";
@@ -366,13 +366,14 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     }));
     const statusIds = new Set(choices.map((choice) => choice.id));
     const items = this.actor.items.filter((item) => Boolean(item.hasLimitedUses));
+    const missing = game.i18n.localize("BB5E.Music.Missing");
     return {
       ...(await super._prepareContext(options)),
       values,
       isElite: values.kind === "elite",
       byActor: values.displayMode === "actor",
       focus: (values.portraitFocus as ProfileInput["portraitFocus"]) ?? CENTRED_FOCUS,
-      ranks: ranks.map((rank) => ({ id: rank.id, name: rank.name, selected: rank.id === values.rank })),
+      ranks: keepChoice(ranks, String(values.rank ?? ""), missing),
       hasProfile: read.status === "ok",
       look: this.#lookContext(),
       limits: PROFILE_LIMITS,
@@ -385,11 +386,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           pips: bar.view === "pips",
           players: bar.players,
           sources: SOURCES.map((each) => ({ ...each, selected: each.value === source.type })),
-          items: items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            selected: source.type === "item" && source.itemId === item.id,
-          })),
+          items: keepChoice(items, source.type === "item" ? source.itemId : "", missing),
           path: source.type === "path" ? source.path : "",
           pathMax: source.type === "path" ? String(source.max) : "",
           counterMax: source.type === "counter" ? source.max : 3,
@@ -540,6 +537,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   #phasesContext(phases: Phase[]) {
     const presets = sourcesOf(currentLibrary()).presets;
     const playlists = worldPlaylists();
+    const missing = game.i18n.localize("BB5E.Music.Missing");
     const actors = game.actors
       .filter((actor) => actor.type === "npc" && actor.id !== this.actor.id)
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -566,11 +564,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           ],
           newer: newer ? JSON.stringify(trigger) : "",
           below: trigger.type === "hp" ? trigger.below : 50,
-          actors: actors.map((actor) => ({
-            id: actor.id,
-            name: actor.name,
-            selected: trigger.type === "form" && trigger.actorId === actor.id,
-          })),
+          actors: keepChoice(actors, trigger.type === "form" ? trigger.actorId : "", missing),
           enter: phase.enter,
           music: musicChoices(
             keepMusic(phase.enter.music ?? null, this.#savedMusic(phase.id), playlists),
@@ -579,13 +573,13 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           overrides: CATEGORIES.map((category) => ({
             category,
             label: game.i18n.localize(CATEGORY_LABELS[category]),
-            options: presets
-              .filter((preset) => preset.category === category)
-              .map((preset) => ({
-                id: preset.id,
-                name: displayName(preset),
-                selected: phase.enter.overrides?.[category] === preset.id,
-              })),
+            options: keepChoice(
+              presets
+                .filter((preset) => preset.category === category)
+                .map((preset) => ({ id: preset.id, name: displayName(preset) })),
+              phase.enter.overrides?.[category] ?? "",
+              missing,
+            ),
           })),
         };
       }),

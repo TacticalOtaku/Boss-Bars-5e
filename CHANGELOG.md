@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: a profile that names something this world lacks (an elite rank, a phase's own preset, a form's actor, a
+  mini-bar's item; left behind by a move or deleted) lost it on the next save: the elite became the strongest rank,
+  the phase preset was dropped, and a missing form actor or item blocked saving the whole profile. Such choices now
+  show as "Not found", are kept on save and never block it.
+- Fixed: a boss whose look changed only in its HP change or phase effects (a phase override, an edit in the
+  profile) kept the old effects on its bar until a reload.
+- Fixed: importing a settings file while the look library or the ranks were open let their old state be saved over
+  the import. The open section now closes (asking about unsaved edits) and opens again on the imported data.
+- Fixed: the layout panel saved over a layout written by a newer module version. It now refuses to open on such a
+  layout, as the other editors do.
+- Fixed: opening the elite ranks or the library before any boss was shown turned off the GM's bar effects for the
+  session.
+- Fixed: a bar shown at reduced HP with a quick HP effect drained a damage trail from full, and a bar shown already
+  defeated could play its defeat again.
+- Fixed: the defeat banner of `api.playEffect` vanished at the next HP or status change instead of fading out.
+
 ## 1.4.1
 
 - Fixed: saving a profile in a world without the boss's playlist erased its music and the music of its phases (a
