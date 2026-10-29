@@ -1,5 +1,10 @@
 import { CENTRED_FOCUS, type PortraitFocus } from "../core/profile";
 
+/** prefers-reduced-motion or Foundry's performance-low: only opacity changes are animated. */
+export const reducedMotion = () =>
+  matchMedia("(prefers-reduced-motion: reduce)").matches ||
+  document.body.classList.contains("performance-low");
+
 export function part(tag: string, className: string, parent?: HTMLElement): HTMLElement {
   const el = document.createElement(tag);
   el.className = className;

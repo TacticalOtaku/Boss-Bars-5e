@@ -73,6 +73,22 @@ function sourceOf(raw: Record<string, unknown>): MiniBarSource {
   }
 }
 
+/**
+ * A select's options with the saved id picked. A saved id this world lacks (a rank, preset, actor or item left behind
+ * by a move or deleted) comes first as `missing`, picked: a select with nothing picked falls back to its first option
+ * and a save would write that instead.
+ */
+export function keepChoice(
+  options: { id: string; name: string }[],
+  saved: string,
+  missing: string,
+): { id: string; name: string; selected: boolean }[] {
+  const choices = options.map(({ id, name }) => ({ id, name, selected: id === saved }));
+  return saved && !choices.some((choice) => choice.selected)
+    ? [{ id: saved, name: missing, selected: true }, ...choices]
+    : choices;
+}
+
 export function musicFrom(value: string): MusicSource | null {
   const [type, playlistId, soundId] = value.split(":");
   return readMusicSource({ type, playlistId, soundId });

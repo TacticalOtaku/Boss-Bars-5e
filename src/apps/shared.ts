@@ -7,6 +7,7 @@ import type { PortraitFocus } from "../core/profile";
 import type { Rank } from "../core/ranks";
 import { isVideoPath, type BossBarView, type EliteCardView, type PhaseView } from "../core/view";
 import { createBossStack } from "../ui/boss-stack";
+import { reducedMotion } from "../ui/dom";
 import { createEliteColumn } from "../ui/elite-column";
 
 /** Asks before closing a window with unsaved edits. */
@@ -178,9 +179,7 @@ export function previewBoss(host: HTMLElement, look: LookStyle, state: PreviewSt
         phase: game.i18n.localize("BB5E.Phase.Default"),
       },
       onCollapse: () => undefined,
-      reducedMotion: () =>
-        matchMedia("(prefers-reduced-motion: reduce)").matches ||
-        document.body.classList.contains("performance-low"),
+      reducedMotion,
     });
     bars.set(host, stack);
   }

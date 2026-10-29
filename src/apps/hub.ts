@@ -293,15 +293,33 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
     foundry.utils.saveDataToFile(json, "application/json", "boss-bars-5e-settings.json");
   }
 
-  static #onImportSettings() {
+  static #onImportSettings(this: Hub) {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json,application/json";
     input.addEventListener("change", () => {
       const file = input.files?.[0];
-      if (file) void importSettings(file);
+      if (file) void this.#importSettings(file);
     });
     input.click();
+  }
+
+  /**
+   * A settings file replaces the world's ranks, own looks and layout, after the GM confirms; a bad file changes
+   * nothing. The open section closes first and opens again on the imported data: its draft would save over it.
+   */
+  async #importSettings(file: File) {
+    const read = readSettingsFile(await foundry.utils.readTextFromFile(file));
+    if ("error" in read) return ui.notifications.error(read.error, { localize: true });
+    const confirmed = await DialogV2.confirm({
+      window: { title: loc("BB5E.SettingsFile.Import") },
+      content: `<p>${loc("BB5E.SettingsFile.Confirm")}</p>`,
+    });
+    if (!confirmed || !(await this.#release())) return;
+    for (const [key, value] of Object.entries(read.settings)) await game.settings.set(MODULE_ID, key, value);
+    ui.notifications.info("BB5E.SettingsFile.Imported", { localize: true });
+    // As #show: the slot part stays, so the section mounted again on the new data is not wiped.
+    await this.render({ parts: ["nav", "list"] });
   }
 
   /** "Selected token": its world actor's profile, made on the first save. */
@@ -311,19 +329,6 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!actor) return ui.notifications.warn("BB5E.Hub.NoToken", { localize: true });
     await this.show("profiles", actor);
   }
-}
-
-/** A settings file replaces the world's ranks, own looks and layout, after the GM confirms; a bad file changes nothing. */
-async function importSettings(file: File) {
-  const read = readSettingsFile(await foundry.utils.readTextFromFile(file));
-  if ("error" in read) return ui.notifications.error(read.error, { localize: true });
-  const confirmed = await DialogV2.confirm({
-    window: { title: loc("BB5E.SettingsFile.Import") },
-    content: `<p>${loc("BB5E.SettingsFile.Confirm")}</p>`,
-  });
-  if (!confirmed) return;
-  for (const [key, value] of Object.entries(read.settings)) await game.settings.set(MODULE_ID, key, value);
-  ui.notifications.info("BB5E.SettingsFile.Imported", { localize: true });
 }
 
 /** Opens the hub on a section (and an actor's profile), or switches the open one there. */
