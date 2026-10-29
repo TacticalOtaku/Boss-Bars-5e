@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.2
 
 - Fixed: a profile that names something this world lacks (an elite rank, a phase's own preset, a form's actor, a
   mini-bar's item; left behind by a move or deleted) lost it on the next save: the elite became the strongest rank,

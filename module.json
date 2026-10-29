@@ -2,7 +2,7 @@
   "id": "boss-bars-5e",
   "title": "Boss Bars 5e",
   "description": "RPG boss bars and elite cards for important D&D 5e enemies.",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "authors": [
     {
       "name": "TacticalOtaku"
@@ -10,7 +10,7 @@
   ],
   "url": "https://github.com/TacticalOtaku/Boss-Bars-5e",
   "manifest": "https://raw.githubusercontent.com/TacticalOtaku/Boss-Bars-5e/main/module.json",
-  "download": "https://github.com/TacticalOtaku/Boss-Bars-5e/releases/download/v1.4.1/boss-bars-5e-v1.4.1.zip",
+  "download": "https://github.com/TacticalOtaku/Boss-Bars-5e/releases/download/v1.4.2/boss-bars-5e-v1.4.2.zip",
   "compatibility": {
     "minimum": "14",
     "verified": "14.367",
