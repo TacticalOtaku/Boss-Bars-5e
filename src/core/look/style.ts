@@ -5,7 +5,7 @@ import type { Params } from "./schema";
 
 /** How a resolved look draws: data attributes and CSS variables for the bar or card root, plus behaviour. */
 export interface LookStyle {
-  /** Changes whenever attrs or vars change: the renderer skips re-applying an equal style. */
+  /** Changes whenever the look changes (attrs, vars or material): an equal key is not applied again. */
   key: string;
   attrs: Record<string, string>;
   vars: Record<string, string>;
@@ -141,7 +141,8 @@ export function lookStyle(look: ResolvedLook): LookStyle {
     "--bb5e-card-size": String(SIZE_SCALE[card.size] ?? 1),
   };
   return {
-    key: JSON.stringify([attrs, vars]),
+    // The whole look: the material reads params (HP effect switches, phase motion) that attrs and vars leave out.
+    key: JSON.stringify(look),
     attrs,
     vars,
     customFont: face.custom,
