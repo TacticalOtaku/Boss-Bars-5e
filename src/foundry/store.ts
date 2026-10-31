@@ -35,6 +35,9 @@ const HOOKS = [
   "deleteCombat",
   "updateWorldTime",
   "updateScene",
+  // Joining/leaving GMs or role changes can transfer authority without changing scene data.
+  "userConnected",
+  "updateUser",
   "canvasReady",
   "clientSettingChanged",
 ];

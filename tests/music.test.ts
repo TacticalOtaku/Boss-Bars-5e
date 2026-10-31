@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startMusicWatch } from "../src/foundry/music";
+import { musicFrom } from "../src/core/profile-form";
+import { startStore } from "../src/foundry/store";
 
 const SCENE = "Scene00000000001";
 const TOKEN = "Token00000000001";
@@ -65,12 +67,15 @@ let settings: Record<string, unknown>;
 let recompute: () => void;
 let tavern: Sound;
 let battle: Sound;
+let profile: Record<string, unknown>;
+let emit: (hook: string) => void;
+let user: { isGM: boolean; isActiveGM: boolean };
 
 /** Runs the queued music steps and the fade restore after them. */
 const settle = () => vi.advanceTimersByTimeAsync(5_000);
 
 beforeEach(() => {
-  vi.useFakeTimers();
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
   settings = {};
   instances = [];
   const tavernList = playlist(TAVERN, "Sound00000000001", {
@@ -81,23 +86,35 @@ beforeEach(() => {
   const battleList = playlist(BATTLE, "Sound00000000002", { fade: 500 });
   tavern = tavernList.sounds.get("Sound00000000001") as Sound;
   battle = battleList.sounds.get("Sound00000000002") as Sound;
+  profile = {
+    dataVersion: 2,
+    kind: "boss",
+    displayMode: "token",
+    music: { type: "playlist", playlistId: BATTLE },
+    musicFade: 2000,
+  };
   const actor = {
     id: ACTOR,
     name: "Lich",
     img: "",
+    statuses: new Set(),
+    appliedEffects: [],
+    system: { attributes: { hp: { value: 100, max: 100 } } },
     flags: {
       "boss-bars-5e": {
-        profile: {
-          dataVersion: 2,
-          kind: "boss",
-          displayMode: "token",
-          music: { type: "playlist", playlistId: BATTLE },
-          musicFade: 2000,
-        },
+        profile,
       },
     },
   };
-  const token = { id: TOKEN, actorId: ACTOR, baseActor: actor, name: "Lich", hidden: false, actorLink: true };
+  const token = {
+    id: TOKEN,
+    actorId: ACTOR,
+    actor,
+    baseActor: actor,
+    name: "Lich",
+    hidden: false,
+    actorLink: true,
+  };
   const scene = {
     id: SCENE,
     flags: {
@@ -109,8 +126,9 @@ beforeEach(() => {
     },
     tokens: collection([[TOKEN, token]]),
   };
+  user = { isGM: true, isActiveGM: true };
   vi.stubGlobal("game", {
-    user: { isGM: true, isActiveGM: true },
+    user,
     scenes: Object.assign(collection([[SCENE, scene]]), { active: scene }),
     actors: collection([[ACTOR, actor]]),
     combats: collection([]),
@@ -124,14 +142,20 @@ beforeEach(() => {
         settings[key] = value;
       },
     },
+    i18n: { localize: (key: string) => key },
   });
-  startMusicWatch({
-    refresh: () => undefined,
-    subscribe: (listener) => {
-      recompute = listener;
-      return () => undefined;
+  vi.stubGlobal("canvas", { scene });
+  vi.stubGlobal("CONFIG", { specialStatusEffects: { DEFEATED: "dead" } });
+  const handlers = new Map<string, (() => void)[]>();
+  emit = (hook) => handlers.get(hook)?.forEach((listener) => listener());
+  vi.stubGlobal("Hooks", {
+    on: (hook: string, listener: () => void) => {
+      handlers.set(hook, [...(handlers.get(hook) ?? []), listener]);
     },
   });
+  const hud = startStore(() => undefined);
+  recompute = hud.refresh;
+  startMusicWatch(hud);
 });
 
 afterEach(() => {
@@ -140,6 +164,77 @@ afterEach(() => {
 });
 
 describe("boss music", () => {
+  it("starts the selected track through the scene update hook after the boss appears", async () => {
+    profile.music = musicFrom(`sound:${BATTLE}:Sound00000000002`);
+    recompute();
+    await settle();
+    instances = [{ id: INSTANCE, kind: "boss", tokenId: TOKEN, order: 1 }];
+    emit("updateScene");
+    await settle();
+    expect(battle.playing).toBe(true);
+    expect(tavern.playing).toBe(false);
+  });
+
+  it.each(["userConnected", "updateUser"])(
+    "starts a shown boss's track after %s transfers GM authority",
+    async (hook) => {
+      user.isActiveGM = false;
+      profile.music = musicFrom(`sound:${BATTLE}:Sound00000000002`);
+      instances = [{ id: INSTANCE, kind: "boss", tokenId: TOKEN, order: 1 }];
+      emit("updateScene");
+      await settle();
+      expect(battle.playing).toBe(false);
+
+      user.isActiveGM = true;
+      emit(hook);
+      await settle();
+      expect(battle.playing).toBe(true);
+    },
+  );
+
+  it("starts the selected track when its scene becomes active", async () => {
+    const scene = game.scenes.active;
+    game.scenes.active = undefined;
+    profile.music = musicFrom(`sound:${BATTLE}:Sound00000000002`);
+    instances = [{ id: INSTANCE, kind: "boss", tokenId: TOKEN, order: 1 }];
+    emit("updateScene");
+    await settle();
+    expect(battle.playing).toBe(false);
+
+    game.scenes.active = scene;
+    emit("updateScene");
+    await settle();
+    expect(battle.playing).toBe(true);
+  });
+
+  it("preserves a GM's manual stop when another user connects", async () => {
+    profile.music = musicFrom(`sound:${BATTLE}:Sound00000000002`);
+    instances = [{ id: INSTANCE, kind: "boss", tokenId: TOKEN, order: 1 }];
+    emit("updateScene");
+    await settle();
+    expect(battle.playing).toBe(true);
+
+    battle.playing = false;
+    emit("userConnected");
+    await settle();
+    expect(battle.playing).toBe(false);
+    expect(tavern.playing).toBe(false);
+  });
+
+  it.each([true, false])("leaves music alone without active GM authority (isGM=%s)", async (isGM) => {
+    user.isGM = isGM;
+    user.isActiveGM = false;
+    profile.music = musicFrom(`sound:${BATTLE}:Sound00000000002`);
+    instances = [{ id: INSTANCE, kind: "boss", tokenId: TOKEN, order: 1 }];
+    emit("updateScene");
+    emit("userConnected");
+    emit("updateUser");
+    await settle();
+    expect(battle.playing).toBe(false);
+    expect(tavern.playing).toBe(true);
+    expect(settings.music).toBeUndefined();
+  });
+
   it("swaps the table's music for the boss's and puts it back, place and fades included", async () => {
     instances = [{ id: INSTANCE, kind: "boss", tokenId: TOKEN, order: 1 }];
     recompute();

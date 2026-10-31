@@ -23,7 +23,7 @@ Only GMs change bars; when several GMs are online, the active GM writes every ch
 
 - **Boss bars.** Fill with a lingering damage trail, temp HP shield, defeat banner or effect, collapse for players.
   Several bosses stack.
-- **The hub.** One GM window for all of it: "On the scene" (show, hide, phases, counters, quotes, layout mode),
+- **The hub.** One GM window for all of it: "On the scene" (show, hide, phases, counters, quotes, local HUD preferences),
   "Profiles" (search, drop an actor, or take the selected token), "Elite ranks" and "Look library". Leaving a section
   with unsaved edits asks first.
 - **Elite column.** Cards by rank (name, colour, icon size, which parts show, in the hub's "Elite ranks"), "one
@@ -33,8 +33,9 @@ Only GMs change bars; when several GMs are online, the active GM writes every ch
 - **Mini-bars.** Up to six under a boss bar or inside a card: temp HP, legendary actions and resistances, item uses,
   any `system.` path, or a manual counter. Each can be hidden from players.
 - **Auto-show.** Show when combat reaches round 1, hide when it ends or when the enemy falls, after a delay.
-- **Layout mode.** From the hub's "On the scene": drag the boss stack and the elite column, with guides, anchors to nine points,
-  a warning when a block covers Foundry's own UI or leaves the screen, and screen size previews. Saves for the world or for one scene.
+- **Personal HUD layout.** Drag each boss bar individually or move the elite column as one unit. Positions save automatically
+  on each client for the current scene and survive reloads. Focus an element with Tab, then use arrows (Shift: 10 px)
+  to move it, Home to reset it, or Escape to cancel a drag. The hub opens local preferences and a scene-position reset.
 - **Looks.** 17 built-in looks (frame, fill, name, effects, statuses, extras, motion, layout), 9 bar layouts and
   4 card layouts with sizes S to XL, 30 fonts with Latin and Cyrillic. Boss bars, elite card plates and portrait
   frames are drawn by one WebGL2 shader: lit materials (liquid, energy, flame, ice, void, gradient), carved patterns,

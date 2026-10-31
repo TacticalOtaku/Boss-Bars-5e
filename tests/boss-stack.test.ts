@@ -298,3 +298,28 @@ describe("boss bar particles", () => {
     expect(emit).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("individually movable runtime bosses", () => {
+  it("uses separate movement wrappers and animates the inner bar without changing editor previews", () => {
+    const stack = createBossStack(overlay, {
+      labels: { collapse: "Collapse", expand: "Expand", defeated: "Defeated", phase: "Phase {n}" },
+      onCollapse,
+      reducedMotion: () => true,
+      movable: true,
+    });
+    stack.update([view("a"), view("b")], BLOCK, 1);
+    const targets = stack.targets();
+    expect(targets.map((target) => target.id)).toEqual(["a", "b"]);
+    expect(targets[0]!.element).not.toBe(targets[1]!.element);
+    const inner = targets[0]!.element.querySelector<HTMLElement>(".bb5e-boss")!;
+    expect(inner).not.toBeNull();
+    expect(targets[0]!.element.getAnimations()).toHaveLength(0);
+    expect(inner.getAnimations().length).toBeGreaterThan(0);
+    targets[0]!.element.style.transform = "translate(50px, 20px)";
+    stack.update([view("a", { fraction: 0.2 }), view("b")], BLOCK, 1);
+    expect(stack.targets()[0]!.element.style.transform).toBe("translate(50px, 20px)");
+    expect(stack.targets()[1]!.element.style.transform).toBe("");
+    stack.update([view("b")], BLOCK, 1);
+    expect(stack.targets().map((target) => target.id)).toEqual(["b"]);
+  });
+});

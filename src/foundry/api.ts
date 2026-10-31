@@ -13,6 +13,7 @@ import { readProfile } from "../core/profile";
 import { buildViews } from "../core/view";
 import { baseActorOf } from "../integrations/dnd5e/actor";
 import { logger } from "../logger";
+import { serverTime } from "./time";
 import { errorKey, requestWrite } from "./authority";
 import { currentRanks } from "./settings";
 import { instanceFor, sceneItems, sceneSubjects, subjectOf } from "./store";
@@ -195,7 +196,7 @@ export function createApi(host: ApiHost) {
       const views = buildViews(subjects, currentRanks(), viewer, Infinity);
       const phaseLabel = (numeral: string) =>
         game.i18n.localize("BB5E.Phase.Default").replace("{n}", numeral);
-      return Object.freeze(activeEntries(subjects, views, scene.id, isGM, Date.now(), phaseLabel));
+      return Object.freeze(activeEntries(subjects, views, scene.id, isGM, serverTime(), phaseLabel));
     },
 
     openEditor: (actor: ActorDocument) =>
