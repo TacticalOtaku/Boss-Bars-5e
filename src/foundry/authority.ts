@@ -22,6 +22,7 @@ import { freeQuote, pickQuote, speak, type QuoteContext, type QuoteEvent } from 
 import { playerLabels, type SubjectInput } from "../core/view";
 import { readProfile, type BossProfile, type Profile } from "../core/profile";
 import { logger } from "../logger";
+import { serverTime } from "./time";
 import { profileActorOf, subjectOf } from "./store";
 
 const QUERY = `${MODULE_ID}.write`;
@@ -234,7 +235,7 @@ function playerNameOf(scene: SceneDocument, state: InstanceState, item: Instance
 function quoteContext(scene: SceneDocument, state: InstanceState, item: Instance): QuoteContext {
   return {
     ...fightOf(scene, item),
-    now: Date.now(),
+    now: serverTime(),
     name: playerNameOf(scene, state, item),
     random: Math.random,
   };

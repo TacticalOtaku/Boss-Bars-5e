@@ -38,7 +38,7 @@ saved the change, so another GM can call them too; they fail if no GM is online.
 | `getActive(sceneId?)` | What this client's HUD shows on the viewed scene (or `sceneId`), see below. Synchronous, read only, also for players |
 | `openEditor(actor)` | Opens the hub on the Boss Bars profile of an actor (a new one if it has none) |
 | `openPanel()` | Opens the hub on "On the scene" |
-| `layoutMode(on?)` | Opens (`true`) or closes (`false`) the layout panel, flips it without an argument; resolves to the new state |
+| `layoutMode(on?)` | Opens (`true`) or closes (`false`) the client-local HUD preferences/reset panel, flips it without an argument; resolves to the new state |
 
 Ids of phases, quotes, counters and custom statuses are internal: read them from a GM's `getActive()`.
 
