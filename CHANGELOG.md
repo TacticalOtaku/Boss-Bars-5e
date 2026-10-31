@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.5.0
+
+- **Personal HUD placement.** Drag each boss bar independently, or move the elite column as one unit, without
+  entering a layout mode. Positions save automatically on each client for each scene and survive reloads.
+  Keyboard arrows move the focused element (Shift: 10 px), Home resets it, and Escape cancels a drag.
+- The former layout panel now controls local preferences and resets this client's positions. Existing shared
+  layouts remain available as initial defaults; dragging never changes another client's screen.
+- Fixed: fresh boss speech could expire immediately for players whose computer clocks differed from the GM's.
+  Speech now uses Foundry's synchronized server time.
+- Fixed: a hidden boss spent its arrival phrase before players could see it; the phrase now starts on first reveal.
+- Fixed: a hit dealing exactly the configured percentage of maximum HP sometimes failed to trigger its phrase.
+- Fixed: a newly active GM did not start the shown boss's music after a user connection or role change. Manual
+  music stops remain respected.
+- Moved bars keep their positions during exit animations and after another bar disappears; movement also handles
+  scaled interfaces, viewport resizing, cancelled gestures, and failed position saves.
+
 ## 1.4.2
 
 - Fixed: a profile that names something this world lacks (an elite rank, a phase's own preset, a form's actor, a

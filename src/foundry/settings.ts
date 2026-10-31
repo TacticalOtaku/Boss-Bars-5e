@@ -20,7 +20,15 @@ export function registerSettings(onChange: () => void, openRanks: () => void, op
     default: true,
     onChange,
   });
-  // World layout (spec §2); scenes override whole blocks with a flag.
+  // Legacy world layout remains registered for read-only initial defaults.
+  game.settings.register(MODULE_ID, "clientLayout", {
+    scope: "client",
+    config: false,
+    type: Object,
+    default: {},
+    onChange,
+  });
+  // Legacy world layout; new positions and preferences are client-local.
   game.settings.register(MODULE_ID, "layout", {
     scope: "world",
     config: false,

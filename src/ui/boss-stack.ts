@@ -22,6 +22,10 @@ import type { VfxEvent } from "../core/look/vfx";
 import { vfxRenderer, type VfxHandle } from "./vfx/renderer";
 
 export interface StackOptions {
+  /** Runtime only: each boss gets a movement wrapper; editor previews retain their existing DOM. */
+  movable?: boolean;
+  /** Runtime HUDs share Foundry's synchronized clock with the GM that wrote the speech. */
+  now?(): number;
   /** `defeated`: the defeat banner's text when the look gives none; `phase`: "Phase {n}". */
   labels: { collapse: string; expand: string; defeated: string; phase: string };
   onCollapse(id: string, collapsed: boolean): void;
@@ -32,6 +36,7 @@ export interface StackOptions {
 }
 
 interface Bar extends KeyedItem {
+  root: HTMLElement;
   portrait: HTMLElement;
   name: HTMLElement;
   count: HTMLElement;
@@ -72,12 +77,15 @@ const DEFEAT_BANNER_MS = 2000;
 /** The boss stack: one DOM bar per view, drawn in its look. All texts go in as text, never as HTML. */
 export function createBossStack(overlay: HTMLElement, options: StackOptions) {
   const stack = part("div", "bb5e-stack", overlay);
+  let shownViews: BossBarView[] = [];
 
   function createBar(): Bar {
-    const el = part("section", "bb5e-boss");
-    const avatar = part("div", "bb5e-boss__avatar", el);
+    const root = part("section", "bb5e-boss");
+    const el = options.movable ? part("div", "bb5e-boss-slot") : root;
+    if (el !== root) el.append(root);
+    const avatar = part("div", "bb5e-boss__avatar", root);
     const portrait = part("div", "bb5e-boss__portrait bb5e-face", avatar);
-    const body = part("div", "bb5e-boss__body", el);
+    const body = part("div", "bb5e-boss__body", root);
     const head = part("div", "bb5e-boss__head", body);
     const name = part("span", "bb5e-boss__name", head);
     const count = part("span", "bb5e-boss__count", head);
@@ -105,16 +113,18 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     const extras = part("div", "bb5e-boss__extras", body);
     const miniBars = part("div", "bb5e-minibars bb5e-boss__minibars", extras);
     const statuses = createStatusRow("bb5e-boss__statuses", extras);
-    const banner = part("div", "bb5e-banner", el);
+    const banner = part("div", "bb5e-banner", root);
     banner.hidden = true;
-    const phaseBanner = part("div", "bb5e-banner bb5e-banner--phase", el);
+    const phaseBanner = part("div", "bb5e-banner bb5e-banner--phase", root);
     phaseBanner.hidden = true;
     // The quote is read out by screen readers when it appears.
-    const quote = part("p", "bb5e-boss__quote", el);
+    const quote = part("p", "bb5e-boss__quote", root);
     quote.setAttribute("aria-live", "polite");
     quote.hidden = true;
     const bar: Bar = {
       el,
+      root,
+      motionElement: root,
       portrait,
       name,
       count,
@@ -164,17 +174,17 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     const jump = (fraction: number) => {
       bar.trail.style.transition = "none";
       bar.trail.style.transform = `scaleX(${fraction})`;
-      bar.el.style.setProperty("--bb5e-t", String(fraction));
+      bar.root.style.setProperty("--bb5e-t", String(fraction));
       void bar.trail.offsetWidth;
       bar.trail.style.transition = "";
     };
     if (previous === null || shown >= previous || quiet) jump(shown);
     else if (!view.look.effects.trailAccumulate) jump(previous);
     bar.fill.style.transform = `scaleX(${shown})`;
-    bar.el.style.setProperty("--bb5e-f", String(shown));
+    bar.root.style.setProperty("--bb5e-f", String(shown));
     if (previous !== null && shown < previous) {
       bar.trail.style.transform = `scaleX(${shown})`;
-      bar.el.style.setProperty("--bb5e-t", String(shown));
+      bar.root.style.setProperty("--bb5e-t", String(shown));
     }
     if (!quiet) playHp(bar, view, hpChange(previous, shown, view.look.effects.bigThreshold), shown);
   }
@@ -205,7 +215,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       change,
       view.look,
       {
-        root: bar.el,
+        root: bar.root,
         portrait: bar.portrait,
         flash: bar.flash,
         crack: bar.crack,
@@ -218,13 +228,12 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
 
   /**
    * A new quote shows for what is left of its time; one seen before is left alone, so repeated renders and other
-   * HP hooks never restart it. shortcut: the end time is the active GM's clock, a skewed client clock shortens or
-   * stretches it (capped at the quote's maximum); sync clocks if that ever matters.
+   * HP hooks never restart it. Runtime HUDs use the same synchronized clock as the authority.
    */
   function updateQuote(bar: Bar, quote: BossBarView["quote"]) {
     if (!quote || quote.key === bar.quoteKey) return;
     bar.quoteKey = quote.key;
-    const left = Math.min(quote.until - Date.now(), QUOTE_LIMITS.durationMax * 1000);
+    const left = Math.min(quote.until - (options.now?.() ?? Date.now()), QUOTE_LIMITS.durationMax * 1000);
     if (left <= 0) return;
     clearTimeout(bar.quoteTimer);
     bar.quoteTimer = showQuote(bar.quote, quote.text, left, options.reducedMotion());
@@ -243,9 +252,14 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       canvas.className = "bb5e-boss__vfx";
       canvas.setAttribute("aria-hidden", "true");
       bar.meter.before(canvas);
-      const handle = renderer.attach(canvas, bar.meter, (live) => bar.el.classList.toggle("bb5e-vfx", live), {
-        text: [bar.name, bar.title],
-      });
+      const handle = renderer.attach(
+        canvas,
+        bar.meter,
+        (live) => bar.root.classList.toggle("bb5e-vfx", live),
+        {
+          text: [bar.name, bar.title],
+        },
+      );
       bar.vfx = { handle, canvas };
     }
     if (!bar.portraitVfx) {
@@ -256,7 +270,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       const handle = renderer.attach(
         canvas,
         bar.portrait,
-        (live) => bar.el.classList.toggle("bb5e-pvfx", live),
+        (live) => bar.root.classList.toggle("bb5e-pvfx", live),
         {
           portrait: true,
         },
@@ -292,7 +306,8 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
 
   function updateBar(bar: Bar, view: BossBarView) {
     bar.view = view;
-    const { el } = bar;
+    const { root: el } = bar;
+    el.dataset.instanceId = view.id;
     const { look } = view;
     const previousKey = bar.phaseKey;
     bar.phaseKey = view.phase?.key ?? null;
@@ -374,7 +389,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     onLeave(bar, view) {
       // "Dissolve": the bar crumbles into ash in its own colours.
       if (view.defeated && view.look.motion.defeat === "dissolve" && options.particles) {
-        options.particles.emit(ash(bar.el.getBoundingClientRect(), view.look.fill.colors));
+        options.particles.emit(ash(bar.root.getBoundingClientRect(), view.look.fill.colors));
       }
       if (!view.defeated || view.look.motion.defeat !== "banner") return;
       bar.banner.textContent = view.look.motion.bannerText || options.labels.defeated;
@@ -406,7 +421,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
       playPhaseChange(look, targets, fill, bar.phase.textContent ?? "", null, reduced);
     } else {
       if (look.motion.defeat === "dissolve" && options.particles) {
-        options.particles.emit(ash(bar.el.getBoundingClientRect(), look.fill.colors));
+        options.particles.emit(ash(bar.root.getBoundingClientRect(), look.fill.colors));
       }
       bar.banner.textContent = look.motion.bannerText || options.labels.defeated;
       bar.banner.hidden = false;
@@ -422,7 +437,16 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
   return {
     element: stack,
     play,
+    targets() {
+      return options.movable
+        ? shownViews.flatMap((view) => {
+            const shown = list.get(view.id);
+            return shown ? [{ id: view.id, element: shown.item.el, label: view.label }] : [];
+          })
+        : [];
+    },
     update(views: BossBarView[], block: Block, uiScale: number) {
+      shownViews = views;
       positionBlock(stack, block, uiScale);
       list.update(views);
     },

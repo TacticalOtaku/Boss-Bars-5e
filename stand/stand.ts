@@ -1,6 +1,7 @@
 import "../styles/boss-bars-5e.scss";
 import { PLAYER_SCREENS } from "../src/core/screens";
-import { DEFAULT_LAYOUT, type Direction } from "../src/core/layout";
+import { ANCHORS, DEFAULT_LAYOUT, type Direction, type Placement } from "../src/core/layout";
+import { isRecord } from "../src/core/schema";
 import { BUILTIN_LOOKS, BUILTIN_SOURCES, CLASSIC } from "../src/core/look/builtin";
 import { resolveLook } from "../src/core/look/resolve";
 import { hpFraction } from "../src/core/hp";
@@ -15,6 +16,8 @@ import { registerFonts } from "../src/ui/look";
 import { createEliteColumn } from "../src/ui/elite-column";
 import { reducedMotion } from "../src/ui/dom";
 import { mountOverlay } from "../src/ui/overlay";
+import { startHudDrag } from "../src/ui/hud-drag";
+import { logger } from "../src/logger";
 import { FIXTURE_BOSSES, FIXTURE_ELITES, FIXTURE_RANKS } from "./fixtures";
 
 const select = document.querySelector<HTMLSelectElement>("#screen")!;
@@ -68,6 +71,7 @@ let liveType: LiveFill | null = null;
 
 const overlay = mountOverlay(host);
 const stack = createBossStack(overlay, {
+  movable: true,
   labels: { collapse: "Свернуть", expand: "Развернуть", defeated: "Повержен", phase: "Фаза {n}" },
   onCollapse(id, collapsed) {
     if (collapsed) state.collapsed.add(id);
@@ -87,6 +91,49 @@ const column = createEliteColumn(overlay, {
     },
   },
 });
+
+// Fixture-only persistence exercises the runtime controller without a Foundry world or settings service.
+const POSITION_KEY = "boss-bars-5e-stand-positions";
+function loadPositions(): Record<string, Placement> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(POSITION_KEY) ?? "{}");
+    if (!isRecord(value)) return {};
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        ([, item]) =>
+          isRecord(item) &&
+          typeof item.anchor === "string" &&
+          Object.hasOwn(ANCHORS, item.anchor) &&
+          typeof item.dx === "number" &&
+          Number.isFinite(item.dx) &&
+          typeof item.dy === "number" &&
+          Number.isFinite(item.dy),
+      ),
+    ) as Record<string, Placement>;
+  } catch {
+    return {};
+  }
+}
+let positions = loadPositions();
+const movement = startHudDrag({
+  host,
+  overlay,
+  uiScale: () => state.uiScale,
+  hint: "Перетащите мышкой. Стрелки — сдвиг, Shift — быстрее, Home — сброс.",
+  positionOf: (_scene, id) => positions[id] ?? null,
+  async save(_scene, id, placement) {
+    if (placement) positions[id] = placement;
+    else positions = Object.fromEntries(Object.entries(positions).filter(([key]) => key !== id));
+    try {
+      localStorage.setItem(POSITION_KEY, JSON.stringify(positions));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  onError: () => logger.error("Не удалось сохранить положение HUD на стенде."),
+});
+import.meta.hot?.dispose(() => movement.stop());
 
 /** What the stand's "GM" last saw of each boss: HP share and phase, for the quote events. */
 const seen = new Map<string, { fraction: number | null; phase: string | undefined }>();
@@ -146,6 +193,10 @@ function render(): void {
   // The quote place is a layout parameter; the stand flips it on the rendered bars to show all three.
   for (const bar of overlay.querySelectorAll<HTMLElement>(".bb5e-boss")) bar.dataset.lookQuote = quotePlace;
   column.update(views.elites, views, DEFAULT_LAYOUT.elites, state.uiScale);
+  movement.update("stand", [
+    ...stack.targets(),
+    ...(views.column.total ? [{ id: "elites", element: column.element, label: "Элита" }] : []),
+  ]);
 }
 
 const firstHp = () => state.bosses[0]?.tokens[0]?.hp;
@@ -250,6 +301,8 @@ const ACTIONS: Record<string, () => void> = {
   Сброс: () => {
     Object.assign(state, fresh());
     state.collapsed.clear();
+    positions = {};
+    localStorage.removeItem(POSITION_KEY);
   },
 };
 

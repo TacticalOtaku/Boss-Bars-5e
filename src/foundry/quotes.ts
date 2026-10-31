@@ -9,6 +9,8 @@ import { instanceFor, sceneItems, subjectOf, type BossHud } from "./store";
 
 /** What the active GM last saw of a boss with quotes. */
 interface Seen {
+  /** Whether this showing has reached players at least once. */
+  appeared: boolean;
   fraction: number | null;
   value: number | null;
   defeated: boolean;
@@ -23,6 +25,7 @@ function seenOf(scene: SceneDocument, item: Instance): Seen | null {
   if (subject?.profile.kind !== "boss" || !subject.profile.quotes.length) return null;
   const total = aggregate(subject.tokens, true);
   return {
+    appeared: total !== null && !total.hidden,
     fraction: total?.hp ? hpFraction(total.hp) : null,
     value: total?.hp?.value ?? null,
     defeated: defeatedOf(subject, total),
@@ -39,6 +42,7 @@ function seenOf(scene: SceneDocument, item: Instance): Seen | null {
 /** Events between two looks at the same boss (decision 6): from the data, never from damage hooks (ADR 0001). */
 function eventsBetween(before: Seen, now: Seen): QuoteEvent[] {
   const events: QuoteEvent[] = [];
+  if (!before.appeared && now.appeared) events.push({ type: "appear" });
   if (now.phaseId && now.phaseId !== before.phaseId) events.push({ type: "phase", phaseId: now.phaseId });
   if (now.bound === before.bound) {
     if (before.fraction !== null && now.fraction !== null && now.fraction < before.fraction) {
@@ -95,10 +99,17 @@ export function startQuoteWatch(hud: BossHud): void {
       for (const item of sceneItems(scene)) {
         const now = item.kind === "boss" ? seenOf(scene, item) : null;
         if (!now) continue;
+        const before = seen?.get(item.id);
+        // Preparing a hidden boss must not spend its arrival phrase before players can see it.
+        // Once visible, hiding and revealing the same showing is not another arrival.
+        now.appeared ||= before?.appeared ?? false;
         next.set(item.id, now);
         if (!seen) continue;
-        const before = seen.get(item.id);
-        applyQuoteEvents(scene, item.id, before ? eventsBetween(before, now) : [{ type: "appear" }]);
+        applyQuoteEvents(
+          scene,
+          item.id,
+          before ? eventsBetween(before, now) : now.appeared ? [{ type: "appear" }] : [],
+        );
       }
     }
     seen = next;
