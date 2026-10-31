@@ -7,6 +7,8 @@
     <ol class="bb5e-rows">
       {{#each quotes}}
       <li class="bb5e-rows__row" data-quote-index="{{index}}">
+        <details class="bb5e-quote" name="{{@root.partId}}-quotes" data-quote-id="{{id}}" {{#if open}}open{{/if}}>
+        <summary class="bb5e-quote__summary" data-quote-summary>{{summary}}</summary>
         <input type="hidden" name="quotes.{{index}}.id" value="{{id}}">
         <input type="hidden" name="quotes.{{index}}.newer" value="{{newer}}">
         <div class="bb5e-rows__line">
@@ -52,6 +54,7 @@
         <p class="bb5e-field-error" data-error-for="quotes.{{index}}.status" role="alert" hidden></p>
         <p class="bb5e-field-error" data-error-for="quotes.{{index}}.cooldown" role="alert" hidden></p>
         <p class="bb5e-field-error" data-error-for="quotes.{{index}}.duration" role="alert" hidden></p>
+        </details>
       </li>
       {{/each}}
     </ol>

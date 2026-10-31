@@ -245,7 +245,7 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
    * the CSS look shows (ADR 0003).
    */
   function updateVfx(bar: Bar, view: BossBarView, shown: number, low: boolean) {
-    const renderer = vfxRenderer(options.reducedMotion);
+    const renderer = vfxRenderer();
     if (!renderer) return;
     if (!bar.vfx) {
       const canvas = document.createElement("canvas");
@@ -315,8 +315,9 @@ export function createBossStack(overlay: HTMLElement, options: StackOptions) {
     // The old palette, read before the new phase's look replaces it.
     const palette = phaseChanged && look.motion.phasePalette ? getComputedStyle(bar.fill).background : null;
     applyLook(el, look);
-    // Shown again while leaving: the defeat banner of the cancelled exit goes.
-    bar.banner.hidden = true;
+    // Shown again while leaving: the defeat banner of the cancelled exit goes. The banner of `playEffect` runs its
+    // own fade and stays through updates.
+    if (!bar.banner.getAnimations?.().length) bar.banner.hidden = true;
     el.classList.toggle("bb5e-boss--collapsed", view.collapsed);
     el.classList.toggle("bb5e-boss--defeated", view.defeated);
     el.classList.toggle("bb5e-boss--muted", view.muted);

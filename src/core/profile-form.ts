@@ -1,13 +1,14 @@
 import { isCategory, type Category } from "./look/schema";
 import { readMusicSource, type MusicSource } from "./music";
-import type {
-  CustomStatus,
-  MiniBar,
-  MiniBarSource,
-  Phase,
-  PhaseEnter,
-  PhaseTrigger,
-  ProfileInput,
+import {
+  readFocus,
+  type CustomStatus,
+  type MiniBar,
+  type MiniBarSource,
+  type Phase,
+  type PhaseEnter,
+  type PhaseTrigger,
+  type ProfileInput,
 } from "./profile";
 import { QUOTE_TRIGGER_TYPES, type Quote, type QuoteTrigger } from "./quotes";
 import { isRecord } from "./schema";
@@ -70,6 +71,22 @@ function sourceOf(raw: Record<string, unknown>): MiniBarSource {
     default:
       return { type: "temp" };
   }
+}
+
+/**
+ * A select's options with the saved id picked. A saved id this world lacks (a rank, preset, actor or item left behind
+ * by a move or deleted) comes first as `missing`, picked: a select with nothing picked falls back to its first option
+ * and a save would write that instead.
+ */
+export function keepChoice(
+  options: { id: string; name: string }[],
+  saved: string,
+  missing: string,
+): { id: string; name: string; selected: boolean }[] {
+  const choices = options.map(({ id, name }) => ({ id, name, selected: id === saved }));
+  return saved && !choices.some((choice) => choice.selected)
+    ? [{ id: saved, name: missing, selected: true }, ...choices]
+    : choices;
 }
 
 export function musicFrom(value: string): MusicSource | null {
@@ -137,6 +154,7 @@ export function inputOf(data: Record<string, unknown>, newId: () => string): Pro
     playerName: str(data.playerName),
     title: str(data.title),
     portrait: str(data.portrait),
+    portraitFocus: readFocus(data.portraitFocus),
     size: Number(data.size),
     rank: str(data.rank),
     autoShow: {

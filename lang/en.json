@@ -52,6 +52,12 @@
         "Label": "Portrait",
         "Hint": "Image, GIF, WebP or a webm video. Empty: the actor's image."
       },
+      "Focus": {
+        "X": "Portrait centre, across, %",
+        "Y": "Portrait centre, down, %",
+        "Zoom": "Portrait zoom, %",
+        "Hint": "Which part of the picture the round frame shows: the centre point moves to the middle of the frame, the zoom brings it closer. 50 / 50 / 100: the whole picture, centred."
+      },
       "DisplayMode": {
         "Label": "Display",
         "Token": "One per token",
@@ -122,6 +128,9 @@
       "OwnText": "Own line"
     },
     "Music": {
+      "Search": "Search playlists and tracks",
+      "Missing": "Not found",
+      "NoMatch": "Nothing found",
       "Hint": "The boss's music: when the first boss with music is shown, whatever plays fades out and resumes after the fight from where it stopped. Only the scene the players stand on counts.",
       "Source": "Music",
       "None": "None",
@@ -416,6 +425,13 @@
         "Plain": "Plain",
         "Bare": "Bare"
       }
+    },
+    "SettingsFile": {
+      "Export": "Export Boss Bars settings",
+      "Import": "Import Boss Bars settings",
+      "Confirm": "Replace this world's elite ranks, own looks and presets, and screen layout with the ones in the file? Profiles on actors are not touched.",
+      "Imported": "Boss Bars settings imported: elite ranks, own looks and layout.",
+      "Invalid": "This is not a Boss Bars 5e settings file, or it is damaged. Nothing was changed."
     },
     "Library": {
       "Title": "Looks and presets",

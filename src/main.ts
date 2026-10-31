@@ -18,6 +18,7 @@ import { FONT_FACES } from "./core/look/fonts";
 import { createEliteColumn } from "./ui/elite-column";
 import { createParticleLayer } from "./ui/particles";
 import { registerFonts } from "./ui/look";
+import { reducedMotion } from "./ui/dom";
 import { mountOverlay } from "./ui/overlay";
 import { startHudDrag } from "./ui/hud-drag";
 import { clientPosition, saveClientPosition } from "./foundry/client-layout";
@@ -74,9 +75,6 @@ Hooks.once("ready", () => {
     logger.error("#interface not found; overlay not mounted");
     return;
   }
-  const reducedMotion = () =>
-    matchMedia("(prefers-reduced-motion: reduce)").matches ||
-    document.body.classList.contains("performance-low");
   // Ids the player may keep collapsed on this scene; anything else is dropped from the setting on the next write.
   let shownIds: string[] = [];
   const collapse = (id: string, collapsed: boolean) => {
