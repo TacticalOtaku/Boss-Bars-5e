@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { profileErrors } from "../../src/core/profile";
-import { inputOf } from "../../src/core/profile-form";
+import { inputOf, keepChoice } from "../../src/core/profile-form";
 
 const PLAYLIST = "Playlist00000001";
 const SOUND = "Sound00000000001";
@@ -17,6 +17,7 @@ const form = {
   playerName: " The Lich ",
   title: "Lord of Bones",
   portrait: "",
+  portraitFocus: { x: 40, y: 15, zoom: 150 },
   size: 120,
   rank: "",
   autoShow: { onCombatStart: true, hideOnCombatEnd: false, hideOnDefeat: true, delay: 5 },
@@ -99,6 +100,7 @@ describe("inputOf", () => {
       kind: "boss",
       displayMode: "actor",
       playerName: " The Lich ",
+      portraitFocus: { x: 40, y: 15, zoom: 150 },
       size: 120,
       autoShow: { onCombatStart: true, hideOnCombatEnd: false, hideOnDefeat: true, delay: 5 },
       statuses: {
@@ -172,5 +174,34 @@ describe("the profile form", () => {
   it("renders every field the parser reads", () => {
     const missing = paths(form).filter((path) => !templateFields.some((field) => field.test(path)));
     expect(missing).toEqual([]);
+  });
+});
+
+describe("keepChoice", () => {
+  const ranks = [
+    { id: "captain", name: "Captain" },
+    { id: "guard", name: "Guard" },
+  ];
+
+  it("picks the saved option", () => {
+    expect(keepChoice(ranks, "guard", "Not found")).toEqual([
+      { id: "captain", name: "Captain", selected: false },
+      { id: "guard", name: "Guard", selected: true },
+    ]);
+  });
+
+  it("keeps a saved id this world lacks, picked, so a save writes it back", () => {
+    expect(keepChoice(ranks, "elite-rank-from-home", "Not found")).toEqual([
+      { id: "elite-rank-from-home", name: "Not found", selected: true },
+      { id: "captain", name: "Captain", selected: false },
+      { id: "guard", name: "Guard", selected: false },
+    ]);
+  });
+
+  it("adds nothing when nothing is saved", () => {
+    expect(keepChoice(ranks, "", "Not found")).toEqual([
+      { id: "captain", name: "Captain", selected: false },
+      { id: "guard", name: "Guard", selected: false },
+    ]);
   });
 });

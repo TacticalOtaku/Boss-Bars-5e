@@ -1,5 +1,6 @@
 import { MODULE_ID } from "../constants";
 import {
+  CENTRED_FOCUS,
   DEFAULT_AUTO_SHOW,
   defaultProfile,
   isLegendary,
@@ -15,9 +16,11 @@ import { resolveLook } from "../core/look/resolve";
 import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
-import { readMusicSource, type MusicSource } from "../core/music";
-import { inputOf } from "../core/profile-form";
-import { phaseViewOf } from "../core/view";
+import { keepMusic, readMusicSource, resolveMusic, suggestMusic, type MusicSource } from "../core/music";
+import { worldPlaylists } from "../foundry/music";
+import { inputOf, keepChoice } from "../core/profile-form";
+import { isVideoPath, phaseViewOf } from "../core/view";
+import { setPortrait } from "../ui/dom";
 import { CATEGORY_LABELS } from "./look-labels";
 import { rankOf } from "../core/ranks";
 import { currentRanks } from "../foundry/settings";
@@ -83,6 +86,9 @@ const QUOTE_GROUP: Record<string, string> = {
   status: "status",
 };
 
+/** A folded quote row: its trigger and its first line. */
+const quoteSummary = (trigger: string, line: string) => `${trigger} — ${line.trim() || "…"}`;
+
 /** Tab of each field-name prefix, to bring the first invalid field into view. */
 const TAB_OF: [RegExp, string][] = [
   [/^miniBars/, "miniBars"],
@@ -100,22 +106,51 @@ const musicValue = (source: MusicSource | null | undefined) =>
     : source.type === "playlist"
       ? `playlist:${source.playlistId}`
       : `sound:${source.playlistId}:${source.soundId}`;
-/** The world's playlists as option groups: the whole playlist, then each track. */
-function musicChoices(selected: MusicSource | null | undefined) {
-  const current = musicValue(selected);
+/**
+ * The world's playlists as option groups: the whole playlist, then each track. Saved music this world lacks comes
+ * first as "Not found", picked, so a save keeps it (core/music keepMusic).
+ */
+function musicChoices(saved: MusicSource | null | undefined, playlists = worldPlaylists()) {
+  const found = resolveMusic(saved ?? null, playlists);
+  const current = musicValue(found ?? saved);
+  const missingLabel = game.i18n.localize("BB5E.Music.Missing");
+  const missing =
+    saved && !found
+      ? [
+          {
+            name: missingLabel,
+            options: [
+              {
+                value: current,
+                label:
+                  [
+                    saved.playlistName,
+                    saved.type === "sound" ? saved.soundName : game.i18n.localize("BB5E.Music.WholePlaylist"),
+                  ]
+                    .filter(Boolean)
+                    .join(" — ") || missingLabel,
+                selected: true,
+              },
+            ],
+          },
+        ]
+      : [];
   return {
-    groups: game.playlists.contents
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((playlist) => ({
-        name: playlist.name,
-        options: [
-          { value: `playlist:${playlist.id}`, label: game.i18n.localize("BB5E.Music.WholePlaylist") },
-          ...playlist.sounds.contents.map((sound) => ({
-            value: `sound:${playlist.id}:${sound.id}`,
-            label: sound.name,
-          })),
-        ].map((option) => ({ ...option, selected: option.value === current })),
-      })),
+    groups: [
+      ...missing,
+      ...game.playlists.contents
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((playlist) => ({
+          name: playlist.name,
+          options: [
+            { value: `playlist:${playlist.id}`, label: game.i18n.localize("BB5E.Music.WholePlaylist") },
+            ...playlist.sounds.contents.map((sound) => ({
+              value: `sound:${playlist.id}:${sound.id}`,
+              label: sound.name,
+            })),
+          ].map((option) => ({ ...option, selected: option.value === current })),
+        })),
+    ],
   };
 }
 
@@ -169,8 +204,9 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       playPhase: ProfileEditor.#onPlayPhase,
       addQuote: ProfileEditor.#edit((input) => {
         if (input.quotes.length >= QUOTE_LIMITS.quotes) return;
+        const id = foundry.utils.randomID();
         input.quotes.push({
-          id: foundry.utils.randomID(),
+          id,
           trigger: { type: "appear" },
           texts: [],
           order: "random",
@@ -178,6 +214,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           once: false,
           duration: null,
         });
+        return id;
       }),
       removeQuote: ProfileEditor.#edit((input, index) => input.quotes.splice(index, 1)),
       moveQuote: ProfileEditor.#edit((input, index, target) => {
@@ -268,6 +305,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   #look: string | null = null;
   #overrides: Partial<Record<Category, string>> = {};
   #preview: PreviewState = freshPreview();
+  /** The quote row shown expanded; the others are folded to one line. */
+  #openQuote: string | null = null;
   #phaseAt = 0;
 
   constructor(
@@ -292,10 +331,12 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** Edits the current form state and re-renders with it, keeping unsaved edits. */
-  static #edit(change: (input: ProfileInput, index: number, target: HTMLElement) => void) {
+  /** A change may return the id of the quote to show expanded (a new one); the others fold. */
+  static #edit(change: (input: ProfileInput, index: number, target: HTMLElement) => unknown) {
     return async function (this: ProfileEditor, _event: Event, target: HTMLElement) {
       const input = this.#formInput();
-      change(input, Number(target.dataset.index), target);
+      const opened = change(input, Number(target.dataset.index), target);
+      if (typeof opened === "string") this.#openQuote = opened;
       this.#draft = input;
       this.#setDirty(true);
       await this.render();
@@ -325,12 +366,14 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     }));
     const statusIds = new Set(choices.map((choice) => choice.id));
     const items = this.actor.items.filter((item) => Boolean(item.hasLimitedUses));
+    const missing = game.i18n.localize("BB5E.Music.Missing");
     return {
       ...(await super._prepareContext(options)),
       values,
       isElite: values.kind === "elite",
       byActor: values.displayMode === "actor",
-      ranks: ranks.map((rank) => ({ id: rank.id, name: rank.name, selected: rank.id === values.rank })),
+      focus: (values.portraitFocus as ProfileInput["portraitFocus"]) ?? CENTRED_FOCUS,
+      ranks: keepChoice(ranks, String(values.rank ?? ""), missing),
       hasProfile: read.status === "ok",
       look: this.#lookContext(),
       limits: PROFILE_LIMITS,
@@ -343,11 +386,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           pips: bar.view === "pips",
           players: bar.players,
           sources: SOURCES.map((each) => ({ ...each, selected: each.value === source.type })),
-          items: items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            selected: source.type === "item" && source.itemId === item.id,
-          })),
+          items: keepChoice(items, source.type === "item" ? source.itemId : "", missing),
           path: source.type === "path" ? source.path : "",
           pathMax: source.type === "path" ? String(source.max) : "",
           counterMax: source.type === "counter" ? source.max : 3,
@@ -360,7 +399,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       statusesFull: values.statuses.custom.length >= PROFILE_LIMITS.custom,
       refill: values.fillMode === "refill",
       ...this.#phasesContext(Array.isArray(values.phases) ? (values.phases as Phase[]) : []),
-      music: musicChoices(readMusicSource(values.music)),
+      music: musicChoices(keepMusic(readMusicSource(values.music), this.#savedMusic(), worldPlaylists())),
       musicFadeSeconds: (Number(values.musicFade) || 0) / 1000,
       ...this.#quotesContext(
         Array.isArray(values.quotes) ? (values.quotes as Quote[]) : [],
@@ -412,6 +451,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         ticks: input.fillMode === "segments" ? phaseTicks(input.phases, this.#phaseAt) : [],
         title: changes.title || input.title,
         img: changes.portrait || input.portrait || this.actor.img,
+        focus: input.portraitFocus,
       },
       changes.playerName || input.playerName.trim() || this.actor.name,
     );
@@ -485,9 +525,19 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["look"] });
   }
 
+  /** The music saved in the flag, names and all: the profile's, or one phase's. */
+  #savedMusic(phaseId?: string): MusicSource | null {
+    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
+    const boss = read.status === "ok" && read.value.kind === "boss" ? read.value : null;
+    if (phaseId === undefined) return boss?.music ?? null;
+    return boss?.phases.find((phase) => phase.id === phaseId)?.enter.music ?? null;
+  }
+
   /** The "Phases" tab: rows with triggers, form actors and entry changes, and the HP scale with its thresholds. */
   #phasesContext(phases: Phase[]) {
     const presets = sourcesOf(currentLibrary()).presets;
+    const playlists = worldPlaylists();
+    const missing = game.i18n.localize("BB5E.Music.Missing");
     const actors = game.actors
       .filter((actor) => actor.type === "npc" && actor.id !== this.actor.id)
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -514,23 +564,22 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           ],
           newer: newer ? JSON.stringify(trigger) : "",
           below: trigger.type === "hp" ? trigger.below : 50,
-          actors: actors.map((actor) => ({
-            id: actor.id,
-            name: actor.name,
-            selected: trigger.type === "form" && trigger.actorId === actor.id,
-          })),
+          actors: keepChoice(actors, trigger.type === "form" ? trigger.actorId : "", missing),
           enter: phase.enter,
-          music: musicChoices(phase.enter.music),
+          music: musicChoices(
+            keepMusic(phase.enter.music ?? null, this.#savedMusic(phase.id), playlists),
+            playlists,
+          ),
           overrides: CATEGORIES.map((category) => ({
             category,
             label: game.i18n.localize(CATEGORY_LABELS[category]),
-            options: presets
-              .filter((preset) => preset.category === category)
-              .map((preset) => ({
-                id: preset.id,
-                name: displayName(preset),
-                selected: phase.enter.overrides?.[category] === preset.id,
-              })),
+            options: keepChoice(
+              presets
+                .filter((preset) => preset.category === category)
+                .map((preset) => ({ id: preset.id, name: displayName(preset) })),
+              phase.enter.overrides?.[category] ?? "",
+              missing,
+            ),
           })),
         };
       }),
@@ -574,6 +623,14 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           cooldown: quote.cooldown,
           once: quote.once,
           duration: quote.duration ?? "",
+          open: quote.id === this.#openQuote,
+          summary: quoteSummary(
+            game.i18n.localize(
+              QUOTE_TRIGGERS.find((each) => each.value === trigger.type)?.label ??
+                "BB5E.Phases.Trigger.Newer",
+            ),
+            quote.texts[0] ?? "",
+          ),
         };
       }),
       quotesFull: quotes.length >= QUOTE_LIMITS.quotes,
@@ -588,10 +645,26 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#syncTriggers();
     // Re-rendering replaces the parts, so listening on the form root survives every render.
     if (options.isFirstRender) {
-      this.element.addEventListener("input", () => this.#setDirty(true));
-      this.element.addEventListener("change", (event) => {
-        this.#setDirty(true);
+      this.element.addEventListener("input", (event) => {
         const target = event.target as HTMLInputElement;
+        if (target.matches("[data-music-search]")) return this.#searchMusic(target);
+        this.#setDirty(true);
+        // A range-picker's slider has no name while dragged: the picker around it carries it.
+        if (target.closest('[name^="portraitFocus."]')) this.#drawFocus();
+      });
+      this.element.addEventListener("click", (event) => {
+        const hit = (event.target as HTMLElement).closest<HTMLElement>("[data-music-hit]");
+        if (hit) this.#pickMusic(hit);
+      });
+      this.element.addEventListener(
+        "toggle",
+        (event) => this.#onQuoteToggle(event.target as HTMLElement),
+        true,
+      );
+      this.element.addEventListener("change", (event) => {
+        const target = event.target as HTMLInputElement;
+        if (target.matches("[data-music-search]")) return;
+        this.#setDirty(true);
         if (target.name === "kind") this.#syncKind();
         else if (target.name.startsWith("overrides.")) this.#onOverride(target);
         else if (target.name.endsWith(".source.type")) this.#onSourceChange(target);
@@ -682,6 +755,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         shown: true,
         title: input.title,
         img: input.portrait || this.actor.img,
+        focus: input.portraitFocus,
         quote: { key: shown.key, text: shown.text, until: now + shown.duration * 1000 },
       },
       name,
@@ -714,6 +788,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           ticks: input.fillMode === "segments" ? phaseTicks(input.phases, at) : [],
           title: changes.title || input.title,
           img: changes.portrait || input.portrait || this.actor.img,
+          focus: input.portraitFocus,
         },
         changes.playerName || input.playerName || this.actor.name,
       );
@@ -734,13 +809,79 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #updatePreview() {
     this.#drawLook();
+    this.#drawFocus();
     const host = this.element.querySelector<HTMLElement>(".bb5e-card-preview");
     if (!host || this.#kind() !== "elite") return;
     previewCard(host, {
       label: this.#field("playerName").trim() || this.actor.name,
       img: this.#field("portrait").trim() || this.actor.img,
+      focus: this.#formInput().portraitFocus,
       rank: rankOf(currentRanks(), this.#field("rank")).rank,
     });
+  }
+
+  /** The quote shown expanded survives re-renders; a folded one sums up its fields as they are now. */
+  #onQuoteToggle(details: HTMLElement) {
+    if (!(details instanceof HTMLDetailsElement) || !details.dataset.quoteId) return;
+    if (details.open) this.#openQuote = details.dataset.quoteId;
+    else if (this.#openQuote === details.dataset.quoteId) this.#openQuote = null;
+    const trigger = details.querySelector<HTMLSelectElement>('select[name$=".trigger"]');
+    const texts = details.querySelector<HTMLTextAreaElement>('textarea[name$=".texts"]');
+    const summary = details.querySelector("[data-quote-summary]");
+    if (summary && trigger && texts) {
+      summary.textContent = quoteSummary(
+        trigger.selectedOptions[0]?.text ?? "",
+        texts.value.split("\n")[0] ?? "",
+      );
+    }
+  }
+
+  /** Suggestions under a music search, from the world's playlists as they are now: one added meanwhile shows up. */
+  #searchMusic(search: HTMLInputElement) {
+    const hits = search.parentElement?.querySelector<HTMLElement>("[data-music-hits]");
+    if (!hits) return;
+    const typed = search.value.trim() !== "";
+    const found = suggestMusic(musicChoices(null).groups, search.value).map(({ value, label }) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.musicHit = value;
+      button.textContent = label;
+      return button;
+    });
+    const none = document.createElement("span");
+    none.textContent = game.i18n.localize("BB5E.Music.NoMatch");
+    hits.replaceChildren(
+      ...(found.length ? found : [none]).map((item) => {
+        const li = document.createElement("li");
+        li.append(item);
+        return li;
+      }),
+    );
+    hits.hidden = !typed;
+  }
+
+  /** A picked suggestion becomes the list's value, added to it first when its playlist came after the render. */
+  #pickMusic(hit: HTMLElement) {
+    const pick = hit.closest(".bb5e-music-pick");
+    const select = pick?.querySelector("select");
+    const search = pick?.querySelector<HTMLInputElement>("[data-music-search]");
+    const value = hit.dataset.musicHit ?? "";
+    if (!select || !search) return;
+    if (![...select.options].some((option) => option.value === value)) {
+      select.add(new Option(hit.textContent ?? value, value));
+    }
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    search.value = "";
+    this.#searchMusic(search);
+  }
+
+  /** The round frame next to the focus sliders follows them while they move. */
+  #drawFocus() {
+    const host = this.element.querySelector<HTMLElement>(".bb5e-focus-preview");
+    if (!host) return;
+    const src = this.#field("portrait").trim() || this.actor.img;
+    setPortrait(host, { src, video: isVideoPath(src), focus: this.#formInput().portraitFocus });
   }
 
   #setDirty(dirty: boolean) {
@@ -772,6 +913,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     const first = Object.keys(errors)[0];
     if (first === undefined) return;
+    form.querySelector(`[name="${first}"]`)?.closest("details")?.setAttribute("open", "");
     const tab = TAB_OF.find(([pattern]) => pattern.test(first))?.[1] ?? "main";
     this.changeTab(tab, "sheet");
   }
@@ -784,17 +926,25 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const current = readProfile(this.actor.flags[MODULE_ID]?.profile);
     if (current.status === "newer") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
     const stored = current.status === "ok" ? current.value : defaultProfile(input.kind);
+    // Music keeps the names of its playlist and track: they find it again where the ids differ (another world).
+    const playlists = worldPlaylists();
+    const named = (music: MusicSource, phaseId?: string) =>
+      keepMusic(music, this.#savedMusic(phaseId), playlists);
     // Only the chosen kind's fields are written; the other kind's stay in the flag for a switch back.
     const kindFields =
       input.kind === "boss"
         ? {
             title: input.title.trim(),
             size: input.size,
-            phases: input.phases,
+            phases: input.phases.map((phase) =>
+              phase.enter.music
+                ? { ...phase, enter: { ...phase.enter, music: named(phase.enter.music, phase.id) } }
+                : phase,
+            ),
             fillMode: input.fillMode,
             playerTicks: input.playerTicks,
             quotes: input.quotes,
-            music: input.music,
+            music: input.music && named(input.music),
             musicPriority: input.musicPriority,
             musicFade: input.musicFade,
             look: this.#look,
@@ -810,6 +960,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         kind: input.kind,
         playerName: input.playerName.trim(),
         portrait: input.portrait.trim() || null,
+        portraitFocus: input.portraitFocus,
         displayMode: input.displayMode,
         autoShow: { ...DEFAULT_AUTO_SHOW, ...input.autoShow },
         statuses: {

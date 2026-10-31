@@ -1,5 +1,6 @@
 import { MODULE_ID } from "../constants";
-import { LAYOUT_LIMITS, readLayout, type BlockKey, type Layout } from "../core/layout";
+import { LAYOUT_LIMITS, LAYOUT_VERSION, readLayout, type BlockKey, type Layout } from "../core/layout";
+import { isRecord } from "../core/schema";
 import { saveClientPreferences } from "../foundry/client-layout";
 import { currentLayout, setLayoutDraft } from "../foundry/layout";
 import type { BossHud } from "../foundry/store";
@@ -129,7 +130,14 @@ class LayoutPanel extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
+/** Written by a newer module version: read as the default, so a save from here would replace it. */
+const newer = (raw: unknown) => isRecord(raw) && Number(raw.dataVersion) > LAYOUT_VERSION;
+
 export function openLayoutPanel(host: LayoutHost): void {
+  if (newer(game.settings.get(MODULE_ID, "layout")) || newer(canvas?.scene?.flags[MODULE_ID]?.layout)) {
+    ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
+    return;
+  }
   const existing = foundry.applications.instances.get("bb5e-layout");
   void (existing ?? new LayoutPanel(host)).render({ force: true });
 }

@@ -7,7 +7,7 @@ import type { ResolvedLook } from "./look/resolve";
 import { lookStyle, type LookStyle } from "./look/style";
 import { buildMiniBars, type MiniBarView } from "./minibars";
 import { formPending, phaseChanges, phaseTicks, refillFraction, romanNumeral, shownIndex } from "./phases";
-import type { Phase, PhaseEnter, Profile } from "./profile";
+import type { Phase, PhaseEnter, PortraitFocus, Profile } from "./profile";
 import { rankOf, type Rank } from "./ranks";
 import { buildStatuses, type StatusView } from "./statuses";
 
@@ -38,7 +38,8 @@ export interface Viewer {
 interface CommonView {
   id: string;
   label: string;
-  portrait: { src: string; video: boolean };
+  /** No focus — centred at full size. */
+  portrait: { src: string; video: boolean; focus?: PortraitFocus };
   fraction: number | null;
   defeated: boolean;
   muted: boolean;
@@ -202,7 +203,11 @@ export function buildViews(
     const common: CommonView = {
       id: instance.id,
       label: labels.get(instance.id) ?? baseLabel(subject),
-      portrait: { src, video: isVideoPath(src) },
+      portrait: {
+        src,
+        video: isVideoPath(src),
+        ...(profile.portraitFocus ? { focus: profile.portraitFocus } : {}),
+      },
       fraction:
         fraction !== null && profile.kind === "boss" && profile.fillMode === "refill" && phases.length
           ? refillFraction(phases, phaseAt, fraction)

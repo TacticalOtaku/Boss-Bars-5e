@@ -1,9 +1,11 @@
 <section class="tab {{tabs.look.cssClass}}" data-tab="look" data-group="sheet">
   <div data-kind-group="boss" {{#if isElite}}hidden{{/if}}>
-    <div class="bb5e-preview bb5e-look-preview"></div>
-    <div class="bb5e-library__play" role="group" aria-label="{{localize "BB5E.Preview.Play"}}">
-      {{#each look.steps}}<button type="button" data-action="lookPlay" data-step="{{step}}">{{label}}</button>{{/each}}
-      <button type="button" data-action="lookPlay" data-step="quote">{{localize "BB5E.Workshop.Quote"}}</button>
+    <div class="bb5e-look-pinned">
+      <div class="bb5e-preview bb5e-look-preview"></div>
+      <div class="bb5e-library__play" role="group" aria-label="{{localize "BB5E.Preview.Play"}}">
+        {{#each look.steps}}<button type="button" data-action="lookPlay" data-step="{{step}}">{{label}}</button>{{/each}}
+        <button type="button" data-action="lookPlay" data-step="quote">{{localize "BB5E.Workshop.Quote"}}</button>
+      </div>
     </div>
     <div class="bb5e-card">
       <h3 class="bb5e-panel__heading">{{localize "BB5E.Workshop.Look"}}</h3>

@@ -1,5 +1,6 @@
 import { MODULE_ID } from "../constants";
 import { profileRows } from "../core/hub";
+import { readSettingsFile, settingsFile, SETTING_KEYS } from "../core/settings-file";
 import { currentLibrary } from "../foundry/library";
 import { currentRanks } from "../foundry/settings";
 import { sceneItems, type BossHud } from "../foundry/store";
@@ -8,7 +9,7 @@ import { hostLibrary } from "./library";
 import { hostProfileEditor } from "./profile-editor";
 import { hostRanksEditor } from "./ranks-editor";
 
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
 const loc = (key: string) => game.i18n.localize(key);
 
@@ -47,12 +48,23 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
     id: "bb5e-hub",
     classes: ["bb5e-app", "bb5e-hub"],
-    window: { title: "BB5E.Hub.Title", icon: "fa-solid fa-skull-crossbones", resizable: true },
+    window: {
+      title: "BB5E.Hub.Title",
+      icon: "fa-solid fa-skull-crossbones",
+      resizable: true,
+      // The ⋮ menu: the world's Boss Bars settings as one file, to carry them to another world.
+      controls: [
+        { icon: "fa-solid fa-file-export", label: "BB5E.SettingsFile.Export", action: "exportSettings" },
+        { icon: "fa-solid fa-file-import", label: "BB5E.SettingsFile.Import", action: "importSettings" },
+      ],
+    },
     position: { width: 1120, height: 780 },
     actions: {
       section: Hub.#onSection,
       profile: Hub.#onProfile,
       addProfile: Hub.#onAdd,
+      exportSettings: Hub.#onExportSettings,
+      importSettings: Hub.#onImportSettings,
     },
   };
 
@@ -273,6 +285,41 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onProfile(this: Hub, _event: Event, target: HTMLElement) {
     const actor = game.actors.get(target.dataset.actorId ?? "");
     if (actor) await this.show("profiles", actor);
+  }
+
+  static #onExportSettings() {
+    const settings = Object.fromEntries(SETTING_KEYS.map((key) => [key, game.settings.get(MODULE_ID, key)]));
+    const json = JSON.stringify(settingsFile(settings), null, 2);
+    foundry.utils.saveDataToFile(json, "application/json", "boss-bars-5e-settings.json");
+  }
+
+  static #onImportSettings(this: Hub) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (file) void this.#importSettings(file);
+    });
+    input.click();
+  }
+
+  /**
+   * A settings file replaces the world's ranks, own looks and layout, after the GM confirms; a bad file changes
+   * nothing. The open section closes first and opens again on the imported data: its draft would save over it.
+   */
+  async #importSettings(file: File) {
+    const read = readSettingsFile(await foundry.utils.readTextFromFile(file));
+    if ("error" in read) return ui.notifications.error(read.error, { localize: true });
+    const confirmed = await DialogV2.confirm({
+      window: { title: loc("BB5E.SettingsFile.Import") },
+      content: `<p>${loc("BB5E.SettingsFile.Confirm")}</p>`,
+    });
+    if (!confirmed || !(await this.#release())) return;
+    for (const [key, value] of Object.entries(read.settings)) await game.settings.set(MODULE_ID, key, value);
+    ui.notifications.info("BB5E.SettingsFile.Imported", { localize: true });
+    // As #show: the slot part stays, so the section mounted again on the new data is not wiped.
+    await this.render({ parts: ["nav", "list"] });
   }
 
   /** "Selected token": its world actor's profile, made on the first save. */

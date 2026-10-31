@@ -1598,3 +1598,68 @@
 .performance-low .bb5e-app * {
   transition-duration: 0ms;
 }
+
+// The round frame next to the portrait focus sliders: the HUD's own face, at the size of a boss portrait.
+.bb5e-focus-preview {
+  flex: none;
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+// A music select with its search and the search's suggestions above it.
+.bb5e-music-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  > * {
+    flex: 1 0 100%;
+  }
+}
+
+.bb5e-music-hits {
+  max-height: 12em;
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  border: 1px solid var(--bb5e-app-line);
+  border-radius: var(--bb5e-app-r-md);
+  background: var(--bb5e-app-s1);
+  list-style: none;
+
+  button {
+    width: 100%;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    text-align: start;
+  }
+
+  button:is(:hover, :focus-visible) {
+    background: var(--bb5e-app-accent-soft);
+  }
+
+  span {
+    display: block;
+    padding: 4px 8px;
+    color: var(--bb5e-app-text-3);
+  }
+}
+
+// The look preview and its play buttons stay in view while the looks and overrides scroll under them, just under
+// the pinned tab bar (40 px tabs and its hairline).
+.bb5e-look-pinned {
+  position: sticky;
+  z-index: 1;
+  top: 41px;
+  padding: 6px 0 8px;
+  background: var(--bb5e-app-s0);
+}
+
+// A folded quote is one line: its trigger and its first line.
+.bb5e-quote__summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}

@@ -1,5 +1,75 @@
 # Changelog
 
+## 1.5.0
+
+- **Personal HUD placement.** Drag each boss bar independently, or move the elite column as one unit, without
+  entering a layout mode. Positions save automatically on each client for each scene and survive reloads.
+  Keyboard arrows move the focused element (Shift: 10 px), Home resets it, and Escape cancels a drag.
+- The former layout panel now controls local preferences and resets this client's positions. Existing shared
+  layouts remain available as initial defaults; dragging never changes another client's screen.
+- Fixed: fresh boss speech could expire immediately for players whose computer clocks differed from the GM's.
+  Speech now uses Foundry's synchronized server time.
+- Fixed: a hidden boss spent its arrival phrase before players could see it; the phrase now starts on first reveal.
+- Fixed: a hit dealing exactly the configured percentage of maximum HP sometimes failed to trigger its phrase.
+- Fixed: a newly active GM did not start the shown boss's music after a user connection or role change. Manual
+  music stops remain respected.
+- Moved bars keep their positions during exit animations and after another bar disappears; movement also handles
+  scaled interfaces, viewport resizing, cancelled gestures, and failed position saves.
+
+## 1.4.2
+
+- Fixed: a profile that names something this world lacks (an elite rank, a phase's own preset, a form's actor, a
+  mini-bar's item; left behind by a move or deleted) lost it on the next save: the elite became the strongest rank,
+  the phase preset was dropped, and a missing form actor or item blocked saving the whole profile. Such choices now
+  show as "Not found", are kept on save and never block it.
+- Fixed: a boss whose look changed only in its HP change or phase effects (a phase override, an edit in the
+  profile) kept the old effects on its bar until a reload.
+- Fixed: importing a settings file while the look library or the ranks were open let their old state be saved over
+  the import. The open section now closes (asking about unsaved edits) and opens again on the imported data.
+- Fixed: the layout panel saved over a layout written by a newer module version. It now refuses to open on such a
+  layout, as the other editors do.
+- Fixed: opening the elite ranks or the library before any boss was shown turned off the GM's bar effects for the
+  session.
+- Fixed: a bar shown at reduced HP with a quick HP effect drained a damage trail from full, and a bar shown already
+  defeated could play its defeat again.
+- Fixed: the defeat banner of `api.playEffect` vanished at the next HP or status change instead of fading out.
+
+## 1.4.1
+
+- Fixed: saving a profile in a world without the boss's playlist erased its music and the music of its phases (a
+  world moved before its playlists). Such music now shows as "Not found" with its saved names, is kept on save and
+  is found again by name once the playlist exists.
+
+## 1.4.0
+
+- **Settings file.** The hub's ⋮ menu exports the world's Boss Bars settings (elite ranks, own looks and presets,
+  screen layout) as one file and imports it into another world, after a confirmation. Tools that move a world's
+  documents, such as SC World Gate, carry the profiles on actors but not world settings. A file from another
+  module, a damaged one or one written by a newer version changes nothing.
+- **Boss music survives a move to another world.** A profile now keeps the names of its playlist and track next to
+  their ids; where the ids are new (World Gate leaves playlists behind, so they are rebuilt), the music is found by
+  name, both when it plays and in the profile. Open and save each boss with music once before moving the world, so
+  its profile has the names.
+
+## 1.3.1
+
+- Fixed: the music search gave no suggestions and only hid entries inside the closed list, and a playlist added
+  while the profile was open could not be found. Typing now lists the matching playlists and tracks under the
+  field, from the world's playlists as they are now; a click picks one.
+
+## 1.3.0
+
+- **Portrait focus.** The profile's "Main" tab moves the picked point of the portrait to the centre of the round
+  frame, at any zoom, and zooms in (100–300%), with a live frame next to the sliders. Bars, cards and every preview
+  follow it.
+- **Quotes fold.** Each quote folds to one line, its trigger and first line; a click opens it, only one stays open,
+  a new quote opens and folds the others, and a quote with an error opens itself on save.
+- **Music search.** A search above every music list keeps the playlists and tracks that match, in any case; the
+  picked track never disappears.
+- The look preview and its play buttons stay in view while the "Look" tab scrolls.
+- Fixed: the layout panel was taller than a 768 px screen and hid Save and Cancel, so the layout could not be saved.
+  Its fields now scroll, and Save and Cancel stay at the bottom.
+
 ## 1.2.1
 
 - Fixed: in "On the scene", a quote picked in the list went back to the first one, and a line being typed was lost

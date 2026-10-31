@@ -351,3 +351,21 @@ describe("profileErrors — phases", () => {
     });
   });
 });
+
+describe("portrait focus", () => {
+  const focusOf = (portraitFocus: unknown) => {
+    const read = readProfile({ ...elite, portraitFocus });
+    return read.status === "ok" ? read.value.portraitFocus : "unreadable";
+  };
+
+  it("leaves the portrait centred at full size when the profile picks no focus", () => {
+    expect(focusOf(undefined)).toBeUndefined();
+    expect(focusOf("top")).toBeUndefined();
+  });
+
+  it("keeps the picked point and zoom, inside 0–100% and 100–300%", () => {
+    expect(focusOf({ x: 30, y: 10, zoom: 180 })).toEqual({ x: 30, y: 10, zoom: 180 });
+    expect(focusOf({ x: -5, y: 140, zoom: 900 })).toEqual({ x: 0, y: 100, zoom: 300 });
+    expect(focusOf({ y: 20, zoom: "big" })).toEqual({ x: 50, y: 20, zoom: 100 });
+  });
+});

@@ -13,13 +13,16 @@ const BATTLE = "Playlist00000002";
 /** Map plus the Collection helpers the code uses. */
 function collection<T>(entries: [string, T][]) {
   const map = new Map(entries);
-  return Object.assign(map, {
+  const result = Object.assign(map, {
     some: (fn: (value: T) => boolean) => [...map.values()].some(fn),
     filter: (fn: (value: T) => boolean) => [...map.values()].filter(fn),
     get contents() {
       return [...map.values()];
     },
   });
+  // Foundry's Collection.contents is live, including tracks added after the playlist is constructed.
+  Object.defineProperty(result, "contents", { get: () => [...map.values()] });
+  return result;
 }
 
 interface Sound {
