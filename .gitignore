@@ -3,3 +3,22 @@ dist/
 *.zip
 CLAUDE.md
 .claude/
+
+# Case-insensitive basename pattern also covers nested instruction files.
+[cC][lL][aA][uU][dD][eE].[mM][dD]
+
+# Generated caches, logs, temporary files, and local credentials.
+.vite/
+.cache/
+coverage/
+*.tsbuildinfo
+*.log
+*.tmp
+*.temp
+*~
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key

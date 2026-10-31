@@ -1,5 +1,7 @@
 export interface KeyedItem {
   el: HTMLElement;
+  /** An inner visual node when an outer wrapper owns movement and layout. */
+  motionElement?: HTMLElement;
   leaving: Animation | null;
 }
 
@@ -42,7 +44,7 @@ export function createKeyedList<V extends { id: string }, I extends KeyedItem>(
             frames: fallback({ opacity: 1 }, { opacity: 0, transform: "translateY(-0.5em)" }),
             duration: LEAVE_MS,
           };
-    const animation = item.el.animate?.(exit.frames, {
+    const animation = (item.motionElement ?? item.el).animate?.(exit.frames, {
       duration: exit.duration,
       easing: "ease-in",
       fill: "forwards",
@@ -94,7 +96,10 @@ export function createKeyedList<V extends { id: string }, I extends KeyedItem>(
                 frames: fallback({ opacity: 0, transform: "translateY(-0.5em)" }, { opacity: 1 }),
                 duration: ENTER_MS,
               };
-          item.el.animate?.(entry.frames, { duration: entry.duration, easing: "ease-out" });
+          (item.motionElement ?? item.el).animate?.(entry.frames, {
+            duration: entry.duration,
+            easing: "ease-out",
+          });
         }
         const next: ChildNode | null = previous ? previous.nextSibling : container.firstChild;
         if (next !== item.el) container.insertBefore(item.el, next);

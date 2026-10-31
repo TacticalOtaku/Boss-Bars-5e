@@ -214,6 +214,34 @@
   font-size: var(--font-size-12, 12px);
 }
 
+// Always available on the runtime HUD; editor previews never opt into movement.
+.bb5e-boss-slot {
+  position: relative;
+  flex: none;
+}
+
+.bb5e-movable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  pointer-events: auto;
+
+  &:focus-visible {
+    outline: 2px solid var(--bb5e-gold, #c9a45c);
+    outline-offset: 6px;
+  }
+}
+
+.bb5e-moving {
+  z-index: 1;
+  cursor: grabbing;
+}
+
+// A collapsed column contains only its toggle; retain a grab area around that button.
+.bb5e-column.bb5e-movable {
+  padding: 6px;
+}
+
 // The panel can be taller than a laptop screen, which Foundry clips without a scroll: its fields scroll instead,
 // and Save and Cancel stay in view at the bottom.
 #bb5e-layout .window-content {

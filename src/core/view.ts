@@ -78,7 +78,7 @@ export interface PhaseView {
 
 export interface BossBarView extends CommonView {
   title: string;
-  /** The quote on screen: shown while `until` (ms, the active GM's clock) is ahead. */
+  /** The quote on screen: shown while `until` (ms, synchronized server time) is ahead. */
   quote: { key: string; text: string; until: number } | null;
   phase: PhaseView | null;
   /** Threshold ticks as shares of the bar ("segments" fill); empty for players when the profile hides them. */

@@ -1,8 +1,8 @@
 import { MODULE_ID } from "../constants";
+import { clientPreferences } from "./client-layout";
 import {
   DEFAULT_LAYOUT,
   effectiveLayout,
-  LAYOUT_VERSION,
   readLayout,
   readOverride,
   type Layout,
@@ -26,7 +26,7 @@ export function sceneOverride(scene: SceneDocument | null | undefined): LayoutOv
   return readOverride(scene?.flags[MODULE_ID]?.layout);
 }
 
-/** The GM's unsaved layout while the layout mode is open; it replaces the stored one on that GM's screen only. */
+/** Unsaved local preferences while the panel is open, affecting only this client. */
 let draft: Layout | null = null;
 
 export function setLayoutDraft(layout: Layout | null): void {
@@ -34,21 +34,7 @@ export function setLayoutDraft(layout: Layout | null): void {
 }
 
 export function currentLayout(scene: SceneDocument | null | undefined): Layout {
-  return draft ?? effectiveLayout(worldLayout(), sceneOverride(scene));
-}
-
-/** Any GM writes the layout directly: it is a world setting and a scene flag, not an instance (spec §2). */
-export async function saveWorldLayout(layout: Layout): Promise<void> {
-  await game.settings.set(MODULE_ID, "layout", { dataVersion: LAYOUT_VERSION, ...layout });
-}
-
-/**
- * An empty override removes the flag; otherwise the flag is replaced whole in one write, so reset blocks really go
- * away and no client sees the world layout in between.
- */
-export async function saveSceneOverride(scene: SceneDocument, override: LayoutOverride): Promise<void> {
-  if (!override.bosses && !override.elites) await scene.unsetFlag(MODULE_ID, "layout");
-  else await scene.setFlag(MODULE_ID, "layout", _replace({ dataVersion: LAYOUT_VERSION, ...override }));
+  return draft ?? clientPreferences() ?? effectiveLayout(worldLayout(), sceneOverride(scene));
 }
 
 export interface Zone {

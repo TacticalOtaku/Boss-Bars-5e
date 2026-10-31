@@ -264,9 +264,13 @@
       "Expand": "Expand the elite column"
     },
     "Layout": {
-      "Title": "Layout",
-      "Open": "Layout mode",
-      "Hint": "Drag the blocks on your screen: they stick to the centre and edges and anchor to the nearest of 9 points. Arrows move the selected block by 1 px (Shift: 10 px), Escape leaves. Players see the changes after you save.",
+      "LocalHint": "These preferences affect only this client. Other players and GMs keep their own positions and preferences.",
+      "DragHint": "Drag to move. Arrow keys: 1 px; Shift: 10 px; Home: reset; Escape: cancel drag.",
+      "SaveFailed": "Could not save your HUD layout. Unreadable or newer saved data has been left unchanged.",
+      "ResetScene": "Reset my dragged positions on this scene when saving",
+      "Title": "My HUD layout",
+      "Open": "My HUD layout",
+      "Hint": "Drag each boss bar or the whole elite column directly. Focus an element and use arrow keys to move it (Shift: 10 px), Home to reset its position, or Escape to cancel a drag. Completed moves are saved automatically on this client for this scene.",
       "Layer": {
         "Label": "Layer",
         "World": "World",
@@ -276,7 +280,7 @@
       "Anchor": "Anchor",
       "Direction": "Direction",
       "Max": "Visible cards",
-      "Collapse": "Players may collapse",
+      "Collapse": "Allow collapsing on this client",
       "Reset": "Reset to world",
       "Preview": "Screen",
       "MyScreen": "My screen",

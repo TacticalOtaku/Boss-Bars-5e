@@ -48,7 +48,7 @@ export interface ShownQuote {
   key: string;
   text: string;
   priority: number;
-  /** When the active GM wrote it (ms) and for how long it shows (s). */
+  /** Synchronized server time when the active GM wrote it (ms), and how long it shows (s). */
   at: number;
   duration: number;
 }
@@ -215,7 +215,10 @@ function matches(trigger: QuoteTrigger, event: QuoteEvent): { attacker?: string 
         ? {}
         : null;
     case "damage":
-      return event.type === "hp" && (event.from - event.to) * 100 >= trigger.percent ? {} : null;
+      // Fractions such as 1 - 0.8 round just below 20%; tolerate only floating-point subtraction error.
+      return event.type === "hp" && event.from - event.to + Number.EPSILON >= trigger.percent / 100
+        ? {}
+        : null;
     case "status":
       return event.type === "status" && event.statuses.includes(trigger.status) ? {} : null;
     case "crit":

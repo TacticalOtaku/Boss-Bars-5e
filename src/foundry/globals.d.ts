@@ -161,6 +161,7 @@ declare global {
     playlists: FoundryCollection<PlaylistDocument>;
     actors: FoundryCollection<ActorDocument>;
     combats: FoundryCollection<CombatDocument>;
+    time?: { readonly serverTime: number };
     settings: {
       register(namespace: string, key: string, config: Record<string, unknown>): void;
       registerMenu(namespace: string, key: string, config: Record<string, unknown>): void;

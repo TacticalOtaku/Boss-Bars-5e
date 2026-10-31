@@ -20,6 +20,9 @@ import { createParticleLayer } from "./ui/particles";
 import { registerFonts } from "./ui/look";
 import { reducedMotion } from "./ui/dom";
 import { mountOverlay } from "./ui/overlay";
+import { startHudDrag } from "./ui/hud-drag";
+import { clientPosition, saveClientPosition } from "./foundry/client-layout";
+import { serverTime } from "./foundry/time";
 
 let hud: BossHud | null = null;
 let layoutHost: LayoutHost | null = null;
@@ -80,6 +83,8 @@ Hooks.once("ready", () => {
   };
   const overlay = mountOverlay(host);
   const stack = createBossStack(overlay, {
+    movable: true,
+    now: serverTime,
     labels: {
       collapse: game.i18n.localize("BB5E.Bar.Collapse"),
       expand: game.i18n.localize("BB5E.Bar.Expand"),
@@ -101,10 +106,25 @@ Hooks.once("ready", () => {
       onToggle: (collapsed) => collapse(ELITE_COLUMN_ID, collapsed),
     },
   });
+  const movement = startHudDrag({
+    host,
+    overlay,
+    uiScale,
+    hint: game.i18n.localize("BB5E.Layout.DragHint"),
+    positionOf: clientPosition,
+    save: saveClientPosition,
+    onError: () => ui.notifications.error("BB5E.Layout.SaveFailed", { localize: true }),
+  });
   hud = startStore((views, layout, scale) => {
     shownIds = [...views.bosses.map((view) => view.id), ELITE_COLUMN_ID];
     stack.update(views.bosses, layout.bosses, scale);
     column.update(views.elites, views, layout.elites, scale);
+    movement.update(canvas?.scene?.id ?? null, [
+      ...stack.targets(),
+      ...(views.column.total
+        ? [{ id: ELITE_COLUMN_ID, element: column.element, label: game.i18n.localize("BB5E.Column.Title") }]
+        : []),
+    ]);
   });
   layoutHost = { host, overlay, blocks: { bosses: stack.element, elites: column.element }, hud, uiScale };
   // API effects play on the viewed scene's HUD only.
