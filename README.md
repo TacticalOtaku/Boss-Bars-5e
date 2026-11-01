@@ -63,6 +63,12 @@ Only GMs change bars; when several GMs are online, the active GM writes every ch
   before rolling. A target picked after the roll is not known.
 - Music switches only on the scene the players stand on (the active scene).
 
+## Development checks
+
+GitHub Actions checks pull requests into `main` and pushes to `main` on Node.js 24 and 26. It runs `npm ci`,
+`npm run check` (types, lint, formatting, tests, build, and HUD size), and `npm run package` to validate the installable
+ZIP. The workflow can also be run manually from Actions. It does not publish releases.
+
 ## License
 
 MIT. Fonts in `fonts/` are under the SIL Open Font License 1.1 (license texts next to them).
