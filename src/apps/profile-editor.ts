@@ -1,11 +1,8 @@
 import { MODULE_ID } from "../constants";
 import {
   CENTRED_FOCUS,
-  DEFAULT_AUTO_SHOW,
-  defaultProfile,
   isLegendary,
   PROFILE_LIMITS,
-  profileErrors,
   readProfile,
   type Phase,
   type ProfileInput,
@@ -16,9 +13,15 @@ import { resolveLook } from "../core/look/resolve";
 import { logger } from "../logger";
 import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
 import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
-import { keepMusic, readMusicSource, resolveMusic, suggestMusic, type MusicSource } from "../core/music";
+import { suggestMusic } from "../core/music";
 import { worldPlaylists } from "../foundry/music";
-import { inputOf, keepChoice } from "../core/profile-form";
+import { inputOf } from "../core/profile-form";
+import {
+  profileEditView,
+  prepareProfileEdit,
+  type ProfileEditChoices,
+  type ProfileEditView,
+} from "../core/profile-edit";
 import { isVideoPath, phaseViewOf } from "../core/view";
 import { setPortrait } from "../ui/dom";
 import { CATEGORY_LABELS } from "./look-labels";
@@ -99,58 +102,24 @@ const TAB_OF: [RegExp, string][] = [
   [/^autoShow/, "autoShow"],
 ];
 
-/** Music in a select: "playlist:<id>" or "sound:<playlist id>:<sound id>"; "" — none (or "as before"). */
-const musicValue = (source: MusicSource | null | undefined) =>
-  !source
-    ? ""
-    : source.type === "playlist"
-      ? `playlist:${source.playlistId}`
-      : `sound:${source.playlistId}:${source.soundId}`;
-/**
- * The world's playlists as option groups: the whole playlist, then each track. Saved music this world lacks comes
- * first as "Not found", picked, so a save keeps it (core/music keepMusic).
- */
-function musicChoices(saved: MusicSource | null | undefined, playlists = worldPlaylists()) {
-  const found = resolveMusic(saved ?? null, playlists);
-  const current = musicValue(found ?? saved);
-  const missingLabel = game.i18n.localize("BB5E.Music.Missing");
-  const missing =
-    saved && !found
-      ? [
-          {
-            name: missingLabel,
-            options: [
-              {
-                value: current,
-                label:
-                  [
-                    saved.playlistName,
-                    saved.type === "sound" ? saved.soundName : game.i18n.localize("BB5E.Music.WholePlaylist"),
-                  ]
-                    .filter(Boolean)
-                    .join(" — ") || missingLabel,
-                selected: true,
-              },
-            ],
-          },
-        ]
-      : [];
+/** Localized presentation of the pure module's selected and missing references. */
+function choiceNames(options: ProfileEditView["ranks"]) {
+  return options.map((option) => ({
+    ...option,
+    name: option.missing ? game.i18n.localize("BB5E.Music.Missing") : option.name,
+  }));
+}
+function musicChoices(music: ProfileEditView["music"]) {
+  const missing = game.i18n.localize("BB5E.Music.Missing");
+  const whole = game.i18n.localize("BB5E.Music.WholePlaylist");
   return {
-    groups: [
-      ...missing,
-      ...game.playlists.contents
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((playlist) => ({
-          name: playlist.name,
-          options: [
-            { value: `playlist:${playlist.id}`, label: game.i18n.localize("BB5E.Music.WholePlaylist") },
-            ...playlist.sounds.contents.map((sound) => ({
-              value: `sound:${playlist.id}:${sound.id}`,
-              label: sound.name,
-            })),
-          ].map((option) => ({ ...option, selected: option.value === current })),
-        })),
-    ],
+    groups: music.groups.map((group) => ({
+      name: group.missing ? missing : group.name,
+      options: group.options.map((option) => ({
+        ...option,
+        label: option.whole ? [option.label, whole].filter(Boolean).join(" — ") : option.label || missing,
+      })),
+    })),
   };
 }
 
@@ -324,10 +293,9 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   #readLook() {
-    const profile = readProfile(this.actor.flags[MODULE_ID]?.profile);
-    const boss = profile.status === "ok" && profile.value.kind === "boss" ? profile.value : null;
-    this.#look = boss?.look ?? null;
-    this.#overrides = { ...boss?.overrides };
+    const view = profileEditView(this.actor.flags[MODULE_ID]?.profile, null, this.#choices());
+    this.#look = view.look.look;
+    this.#overrides = { ...view.look.overrides };
   }
 
   /** Edits the current form state and re-renders with it, keeping unsaved edits. */
@@ -349,15 +317,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   override async _prepareContext(options: Record<string, unknown>) {
-    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
-    const ranks = currentRanks();
-    // Both kinds' fields: the stored profile keeps the other kind's values as extra keys.
-    const values: Record<string, unknown> & Pick<ProfileInput, "autoShow" | "statuses" | "miniBars"> = {
-      ...defaultProfile("boss"),
-      rank: ranks[Math.min(1, ranks.length - 1)]?.id ?? "",
-      ...(read.status === "ok" ? read.value : {}),
-      ...this.#draft,
-    };
+    const view = profileEditView(this.actor.flags[MODULE_ID]?.profile, this.#draft, this.#choices());
+    const { values } = view;
     const choices = [...CONFIG.statusEffects].map(({ id, name, img }) => ({
       id,
       name: game.i18n.localize(name),
@@ -365,19 +326,17 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       hidden: values.statuses.hidden.includes(id),
     }));
     const statusIds = new Set(choices.map((choice) => choice.id));
-    const items = this.actor.items.filter((item) => Boolean(item.hasLimitedUses));
-    const missing = game.i18n.localize("BB5E.Music.Missing");
     return {
       ...(await super._prepareContext(options)),
       values,
       isElite: values.kind === "elite",
       byActor: values.displayMode === "actor",
       focus: (values.portraitFocus as ProfileInput["portraitFocus"]) ?? CENTRED_FOCUS,
-      ranks: keepChoice(ranks, String(values.rank ?? ""), missing),
-      hasProfile: read.status === "ok",
+      ranks: choiceNames(view.ranks),
+      hasProfile: view.status === "ok",
       look: this.#lookContext(),
       limits: PROFILE_LIMITS,
-      miniBars: values.miniBars.map((bar, index) => {
+      miniBars: view.miniBars.map(({ bar, items }, index) => {
         const { source } = bar;
         return {
           index,
@@ -386,7 +345,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           pips: bar.view === "pips",
           players: bar.players,
           sources: SOURCES.map((each) => ({ ...each, selected: each.value === source.type })),
-          items: keepChoice(items, source.type === "item" ? source.itemId : "", missing),
+          items: choiceNames(items),
           path: source.type === "path" ? source.path : "",
           pathMax: source.type === "path" ? String(source.max) : "",
           counterMax: source.type === "counter" ? source.max : 3,
@@ -398,8 +357,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       customStatuses: values.statuses.custom.map((status, index) => ({ ...status, index })),
       statusesFull: values.statuses.custom.length >= PROFILE_LIMITS.custom,
       refill: values.fillMode === "refill",
-      ...this.#phasesContext(Array.isArray(values.phases) ? (values.phases as Phase[]) : []),
-      music: musicChoices(keepMusic(readMusicSource(values.music), this.#savedMusic(), worldPlaylists())),
+      ...this.#phasesContext(view.phases),
+      music: musicChoices(view.music),
       musicFadeSeconds: (Number(values.musicFade) || 0) / 1000,
       ...this.#quotesContext(
         Array.isArray(values.quotes) ? (values.quotes as Quote[]) : [],
@@ -525,27 +484,34 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     await this.render({ parts: ["look"] });
   }
 
-  /** The music saved in the flag, names and all: the profile's, or one phase's. */
-  #savedMusic(phaseId?: string): MusicSource | null {
-    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
-    const boss = read.status === "ok" && read.value.kind === "boss" ? read.value : null;
-    if (phaseId === undefined) return boss?.music ?? null;
-    return boss?.phases.find((phase) => phase.id === phaseId)?.enter.music ?? null;
+  /** Current-world documents become plain choices before entering the pure round trip. */
+  #choices(): ProfileEditChoices {
+    return {
+      ranks: currentRanks(),
+      actors: game.actors
+        .filter((actor) => actor.type === "npc" && actor.id !== this.actor.id)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(({ id, name }) => ({ id, name })),
+      items: this.actor.items
+        .filter((item) => Boolean(item.hasLimitedUses))
+        .map(({ id, name }) => ({ id, name })),
+      presets: sourcesOf(currentLibrary()).presets.map((preset) => ({
+        id: preset.id,
+        name: displayName(preset),
+        category: preset.category,
+      })),
+      playlists: worldPlaylists(),
+    };
   }
 
-  /** The "Phases" tab: rows with triggers, form actors and entry changes, and the HP scale with its thresholds. */
-  #phasesContext(phases: Phase[]) {
-    const presets = sourcesOf(currentLibrary()).presets;
-    const playlists = worldPlaylists();
-    const missing = game.i18n.localize("BB5E.Music.Missing");
-    const actors = game.actors
-      .filter((actor) => actor.type === "npc" && actor.id !== this.actor.id)
-      .sort((a, b) => a.name.localeCompare(b.name));
+  /** The "Phases" tab: localized row presentation and the HP scale. */
+  #phasesContext(rows: ProfileEditView["phases"]) {
+    const phases = rows.map(({ phase }) => phase);
     const nameOf = (phase: Phase, index: number) =>
       phase.label ||
       (index ? game.i18n.format("BB5E.Phase.Default", { n: romanNumeral(index + 1) }) : romanNumeral(1));
     return {
-      phases: phases.map((phase, index) => {
+      phases: rows.map(({ phase, actors, music, overrides }, index) => {
         const { trigger } = phase;
         const newer = !KNOWN_TRIGGERS.has(trigger.type);
         return {
@@ -564,22 +530,13 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           ],
           newer: newer ? JSON.stringify(trigger) : "",
           below: trigger.type === "hp" ? trigger.below : 50,
-          actors: keepChoice(actors, trigger.type === "form" ? trigger.actorId : "", missing),
+          actors: choiceNames(actors),
           enter: phase.enter,
-          music: musicChoices(
-            keepMusic(phase.enter.music ?? null, this.#savedMusic(phase.id), playlists),
-            playlists,
-          ),
-          overrides: CATEGORIES.map((category) => ({
+          music: musicChoices(music),
+          overrides: overrides.map(({ category, options }) => ({
             category,
             label: game.i18n.localize(CATEGORY_LABELS[category]),
-            options: keepChoice(
-              presets
-                .filter((preset) => preset.category === category)
-                .map((preset) => ({ id: preset.id, name: displayName(preset) })),
-              phase.enter.overrides?.[category] ?? "",
-              missing,
-            ),
+            options: choiceNames(options),
           })),
         };
       }),
@@ -841,7 +798,10 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const hits = search.parentElement?.querySelector<HTMLElement>("[data-music-hits]");
     if (!hits) return;
     const typed = search.value.trim() !== "";
-    const found = suggestMusic(musicChoices(null).groups, search.value).map(({ value, label }) => {
+    const found = suggestMusic(
+      musicChoices(profileEditView(undefined, null, this.#choices()).music).groups,
+      search.value,
+    ).map(({ value, label }) => {
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.musicHit = value;
@@ -920,57 +880,17 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onSubmit(this: ProfileEditor, _event: Event, form: HTMLFormElement, formData: FormData) {
     const input = inputOf(foundry.utils.expandObject(formData.object), foundry.utils.randomID);
-    const errors = profileErrors(input);
-    this.#showErrors(form, errors);
-    if (Object.keys(errors).length) return;
-    const current = readProfile(this.actor.flags[MODULE_ID]?.profile);
-    if (current.status === "newer") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
-    const stored = current.status === "ok" ? current.value : defaultProfile(input.kind);
-    // Music keeps the names of its playlist and track: they find it again where the ids differ (another world).
-    const playlists = worldPlaylists();
-    const named = (music: MusicSource, phaseId?: string) =>
-      keepMusic(music, this.#savedMusic(phaseId), playlists);
-    // Only the chosen kind's fields are written; the other kind's stay in the flag for a switch back.
-    const kindFields =
-      input.kind === "boss"
-        ? {
-            title: input.title.trim(),
-            size: input.size,
-            phases: input.phases.map((phase) =>
-              phase.enter.music
-                ? { ...phase, enter: { ...phase.enter, music: named(phase.enter.music, phase.id) } }
-                : phase,
-            ),
-            fillMode: input.fillMode,
-            playerTicks: input.playerTicks,
-            quotes: input.quotes,
-            music: input.music && named(input.music),
-            musicPriority: input.musicPriority,
-            musicFade: input.musicFade,
-            look: this.#look,
-            overrides: this.#overrides,
-          }
-        : { rank: input.rank };
-    // Written whole: a merge would keep removed overrides and entries.
-    await this.actor.setFlag(
-      MODULE_ID,
-      "profile",
-      _replace({
-        ...stored,
-        kind: input.kind,
-        playerName: input.playerName.trim(),
-        portrait: input.portrait.trim() || null,
-        portraitFocus: input.portraitFocus,
-        displayMode: input.displayMode,
-        autoShow: { ...DEFAULT_AUTO_SHOW, ...input.autoShow },
-        statuses: {
-          hidden: input.statuses.hidden,
-          custom: input.kind === "boss" ? input.statuses.custom : stored.statuses.custom,
-        },
-        miniBars: input.miniBars,
-        ...kindFields,
-      }),
-    );
+    const result = prepareProfileEdit(this.actor.flags[MODULE_ID]?.profile, input, this.#choices(), {
+      look: this.#look,
+      overrides: this.#overrides,
+    });
+    this.#showErrors(form, result.status === "errors" ? result.errors : {});
+    if (result.status === "errors") return;
+    if (result.status === "newer") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
+    if (result.status === "invalid")
+      return ui.notifications.error("BB5E.Error.WriteFailed", { localize: true });
+    // Written whole: a merge would retain explicitly removed overrides and rows.
+    await this.actor.setFlag(MODULE_ID, "profile", _replace(result.value));
     this.#draft = null;
     this.#setDirty(false);
     await this.render();

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.1
+
+- Profile editing now uses one shared round trip for saved choices, drafts and full-profile replacement. Missing
+  music, ranks, form actors, items and phase presets stay selected through edits and row rerenders; explicitly
+  cleared optional choices stay removed.
+- Fixed: saving phase edits dropped additional stored phase fields. These now stay with their phase ID through
+  reordering; removed phases remain removed.
+- Fixed: switching a saved elite profile back to a boss reset its retained boss look and could lose missing music
+  names. Both now survive the switch.
+- Saving refuses unreadable stored profile data instead of replacing it with defaults, preserving the edited form.
+  Inactive boss fields use the existing reader for display while elite saves retain their stored values.
+- Added profile editor round-trip regression tests. GitHub CI now checks types, style, tests, builds and packaging
+  on Node.js 24 and 26.
+
 ## 1.5.0
 
 - **Personal HUD placement.** Drag each boss bar independently, or move the elite column as one unit, without
