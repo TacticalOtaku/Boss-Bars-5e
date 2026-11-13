@@ -1,6 +1,4 @@
-import { resolveLook, type LookSources, type ResolvedLook } from "./resolve";
 import { readParams, type Category, type Look, type Preset } from "./schema";
-import { lookStyle, type LookStyle } from "./style";
 import { BAR_LAYOUTS, CARD_LAYOUTS } from "./catalog/layouts";
 import { THEMES } from "./catalog/themes";
 import { ARCHETYPES } from "./catalog/archetypes";
@@ -58,8 +56,7 @@ export const BUILTIN_IDS: ReadonlySet<string> = new Set([
 /** "Classic RPG": the default look and the fallback of every category. */
 export const CLASSIC = BUILTIN_LOOKS[0] as Look;
 
-export const BUILTIN_SOURCES: LookSources = { looks: BUILTIN_LOOKS, presets: BUILTIN_PRESETS };
-
-/** The default look, resolved once. */
-export const CLASSIC_RESOLVED: ResolvedLook = resolveLook(CLASSIC.id, {}, BUILTIN_SOURCES, CLASSIC);
-export const CLASSIC_STYLE: LookStyle = lookStyle(CLASSIC_RESOLVED);
+export const BUILTIN_SOURCES: { looks: Look[]; presets: Preset[] } = {
+  looks: BUILTIN_LOOKS,
+  presets: BUILTIN_PRESETS,
+};

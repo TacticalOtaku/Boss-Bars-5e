@@ -1,9 +1,29 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_LAYOUT } from "../src/core/layout";
-import { CLASSIC_STYLE } from "../src/core/look/builtin";
+import { CLASSIC_STYLE } from "../src/core/look/compile";
 import type { BossBarView } from "../src/core/view";
 import { createBossStack } from "../src/ui/boss-stack";
+import type * as RendererMod from "../src/ui/vfx/renderer";
+import type { VfxHandle } from "../src/ui/vfx/renderer";
+
+type FakeRenderer = {
+  attach(
+    canvas: HTMLCanvasElement,
+    meter: HTMLElement,
+    onLive: (live: boolean) => void,
+    options?: unknown,
+  ): VfxHandle;
+};
+
+let activeRenderer: FakeRenderer | null = null;
+vi.mock("../src/ui/vfx/renderer", async (importOriginal) => {
+  const original = await importOriginal<typeof RendererMod>();
+  return {
+    ...original,
+    vfxRenderer: () => activeRenderer ?? original.vfxRenderer(),
+  };
+});
 
 const view = (id: string, extra: Partial<BossBarView> = {}): BossBarView => ({
   id,
@@ -42,6 +62,7 @@ beforeEach(() => {
   document.body.innerHTML = '<div id="boss-bars-5e"></div>';
   overlay = document.getElementById("boss-bars-5e")!;
   onCollapse.mockReset();
+  activeRenderer = null;
 });
 
 describe("createBossStack", () => {
@@ -296,6 +317,41 @@ describe("boss bar particles", () => {
     const off = { ...CLASSIC_STYLE, key: "off", effects: { ...CLASSIC_STYLE.effects, sparks: false } };
     stack.update([view("a", { fraction: 0.2, look: off })], BLOCK, 1);
     expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps throwing 2D sparks while WebGL2 shaders compile or after context loss, and yields once WebGL2 goes live", () => {
+    let setBarLive: ((live: boolean) => void) | null = null;
+    activeRenderer = {
+      attach(_canvas, _meter, onLive, options) {
+        if ((options as { portrait?: boolean } | undefined)?.portrait !== true) setBarLive = onLive;
+        return {
+          setMaterial: vi.fn(),
+          setState: vi.fn(),
+          event: vi.fn(),
+          detach: vi.fn(),
+        };
+      },
+    };
+    const emit = vi.fn();
+    const stack = createBossStack(overlay, {
+      labels: { collapse: "C", expand: "E", defeated: "D", phase: "P {n}" },
+      onCollapse,
+      reducedMotion: () => true,
+      particles: { emit },
+    });
+    stack.update([view("a", { fraction: 0.9 })], BLOCK, 1);
+    expect(setBarLive).not.toBeNull();
+    // WebGL2 attached, shader compilation still pending -> live is false -> 2D sparks still fire.
+    stack.update([view("a", { fraction: 0.7 })], BLOCK, 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    // WebGL2 goes live -> 2D fallback sparks yield to the shader.
+    setBarLive!(true);
+    stack.update([view("a", { fraction: 0.5 })], BLOCK, 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    // WebGL2 loses context -> fallback resumes cleanly.
+    setBarLive!(false);
+    stack.update([view("a", { fraction: 0.3 })], BLOCK, 1);
+    expect(emit).toHaveBeenCalledTimes(2);
   });
 });
 

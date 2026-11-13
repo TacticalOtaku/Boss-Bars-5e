@@ -1,11 +1,16 @@
 import { MODULE_ID } from "../constants";
 import { aggregate } from "../core/aggregate";
-import { isCombatStart, newlyDefeated } from "../core/combat";
+import { newlyDefeated } from "../core/instances";
 import { defeatedOf } from "../core/view";
 import { readProfile, type AutoShow } from "../core/profile";
 import { logger } from "../logger";
 import { requestWrite } from "./authority";
+import { liveFoundryEnv, type FoundryEnv } from "./env";
 import { instanceFor, sceneItems, subjectOf, type BossHud } from "./store";
+
+/** Combat starts when it moves from round 0 to round 1 (spec §3); a rewind to round 1 is not a start. */
+export const isCombatStart = (previousRound: number | undefined, round: unknown) =>
+  previousRound === 0 && round === 1;
 
 type Combatant = { sceneId: string; tokenId: string };
 
@@ -14,49 +19,38 @@ const autoShowOf = (token: TokenDocument | undefined): AutoShow | null => {
   return profile.status === "ok" ? profile.value.autoShow : null;
 };
 
-const write = (action: Parameters<typeof requestWrite>[0]) =>
-  requestWrite(action).catch((error: unknown) => logger.warn("Auto show/hide skipped", action, error));
-
 /** The instance covering a combatant's token and its profile (a form's bar keeps its boss's profile). */
-function covering({ sceneId, tokenId }: Combatant) {
-  const scene = game.scenes.get(sceneId);
+function covering({ sceneId, tokenId }: Combatant, env: FoundryEnv) {
+  const scene = env.game.scenes.get(sceneId);
   const token = scene?.tokens.get(tokenId);
   const instance = token ? instanceFor(sceneItems(scene), token) : undefined;
-  const subject = scene && instance ? subjectOf(scene, instance) : null;
+  const subject = scene && instance ? subjectOf(scene, instance, env) : null;
   return scene && subject
     ? { sceneId: scene.id, instanceId: subject.instance.id, profile: subject.profile }
     : null;
 }
 
 /** Whether a started combat holds a token the instance covers: the boss already fights again. */
-function fighting(sceneId: string, instanceId: string): boolean {
-  return game.combats.some(
+function fighting(sceneId: string, instanceId: string, env: FoundryEnv): boolean {
+  return env.game.combats.some(
     (combat) =>
       combat.started &&
-      combat.combatants.some((each) => covering(each)?.instanceId === instanceId && each.sceneId === sceneId),
+      combat.combatants.some(
+        (each) => covering(each, env)?.instanceId === instanceId && each.sceneId === sceneId,
+      ),
   );
 }
 
-/** Hides the instance covering a combatant's token, if it is still shown and not in a newer fight. */
-function hideCovering(combatant: Combatant): void {
-  const found = covering(combatant);
-  if (found && !fighting(found.sceneId, found.instanceId)) {
-    void write({ type: "hide", sceneId: found.sceneId, instanceId: found.instanceId });
+/** Live defeat state of every shown instance whose profile hides on defeat (used on delayed hide re-check). */
+function liveDefeatState(id: string, env: FoundryEnv): { defeated: boolean; sceneId: string } | null {
+  for (const scene of env.game.scenes.values()) {
+    const item = sceneItems(scene).find((each) => each.id === id);
+    if (!item) continue;
+    const subject = subjectOf(scene, item, env);
+    if (!subject?.profile.autoShow.hideOnDefeat) return null;
+    return { defeated: defeatedOf(subject, aggregate(subject.tokens, true)), sceneId: scene.id };
   }
-}
-
-/** Defeat state of every shown instance whose profile hides on defeat, on all scenes (id → defeated). */
-function defeatStates(): Map<string, { defeated: boolean; sceneId: string; delay: number }> {
-  const states = new Map<string, { defeated: boolean; sceneId: string; delay: number }>();
-  for (const scene of game.scenes.values()) {
-    for (const instance of sceneItems(scene)) {
-      const subject = subjectOf(scene, instance);
-      if (!subject?.profile.autoShow.hideOnDefeat) continue;
-      const defeated = defeatedOf(subject, aggregate(subject.tokens, true));
-      states.set(instance.id, { defeated, sceneId: scene.id, delay: subject.profile.autoShow.delay });
-    }
-  }
-  return states;
+  return null;
 }
 
 /**
@@ -65,22 +59,35 @@ function defeatStates(): Map<string, { defeated: boolean; sceneId: string; delay
  * its delay runs out, so healing in time keeps it shown. Timers die with the page: the first check after a load
  * hides whatever is already defeated.
  */
-export function startCombatWatch(hud: BossHud): void {
-  Hooks.on("updateCombat", (combat: CombatDocument, changed: { round?: unknown }) => {
-    if (!game.user.isActiveGM || !isCombatStart(combat.previous?.round, changed.round)) return;
+export function startCombatWatch(hud: BossHud, env?: FoundryEnv): void {
+  const runtime = env ?? liveFoundryEnv();
+  const write = (action: Parameters<typeof requestWrite>[0]) =>
+    (env ? requestWrite(action, env) : requestWrite(action)).catch((error: unknown) =>
+      logger.warn("Auto show/hide skipped", action, error),
+    );
+
+  runtime.Hooks.on("updateCombat", (combat: CombatDocument, changed: { round?: unknown }) => {
+    if (!runtime.game.user.isActiveGM || !isCombatStart(combat.previous?.round, changed.round)) return;
     for (const { sceneId, tokenId } of combat.combatants.values()) {
-      const scene = game.scenes.get(sceneId);
+      const scene = runtime.game.scenes.get(sceneId);
       if (scene && autoShowOf(scene.tokens.get(tokenId))?.onCombatStart) {
         void write({ type: "show", sceneId, tokenId });
       }
     }
   });
 
-  Hooks.on("deleteCombat", (combat: CombatDocument) => {
-    if (!game.user.isActiveGM) return;
+  runtime.Hooks.on("deleteCombat", (combat: CombatDocument) => {
+    if (!runtime.game.user.isActiveGM) return;
     for (const combatant of combat.combatants.values()) {
-      const autoShow = covering(combatant)?.profile.autoShow;
-      if (autoShow?.hideOnCombatEnd) setTimeout(() => hideCovering(combatant), autoShow.delay * 1000);
+      const autoShow = covering(combatant, runtime)?.profile.autoShow;
+      if (autoShow?.hideOnCombatEnd) {
+        setTimeout(() => {
+          const found = covering(combatant, runtime);
+          if (found && !fighting(found.sceneId, found.instanceId, runtime)) {
+            void write({ type: "hide", sceneId: found.sceneId, instanceId: found.instanceId });
+          }
+        }, autoShow.delay * 1000);
+      }
     }
   });
 
@@ -88,18 +95,26 @@ export function startCombatWatch(hud: BossHud): void {
   const pending = new Set<string>();
   const hideIfStillDefeated = (id: string) => {
     pending.delete(id);
-    const state = defeatStates().get(id);
-    if (state?.defeated && game.user.isActiveGM) {
-      void write({ type: "hide", sceneId: state.sceneId, instanceId: id });
-    }
+    if (!runtime.game.user.isActiveGM) return;
+    const state = liveDefeatState(id, runtime);
+    if (state?.defeated) void write({ type: "hide", sceneId: state.sceneId, instanceId: id });
   };
-  hud.subscribe(() => {
-    if (!game.user.isActiveGM) {
+  hud.subscribe((snapshot) => {
+    if (!snapshot.isActiveGM) {
       previous = null;
       return;
     }
-    const states = defeatStates();
-    const current = new Map([...states].map(([id, state]) => [id, state.defeated]));
+    const states = new Map<string, { defeated: boolean; sceneId: string; delay: number }>();
+    const current = new Map<string, boolean>();
+    for (const { scene, subject, defeated } of snapshot.allEntries) {
+      if (!subject.profile.autoShow.hideOnDefeat) continue;
+      states.set(subject.instance.id, {
+        defeated,
+        sceneId: scene.id,
+        delay: subject.profile.autoShow.delay,
+      });
+      current.set(subject.instance.id, defeated);
+    }
     for (const id of newlyDefeated(previous, current)) {
       const state = states.get(id);
       if (!state || pending.has(id)) continue;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0
+
+- **Live look updates in Elite Ranks.** Looks added or edited in the Look Library now appear in the Elite Ranks editor immediately on render without reopening the Boss Bars Hub.
+- **Fixed:** 2D hit and phase sparks could be dropped while WebGL2 shaders were compiling or after a WebGL2 context loss. Meter surfaces now track WebGL2 readiness explicitly and fall back to 2D sparks seamlessly.
+- Consolidated core look compilation, profile editing state (`ProfileEditSession`), shared HUD meter surfaces (`createMeterSurface`), shared Hub editor helpers (`DirtyGuard`, `mountHosted`, JSON import/export), DOM-connected lifecycle tracking in the Hub, and an explicit `FoundryEnv` boundary with single-pass `WorldSnapshot` updates.
+- Expanded automated tests to 40 test files (376 tests) covering Foundry runtime modules and GM applications, and verified end-to-end in Foundry VTT 14 (build 367) with dnd5e 5.3.3.
+
 ## 1.5.1
 
 - Profile editing now uses one shared round trip for saved choices, drafts and full-profile replacement. Missing

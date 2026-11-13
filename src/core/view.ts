@@ -1,10 +1,6 @@
-import { aggregate, type Aggregate, type TokenState } from "./aggregate";
-import { hpFraction, type HpData } from "./hp";
+import { aggregate, hpFraction, type Aggregate, type HpData, type TokenState } from "./aggregate";
 import type { Instance } from "./instances";
-import { numberLabels } from "./labels";
-import { CLASSIC_RESOLVED } from "./look/builtin";
-import type { ResolvedLook } from "./look/resolve";
-import { lookStyle, type LookStyle } from "./look/style";
+import { CLASSIC_STYLE, type LookStyle } from "./look/compile";
 import { buildMiniBars, type MiniBarView } from "./minibars";
 import { formPending, phaseChanges, phaseTicks, refillFraction, romanNumeral, shownIndex } from "./phases";
 import type { Phase, PhaseEnter, PortraitFocus, Profile } from "./profile";
@@ -18,8 +14,8 @@ export interface SubjectInput {
   /** Fallback label: the token's name (one per token) or the actor's name (one per actor). */
   name: string;
   actorImg: string;
-  /** The boss profile's or the elite rank's look; missing — "Classic RPG". */
-  look?: ResolvedLook;
+  /** The boss profile's or the elite rank's compiled look; missing — "Classic RPG". */
+  look?: LookStyle;
   /** The bound token, or all the actor's tokens on the scene. */
   tokens: TokenState[];
 }
@@ -54,17 +50,6 @@ interface CommonView {
   /** Status icons beyond the limit ("+N"). */
   statusOverflow: number;
   miniBars: MiniBarView[];
-}
-
-/** One style per resolved look object: subjects sharing a look share the style (and its key). */
-const styles = new WeakMap<ResolvedLook, LookStyle>();
-function styleOf(look: ResolvedLook): LookStyle {
-  let style = styles.get(look);
-  if (!style) {
-    style = lookStyle(look);
-    styles.set(look, style);
-  }
-  return style;
 }
 
 /** The phase everyone sees; the list of phases and a waiting form stay with the GM. */
@@ -149,6 +134,27 @@ const baseLabel = (subject: SubjectInput) =>
   phaseEnterOf(subject).playerName || subject.profile.playerName || subject.name;
 
 /** Bar and card labels, equal names numbered the same way for everyone (also `{name}` in quotes). */
+export interface LabelEntry {
+  id: string;
+  label: string;
+  /** Hidden from players: numbered after the visible ones, so players' numbers never reveal it. */
+  hidden: boolean;
+  order: number;
+}
+
+/** Equal names on a scene: the first stays plain, the next ones become "Name 2", "Name 3" in show order. */
+export function numberLabels(entries: LabelEntry[]): Map<string, string> {
+  const result = new Map<string, string>();
+  const groups = new Map<string, LabelEntry[]>();
+  for (const entry of entries) groups.set(entry.label, [...(groups.get(entry.label) ?? []), entry]);
+  for (const [label, group] of groups) {
+    group
+      .sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.order - b.order)
+      .forEach((entry, index) => result.set(entry.id, index ? `${label} ${index + 1}` : label));
+  }
+  return result;
+}
+
 export function playerLabels(subjects: SubjectInput[]): Map<string, string> {
   return numberLabels(
     subjects.map((subject) => ({
@@ -180,7 +186,7 @@ export function buildViews(
     const phases = phasesOf(subject);
     const phaseAt = shownIndex(phases, instance.phase);
     const fraction = total.hp ? hpFraction(total.hp) : null;
-    const look = styleOf(subject.look ?? CLASSIC_RESOLVED);
+    const look = subject.look ?? CLASSIC_STYLE;
     const statusLimit = isBoss ? look.statuses.max : look.statuses.maxCard;
     const rank = isBoss ? null : rankOf(ranks, profile.rank);
     const custom = isBoss

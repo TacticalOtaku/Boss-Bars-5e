@@ -1,40 +1,38 @@
 import { MODULE_ID } from "../constants";
-import { BUILTIN_IDS, BUILTIN_LOOKS, BUILTIN_PRESETS, CLASSIC } from "../core/look/builtin";
-import { resolveLook, type LookSources, type ResolvedLook } from "../core/look/resolve";
+import { BUILTIN_IDS } from "../core/look/builtin";
+import { compileLook, sourcesOf, type LookSources, type LookStyle } from "../core/look/compile";
 import { readLibrary, type Category, type Library } from "../core/look/schema";
+import { liveFoundryEnv, type FoundryEnv } from "./env";
 
-/** Resolved looks by look id and overrides; dropped whenever the library setting changes. */
-const cache = new Map<string, ResolvedLook>();
+/** Compiled look styles by look id and overrides; dropped whenever the library setting changes. */
+const cache = new Map<string, LookStyle>();
 
-/** The library setting changed (any client): looks resolve again on the next recompute. */
+/** The library setting changed (any client): looks compile again on the next recompute. */
 export function clearLookCache(): void {
   cache.clear();
 }
 
 /** The GM's looks and presets; a library written by a newer version reads as empty and is left untouched. */
-export function currentLibrary(): Library | null {
-  const read = readLibrary(game.settings.get(MODULE_ID, "library"), BUILTIN_IDS);
+export function currentLibrary(env: Pick<FoundryEnv, "game"> = liveFoundryEnv()): Library | null {
+  const read = readLibrary(env.game.settings.get(MODULE_ID, "library"), BUILTIN_IDS);
   return read.status === "ok" ? read.value : null;
 }
 
-export function lookSources(): LookSources {
-  const library = currentLibrary();
-  return {
-    looks: [...BUILTIN_LOOKS, ...(library?.looks ?? [])],
-    presets: [...BUILTIN_PRESETS, ...(library?.presets ?? [])],
-  };
+export function lookSources(env: Pick<FoundryEnv, "game"> = liveFoundryEnv()): LookSources {
+  return sourcesOf(currentLibrary(env));
 }
 
-/** One resolved object per distinct choice, so bars sharing a look share its style. */
-export function lookFor(
+/** One compiled style per distinct choice, so bars sharing a look share the style object. */
+export function lookStyleFor(
   lookId: string | null,
   overrides: Partial<Record<Category, string>> = {},
-): ResolvedLook {
+  env: Pick<FoundryEnv, "game"> = liveFoundryEnv(),
+): LookStyle {
   const key = JSON.stringify([lookId, overrides]);
-  let look = cache.get(key);
-  if (!look) {
-    look = resolveLook(lookId, overrides, lookSources(), CLASSIC);
-    cache.set(key, look);
+  let style = cache.get(key);
+  if (!style) {
+    style = compileLook(lookId, overrides, lookSources(env));
+    cache.set(key, style);
   }
-  return look;
+  return style;
 }

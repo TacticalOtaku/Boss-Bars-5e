@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from "vitest";
-import { mountOverlay } from "../src/ui/overlay";
+import { mountOverlay } from "../src/ui/dom";
 
 describe("mountOverlay", () => {
   beforeEach(() => {

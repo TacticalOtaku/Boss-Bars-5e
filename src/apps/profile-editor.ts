@@ -1,4 +1,9 @@
 import { MODULE_ID } from "../constants";
+import { BUILTIN_IDS, CLASSIC } from "../core/look/builtin";
+import { sourcesOf } from "../core/look/compile";
+import { CATEGORIES, isCategory, LIBRARY_VERSION, readLibrary } from "../core/look/schema";
+import { suggestMusic } from "../core/music";
+import { romanNumeral } from "../core/phases";
 import {
   CENTRED_FOCUS,
   isLegendary,
@@ -8,37 +13,32 @@ import {
   type ProfileInput,
   type ProfileKind,
 } from "../core/profile";
-import { CATEGORIES, isCategory, LIBRARY_VERSION, readLibrary, type Category } from "../core/look/schema";
-import { resolveLook } from "../core/look/resolve";
-import { logger } from "../logger";
-import { phaseChanges, phaseTicks, romanNumeral } from "../core/phases";
-import { autoDuration, QUOTE_LIMITS, speak, type Quote } from "../core/quotes";
-import { suggestMusic } from "../core/music";
-import { worldPlaylists } from "../foundry/music";
-import { inputOf } from "../core/profile-form";
 import {
-  profileEditView,
-  prepareProfileEdit,
+  inputOf,
+  musicSelection,
+  ProfileEditSession,
+  type BossPreviewFrame,
   type ProfileEditChoices,
   type ProfileEditView,
-} from "../core/profile-edit";
-import { isVideoPath, phaseViewOf } from "../core/view";
+} from "../core/profile-session";
+import { QUOTE_LIMITS, type Quote } from "../core/quotes";
+import { rankOf } from "../core/ranks";
+import { isVideoPath } from "../core/view";
+import { lookSources } from "../foundry/library";
+import { worldPlaylists } from "../foundry/music";
+import { currentRanks } from "../foundry/settings";
+import { logger } from "../logger";
 import { setPortrait } from "../ui/dom";
 import { CATEGORY_LABELS } from "./look-labels";
-import { rankOf } from "../core/ranks";
-import { currentRanks } from "../foundry/settings";
-import { BUILTIN_IDS, CLASSIC } from "../core/look/builtin";
-import { currentLibrary } from "../foundry/library";
 import {
-  confirmDiscard,
+  DirtyGuard,
   displayName,
   freshPreview,
+  mountHosted,
   playPreview,
   previewBoss,
   previewCard,
   previewSteps,
-  sourcesOf,
-  styleFor,
   type PreviewState,
   type PreviewStep,
 } from "./shared";
@@ -265,18 +265,9 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   };
 
   readonly actor: ActorDocument;
-  #dirty = false;
-  #confirming = false;
-  /** Unsaved form state, kept across the re-render that adding or removing a row needs. */
-  #draft: ProfileInput | null = null;
-
-  /** The "Look" tab: the boss's look and overrides (saved with the profile), and its preview. */
-  #look: string | null = null;
-  #overrides: Partial<Record<Category, string>> = {};
+  readonly #session: ProfileEditSession;
+  readonly #dirty = new DirtyGuard();
   #preview: PreviewState = freshPreview();
-  /** The quote row shown expanded; the others are folded to one line. */
-  #openQuote: string | null = null;
-  #phaseAt = 0;
 
   constructor(
     readonly slot: HTMLElement,
@@ -284,28 +275,22 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   ) {
     super({ id: `bb5e-profile-${actor.id}` });
     this.actor = actor;
-    this.#readLook();
+    this.#session = new ProfileEditSession(actor.flags[MODULE_ID]?.profile);
   }
 
   /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
   override async _insertElement(element: HTMLElement) {
-    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
-  }
-
-  #readLook() {
-    const view = profileEditView(this.actor.flags[MODULE_ID]?.profile, null, this.#choices());
-    this.#look = view.look.look;
-    this.#overrides = { ...view.look.overrides };
+    mountHosted(this.slot, element);
   }
 
   /** Edits the current form state and re-renders with it, keeping unsaved edits. */
-  /** A change may return the id of the quote to show expanded (a new one); the others fold. */
   static #edit(change: (input: ProfileInput, index: number, target: HTMLElement) => unknown) {
     return async function (this: ProfileEditor, _event: Event, target: HTMLElement) {
       const input = this.#formInput();
-      const opened = change(input, Number(target.dataset.index), target);
-      if (typeof opened === "string") this.#openQuote = opened;
-      this.#draft = input;
+      this.#session.mutate(input, (draft) => {
+        const opened = change(draft, Number(target.dataset.index), target);
+        return typeof opened === "string" ? opened : undefined;
+      });
       this.#setDirty(true);
       await this.render();
     };
@@ -317,7 +302,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   override async _prepareContext(options: Record<string, unknown>) {
-    const view = profileEditView(this.actor.flags[MODULE_ID]?.profile, this.#draft, this.#choices());
+    const view = this.#session.view(this.actor.flags[MODULE_ID]?.profile, this.#choices());
     const { values } = view;
     const choices = [...CONFIG.statusEffects].map(({ id, name, img }) => ({
       id,
@@ -369,9 +354,9 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** The "Look" tab: the looks to pick from and a preset choice per category ("as in the look" by default). */
   #lookContext() {
-    const sources = sourcesOf(currentLibrary());
-    const current = this.#look ?? CLASSIC.id;
-    const resolved = resolveLook(this.#look, {}, sources, CLASSIC);
+    const sources = lookSources();
+    const current = this.#session.look ?? CLASSIC.id;
+    const resolved = this.#session.baseLook(sources);
     return {
       steps: previewSteps(),
       looks: sources.looks.map((look) => ({
@@ -389,36 +374,47 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           .map((each) => ({
             id: each.id,
             name: displayName(each),
-            selected: this.#overrides[category] === each.id,
+            selected: this.#session.overrides[category] === each.id,
           })),
       })),
     };
+  }
+
+  #renderFrame(host: HTMLElement, frame: BossPreviewFrame, stateOverride?: Partial<PreviewState>) {
+    previewBoss(
+      host,
+      frame.style,
+      {
+        ...this.#preview,
+        phase: frame.phase,
+        ticks: frame.ticks,
+        title: frame.title,
+        img: frame.img,
+        focus: frame.focus,
+        ...(frame.fraction !== undefined ? { fraction: frame.fraction } : {}),
+        ...(frame.quote !== undefined ? { quote: frame.quote } : {}),
+        ...stateOverride,
+      },
+      frame.label,
+    );
   }
 
   /** The look preview: the chosen look and overrides, with the shown phase's changes on top as on the HUD. */
   #drawLook() {
     const host = this.element.querySelector<HTMLElement>(".bb5e-look-preview");
     if (!host || this.#kind() !== "boss") return;
-    const input = this.#formInput();
-    const changes = phaseChanges(input.phases, this.#phaseAt);
-    previewBoss(
-      host,
-      styleFor(sourcesOf(currentLibrary()), this.#look, { ...this.#overrides, ...changes.overrides }),
-      {
-        ...this.#preview,
-        phase: this.#preview.phase ?? phaseViewOf(input.phases, this.#phaseAt),
-        ticks: input.fillMode === "segments" ? phaseTicks(input.phases, this.#phaseAt) : [],
-        title: changes.title || input.title,
-        img: changes.portrait || input.portrait || this.actor.img,
-        focus: input.portraitFocus,
-      },
-      changes.playerName || input.playerName.trim() || this.actor.name,
+    const frame = this.#session.phaseFrame(
+      this.#formInput(),
+      lookSources(),
+      this.#session.phaseAt,
+      { name: this.actor.name, img: this.actor.img },
+      { ...(this.#preview.phase ? { phaseFallback: this.#preview.phase } : {}) },
     );
+    this.#renderFrame(host, frame);
   }
 
   static async #onPickLook(this: ProfileEditor, _event: Event, target: HTMLElement) {
-    this.#look = target.dataset.id === CLASSIC.id ? null : (target.dataset.id ?? null);
-    this.#draft = this.#formInput();
+    this.#session.pickLook(target.dataset.id ?? null, this.#formInput());
     this.#setDirty(true);
     await this.render({ parts: ["look"] });
   }
@@ -426,32 +422,23 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The play buttons; a phase step walks the profile's own phases when it has some. */
   static #onLookPlay(this: ProfileEditor, _event: Event, target: HTMLElement) {
     const step = target.dataset.step;
-    const phases = this.#formInput().phases;
+    const input = this.#formInput();
     if (step === "quote") {
-      this.#preview.quote = this.#sampleQuote();
+      this.#preview.quote = this.#session.sampleQuote(
+        input,
+        this.actor.name,
+        game.i18n.localize("BB5E.Workshop.SampleQuote"),
+        game.i18n.localize("BB5E.Quotes.SampleAttacker"),
+      );
       this.#drawLook();
-    } else if (step === "phase" && phases.length > 1) {
-      this.#phaseAt = (this.#phaseAt + 1) % phases.length;
+    } else if (step === "phase" && input.phases.length > 1) {
+      this.#session.phaseAt = (this.#session.phaseAt + 1) % input.phases.length;
       this.#preview.phase = null;
       this.#drawLook();
     } else {
-      if (step === "appear") this.#phaseAt = 0;
+      if (step === "appear") this.#session.phaseAt = 0;
       playPreview(this.#preview, step as PreviewStep, () => this.#drawLook());
     }
-  }
-
-  /** A random quote of the profile (or the sample line) over the preview bar. */
-  #sampleQuote(): PreviewState["quote"] {
-    const now = Date.now();
-    const quotes = this.#formInput().quotes;
-    const quote = quotes[Math.floor(Math.random() * quotes.length)];
-    if (!quote?.texts.length) {
-      const text = game.i18n.localize("BB5E.Workshop.SampleQuote");
-      return { key: `sample-${now}`, text, until: now + autoDuration(text) * 1000 };
-    }
-    const context = { fight: "preview", round: null, now, name: this.actor.name, random: Math.random };
-    const { shown } = speak(quote, undefined, context, game.i18n.localize("BB5E.Quotes.SampleAttacker"));
-    return { key: shown.key, text: shown.text, until: now + shown.duration * 1000 };
   }
 
   /** The current choice (look plus overrides) becomes an own look in the library, then the profile's look. */
@@ -459,7 +446,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const library = readLibrary(game.settings.get(MODULE_ID, "library"), BUILTIN_IDS);
     if (library.status !== "ok") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
     const sources = sourcesOf(library.value);
-    const resolved = resolveLook(this.#look, this.#overrides, sources, CLASSIC);
+    const resolved = this.#session.resolvedLook(sources);
     const id = foundry.utils.randomID();
     const name = game.i18n
       .format("BB5E.Library.CopyName", {
@@ -477,9 +464,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       logger.error("Look copy not saved", error);
       return ui.notifications.error("BB5E.Error.WriteFailed", { localize: true });
     }
-    this.#look = id;
-    this.#overrides = {};
-    this.#draft = this.#formInput();
+    this.#session.applySavedLook(id, this.#formInput());
     this.#setDirty(true);
     await this.render({ parts: ["look"] });
   }
@@ -495,7 +480,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       items: this.actor.items
         .filter((item) => Boolean(item.hasLimitedUses))
         .map(({ id, name }) => ({ id, name })),
-      presets: sourcesOf(currentLibrary()).presets.map((preset) => ({
+      presets: lookSources().presets.map((preset) => ({
         id: preset.id,
         name: displayName(preset),
         category: preset.category,
@@ -580,7 +565,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
           cooldown: quote.cooldown,
           once: quote.once,
           duration: quote.duration ?? "",
-          open: quote.id === this.#openQuote,
+          open: quote.id === this.#session.openQuote,
           summary: quoteSummary(
             game.i18n.localize(
               QUOTE_TRIGGERS.find((each) => each.value === trigger.type)?.label ??
@@ -596,7 +581,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
     await super._onRender(context, options);
-    this.#setDirty(this.#dirty);
+    this.#setDirty(this.#session.dirty);
     this.#syncKind();
     this.#syncSources();
     this.#syncTriggers();
@@ -634,11 +619,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   #onOverride(select: HTMLInputElement) {
     const category = select.name.slice("overrides.".length);
     if (!isCategory(category)) return;
-    if (select.value) this.#overrides[category] = select.value;
-    else
-      this.#overrides = Object.fromEntries(
-        Object.entries(this.#overrides).filter(([key]) => key !== category),
-      );
+    this.#session.setOverride(category, select.value);
     this.#drawLook();
   }
 
@@ -690,33 +671,13 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   /** ▶: the quote on the tab's preview, `{attacker}` filled with a sample name. Nothing is written. */
   static async #onPlayQuote(this: ProfileEditor, _event: Event, target: HTMLElement) {
     const host = this.element.querySelector<HTMLElement>(".bb5e-quote-preview");
-    const input = this.#formInput();
-    const quote = input.quotes[Number(target.dataset.index)];
-    if (!host || !quote?.texts.length) return;
-    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
-    const boss = read.status === "ok" && read.value.kind === "boss" ? read.value : null;
-    const name = input.playerName.trim() || this.actor.name;
-    const now = Date.now();
-    const { shown } = speak(
-      quote,
-      undefined,
-      { fight: "preview", round: null, now, name, random: Math.random },
-      game.i18n.localize("BB5E.Quotes.SampleAttacker"),
-    );
-    previewBoss(
-      host,
-      styleFor(sourcesOf(currentLibrary()), boss?.look ?? null, boss?.overrides),
-      {
-        fraction: 0.74,
-        defeated: false,
-        shown: true,
-        title: input.title,
-        img: input.portrait || this.actor.img,
-        focus: input.portraitFocus,
-        quote: { key: shown.key, text: shown.text, until: now + shown.duration * 1000 },
-      },
-      name,
-    );
+    if (!host) return;
+    const frame = this.#session.quotePreview(this.#formInput(), lookSources(), Number(target.dataset.index), {
+      name: this.actor.name,
+      img: this.actor.img,
+      sampleAttacker: game.i18n.localize("BB5E.Quotes.SampleAttacker"),
+    });
+    if (frame) this.#renderFrame(host, frame, { defeated: false, shown: true });
   }
 
   /**
@@ -725,34 +686,17 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async #onPlayPhase(this: ProfileEditor, _event: Event, target: HTMLElement) {
     const host = this.element.querySelector<HTMLElement>(".bb5e-phase-preview");
-    const input = this.#formInput();
-    const index = Number(target.dataset.index);
-    if (!host || !input.phases[index]) return;
-    const read = readProfile(this.actor.flags[MODULE_ID]?.profile);
-    const boss = read.status === "ok" && read.value.kind === "boss" ? read.value : null;
-    const sources = sourcesOf(currentLibrary());
-    const draw = (at: number, key?: string) => {
-      const changes = phaseChanges(input.phases, at);
-      const trigger = input.phases[index]?.trigger;
-      previewBoss(
-        host,
-        styleFor(sources, boss?.look ?? null, { ...boss?.overrides, ...changes.overrides }),
-        {
-          fraction: trigger?.type === "hp" ? Math.max(0, trigger.below - 1) / 100 : 1,
-          defeated: false,
-          shown: true,
-          phase: key ? { key, label: "", numeral: null } : phaseViewOf(input.phases, at),
-          ticks: input.fillMode === "segments" ? phaseTicks(input.phases, at) : [],
-          title: changes.title || input.title,
-          img: changes.portrait || input.portrait || this.actor.img,
-          focus: input.portraitFocus,
-        },
-        changes.playerName || input.playerName || this.actor.name,
-      );
-    };
+    if (!host) return;
+    const frames = this.#session.phaseTransition(
+      this.#formInput(),
+      lookSources(),
+      Number(target.dataset.index),
+      { name: this.actor.name, img: this.actor.img },
+    );
+    if (!frames) return;
     // The phase before (or a stand-in for the first one), then the phase itself: the change plays.
-    draw(Math.max(0, index - 1), index ? undefined : "before");
-    draw(index);
+    this.#renderFrame(host, frames[0], { defeated: false, shown: true, quote: null });
+    this.#renderFrame(host, frames[1], { defeated: false, shown: true, quote: null });
   }
 
   /** Legendary actions and resistances read best as pips: switching to them picks pips. */
@@ -780,8 +724,8 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   /** The quote shown expanded survives re-renders; a folded one sums up its fields as they are now. */
   #onQuoteToggle(details: HTMLElement) {
     if (!(details instanceof HTMLDetailsElement) || !details.dataset.quoteId) return;
-    if (details.open) this.#openQuote = details.dataset.quoteId;
-    else if (this.#openQuote === details.dataset.quoteId) this.#openQuote = null;
+    if (details.open) this.#session.openQuote = details.dataset.quoteId;
+    else if (this.#session.openQuote === details.dataset.quoteId) this.#session.openQuote = null;
     const trigger = details.querySelector<HTMLSelectElement>('select[name$=".trigger"]');
     const texts = details.querySelector<HTMLTextAreaElement>('textarea[name$=".texts"]');
     const summary = details.querySelector("[data-quote-summary]");
@@ -798,16 +742,15 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const hits = search.parentElement?.querySelector<HTMLElement>("[data-music-hits]");
     if (!hits) return;
     const typed = search.value.trim() !== "";
-    const found = suggestMusic(
-      musicChoices(profileEditView(undefined, null, this.#choices()).music).groups,
-      search.value,
-    ).map(({ value, label }) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.dataset.musicHit = value;
-      button.textContent = label;
-      return button;
-    });
+    const found = suggestMusic(musicChoices(musicSelection(null, worldPlaylists())).groups, search.value).map(
+      ({ value, label }) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.musicHit = value;
+        button.textContent = label;
+        return button;
+      },
+    );
     const none = document.createElement("span");
     none.textContent = game.i18n.localize("BB5E.Music.NoMatch");
     hits.replaceChildren(
@@ -845,20 +788,13 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   #setDirty(dirty: boolean) {
-    this.#dirty = dirty;
-    const badge = this.element.querySelector<HTMLElement>(".bb5e-footer__dirty");
-    if (badge) badge.hidden = !dirty;
+    this.#session.dirty = dirty;
+    this.#dirty.set(dirty, this.element);
   }
 
   /** Unsaved edits ask before closing; a second close while the question is open is ignored. */
   override async close(options: Record<string, unknown> = {}) {
-    if (this.#dirty && !options.force) {
-      if (this.#confirming) return this;
-      this.#confirming = true;
-      const discard = await confirmDiscard();
-      this.#confirming = false;
-      if (!discard) return this;
-    }
+    if (await this.#dirty.keepOpen(options, this.#session.dirty)) return this;
     return super.close(options);
   }
 
@@ -880,10 +816,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static async #onSubmit(this: ProfileEditor, _event: Event, form: HTMLFormElement, formData: FormData) {
     const input = inputOf(foundry.utils.expandObject(formData.object), foundry.utils.randomID);
-    const result = prepareProfileEdit(this.actor.flags[MODULE_ID]?.profile, input, this.#choices(), {
-      look: this.#look,
-      overrides: this.#overrides,
-    });
+    const result = this.#session.commit(this.actor.flags[MODULE_ID]?.profile, input, this.#choices());
     this.#showErrors(form, result.status === "errors" ? result.errors : {});
     if (result.status === "errors") return;
     if (result.status === "newer") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
@@ -891,7 +824,6 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
       return ui.notifications.error("BB5E.Error.WriteFailed", { localize: true });
     // Written whole: a merge would retain explicitly removed overrides and rows.
     await this.actor.setFlag(MODULE_ID, "profile", _replace(result.value));
-    this.#draft = null;
     this.#setDirty(false);
     await this.render();
   }
@@ -904,7 +836,7 @@ class ProfileEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     });
     if (!confirmed) return;
     await this.actor.unsetFlag(MODULE_ID, "profile");
-    this.#dirty = false;
+    this.#session.dirty = false;
     await this.close({ force: true });
   }
 }

@@ -1,33 +1,23 @@
 import type { HudEffect } from "../core/actions";
-import { hpChange, isLow } from "../core/look/effects";
 import type { Block } from "../core/layout";
 import type { EliteCardView, HudViews } from "../core/view";
-import { positionBlock } from "./blocks";
-import { formatNumbers, part, setPortrait } from "./dom";
-import { enterFrames, leaveDuration, leaveFrames, playHpChange } from "./effects";
+import { formatNumbers, part, positionBlock, setPortrait } from "./dom";
+import { enterFrames, leaveDuration, leaveFrames } from "./effects";
 import { createStatusRow, renderMiniBars, renderStatuses } from "./extras";
 import { createKeyedList, type KeyedItem } from "./keyed-list";
-import { applyHpColor, applyLook } from "./look";
-import { vfxRenderer, type VfxHandle } from "./vfx/renderer";
+import { applyLook } from "./look";
+import { createMeterSurface, type MeterSurface } from "./meter-surface";
 
 interface Card extends KeyedItem {
-  /** The card's plate and meter drawn by the shared WebGL2 renderer (ADR 0003); null on the CSS look. */
-  vfx: { handle: VfxHandle; canvas: HTMLCanvasElement } | null;
+  surface: MeterSurface;
   icon: HTMLElement;
   info: HTMLElement;
   name: HTMLElement;
   count: HTMLElement;
   numbers: HTMLElement;
-  meter: HTMLElement;
-  fill: HTMLElement;
-  shield: HTMLElement;
-  flash: HTMLElement;
-  crack: HTMLElement;
-  wave: HTMLElement;
   rank: HTMLElement;
   miniBars: HTMLElement;
   statuses: HTMLElement;
-  shown: number | null;
 }
 
 export interface ColumnOptions {
@@ -64,80 +54,34 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     const name = part("span", "bb5e-elite__name", head);
     const count = part("span", "bb5e-elite__count", head);
     const numbers = part("span", "bb5e-elite__numbers", head);
-    const meter = part("div", "bb5e-elite__meter", info);
-    meter.setAttribute("role", "meter");
-    meter.setAttribute("aria-valuemin", "0");
-    meter.setAttribute("aria-valuemax", "100");
-    const fill = part("div", "bb5e-elite__fill", meter);
-    const shield = part("div", "bb5e-elite__shield", meter);
-    const flash = part("div", "bb5e-fx bb5e-fx--flash", meter);
-    const crack = part("div", "bb5e-fx bb5e-fx--crack", meter);
-    const wave = part("div", "bb5e-fx bb5e-fx--wave", meter);
+    const surface = createMeterSurface({
+      root: el,
+      parent: info,
+      classPrefix: "bb5e-elite",
+      portrait: icon,
+      name,
+      vfxPlacement: "prependRoot",
+      vfxWanted: (look) => look.attrs.cfill === "horizontal",
+      vfxOptions: { card: el, icon },
+      respectCardDirection: true,
+      reducedMotion: options.reducedMotion,
+    });
     const miniBars = part("div", "bb5e-minibars bb5e-elite__minibars", info);
     const statuses = createStatusRow("bb5e-elite__statuses", info);
     const rank = part("div", "bb5e-elite__rank", info);
     return {
       el,
+      surface,
       icon,
       info,
       name,
       count,
       numbers,
-      meter,
-      fill,
-      shield,
-      flash,
-      crack,
-      wave,
       rank,
       miniBars,
       statuses,
-      shown: null,
       leaving: null,
-      vfx: null,
     };
-  }
-
-  /**
-   * Cards of the horizontal layouts get their plate (and meter, when the rank shows it) from the shared renderer;
-   * vertical and ring fills keep the CSS look. The CSS look hides only while the canvas draws.
-   */
-  function updateVfx(card: Card, view: EliteCardView, shown: number, low: boolean) {
-    const wanted = view.look.attrs.cfill === "horizontal";
-    if (!wanted) {
-      if (!card.vfx) return;
-      card.vfx.handle.detach();
-      card.vfx.canvas.remove();
-      card.el.classList.remove("bb5e-vfx");
-      card.vfx = null;
-      return;
-    }
-    if (!card.vfx) {
-      const renderer = vfxRenderer();
-      if (!renderer) return;
-      const canvas = document.createElement("canvas");
-      canvas.className = "bb5e-elite__vfx";
-      canvas.setAttribute("aria-hidden", "true");
-      card.el.prepend(canvas);
-      const handle = renderer.attach(
-        canvas,
-        card.meter,
-        (live) => card.el.classList.toggle("bb5e-vfx", live),
-        { card: card.el, icon: card.icon },
-      );
-      card.vfx = { handle, canvas };
-    }
-    card.vfx.handle.setMaterial(view.look.material, view.look.key);
-    card.vfx.handle.setState({
-      fill: shown,
-      shield: view.defeated ? 0 : view.shield,
-      ticks: [],
-      low,
-      defeated: view.defeated,
-      accent: view.rank.color,
-      accentTop: view.look.attrs.icon !== "left",
-      iconFrame: view.look.attrs.icon !== "tile",
-    });
   }
 
   function updateCard(card: Card, view: EliteCardView) {
@@ -165,50 +109,17 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     card.count.textContent = view.count ? `×${view.count}` : "";
     card.numbers.hidden = !view.numbers || !parts.name;
     card.numbers.textContent = view.numbers ? formatNumbers(view.numbers) : "";
-    card.meter.hidden = !parts.fill;
-    card.meter.setAttribute("aria-label", view.label);
-    const shown = view.defeated ? 0 : (view.fraction ?? 0);
-    if (view.fraction === null) card.meter.removeAttribute("aria-valuenow");
-    else card.meter.setAttribute("aria-valuenow", String(Math.round(shown * 100)));
-    // A vertical fill (layout C tiles) grows upwards; the ring reads --bb5e-f.
-    card.fill.style.transform = look.attrs.cfill === "vertical" ? `scaleY(${shown})` : `scaleX(${shown})`;
-    el.style.setProperty("--bb5e-f", String(shown));
-    applyHpColor(card.fill, look, shown);
-    const low = parts.fill && !view.defeated && isLow(shown, look.effects.lowThreshold);
-    updateVfx(card, view, shown, low);
-    if (card.shown !== shown) {
-      const change = hpChange(card.shown, shown, look.effects.bigThreshold);
-      if (change && card.vfx) {
-        card.vfx.handle.event({
-          kind: change.kind,
-          share: change.share,
-          x: shown,
-          big: false,
-          scale: look.effects.scaleByDamage,
-        });
-      }
-      playHpChange(
-        change,
-        look,
-        {
-          root: el,
-          portrait: card.icon,
-          flash: card.flash,
-          crack: card.crack,
-          wave: card.wave,
-          name: card.name,
-        },
-        options.reducedMotion(),
-      );
-      card.shown = shown;
-    }
-    const lowMode = look.effects.lowFlicker ? "flicker" : look.effects.lowPulse ? "pulse" : "";
-    if (parts.fill && lowMode && !view.defeated && isLow(shown, look.effects.lowThreshold))
-      el.dataset.low = lowMode;
-    else delete el.dataset.low;
-    card.shield.hidden = !view.shield || view.defeated;
-    card.shield.style.setProperty("--bb5e-at", String(shown));
-    card.shield.style.setProperty("--bb5e-shield", String(view.shield));
+    card.surface.update({
+      label: view.label,
+      look,
+      fraction: view.fraction,
+      shield: view.shield,
+      defeated: view.defeated,
+      visible: parts.fill,
+      accent: view.rank.color,
+      accentTop: look.attrs.icon !== "left",
+      iconFrame: look.attrs.icon !== "tile",
+    });
     renderMiniBars(card.miniBars, view.miniBars);
     renderStatuses(card.statuses, view.statuses, view.statusOverflow);
     card.rank.textContent = view.rank.name;
@@ -231,23 +142,7 @@ export function createEliteColumn(host: HTMLElement, options: ColumnOptions) {
     play(id: string, effect: HudEffect) {
       const shown = list.get(id);
       if (!shown || (effect !== "damage" && effect !== "heal")) return;
-      const { item: card, view } = shown;
-      const fill = card.shown ?? 0;
-      const [from, to] = effect === "damage" ? [fill + 0.25, fill] : [fill - 0.25, fill];
-      card.vfx?.handle.event({ kind: effect, share: 0.25, x: fill, big: false });
-      playHpChange(
-        hpChange(from, to, view.look.effects.bigThreshold),
-        view.look,
-        {
-          root: card.el,
-          portrait: card.icon,
-          flash: card.flash,
-          crack: card.crack,
-          wave: card.wave,
-          name: card.name,
-        },
-        options.reducedMotion(),
-      );
+      shown.item.surface.playQuarter(effect, shown.view.look);
     },
     update(
       views: EliteCardView[],

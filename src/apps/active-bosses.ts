@@ -4,6 +4,7 @@ import { phaseIndex, romanNumeral } from "../core/phases";
 import { readProfile, type Profile, type ProfileKind } from "../core/profile";
 import { writeOrNotify } from "../foundry/authority";
 import { instanceFor, profileActorOf, sceneItems, type BossHud } from "../foundry/store";
+import { mountHosted } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -174,7 +175,7 @@ class ActiveBosses extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
   override async _insertElement(element: HTMLElement) {
-    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
+    mountHosted(this.slot, element);
   }
 
   override async _prepareContext(options: Record<string, unknown>) {

@@ -50,6 +50,16 @@ const clamp = (value: unknown, min: number, max: number, fallback: number) => {
   return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
 };
 
+/** Reads a stored drag placement (`anchor` + finite offsets within bounds), or `null` if invalid. */
+export function readPlacement(raw: unknown): Placement | null {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.anchor !== "string" || !Object.hasOwn(ANCHORS, raw.anchor)) return null;
+  const { dx, dy } = raw;
+  if (typeof dx !== "number" || !Number.isFinite(dx) || Math.abs(dx) > LAYOUT_LIMITS.offset) return null;
+  if (typeof dy !== "number" || !Number.isFinite(dy) || Math.abs(dy) > LAYOUT_LIMITS.offset) return null;
+  return { anchor: raw.anchor as Anchor, dx, dy };
+}
+
 function readBlock<K extends BlockKey>(raw: unknown, key: K): Layout[K] {
   const fallback = DEFAULT_LAYOUT[key];
   const value = isRecord(raw) ? raw : {};
@@ -137,45 +147,4 @@ export function toAnchor(rect: Rect, screen: Size, uiScale: number): Placement {
     dx: Math.round((rect.x - origin.x) / uiScale),
     dy: Math.round((rect.y - origin.y) / uiScale),
   };
-}
-
-const SNAP = 12;
-
-/** Sticks the block to the screen centre lines and edges within 12 px; guides tell which centre line held. */
-export function snap(
-  rect: Rect,
-  screen: Size,
-): { rect: Rect; guides: { vertical: boolean; horizontal: boolean } } {
-  let { x, y } = rect;
-  const vertical = Math.abs(x + rect.w / 2 - screen.w / 2) < SNAP;
-  const horizontal = Math.abs(y + rect.h / 2 - screen.h / 2) < SNAP;
-  if (vertical) x = screen.w / 2 - rect.w / 2;
-  if (horizontal) y = screen.h / 2 - rect.h / 2;
-  if (Math.abs(x) < SNAP) x = 0;
-  if (Math.abs(y) < SNAP) y = 0;
-  if (Math.abs(x + rect.w - screen.w) < SNAP) x = screen.w - rect.w;
-  if (Math.abs(y + rect.h - screen.h) < SNAP) y = screen.h - rect.h;
-  return { rect: { ...rect, x, y }, guides: { vertical, horizontal } };
-}
-
-const intersects = (a: Rect, b: Rect) =>
-  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-
-export function overlapping<Z extends { rect: Rect }>(rect: Rect, zones: Z[]): Z[] {
-  return zones.filter((zone) => intersects(rect, zone.rect));
-}
-
-export function offscreen(rect: Rect, screen: Size): boolean {
-  return rect.x < 0 || rect.y < 0 || rect.x + rect.w > screen.w || rect.y + rect.h > screen.h;
-}
-
-/**
- * A Foundry zone measured on the GM's screen, as it would sit on a player's screen: kept at its anchor (by screen
- * thirds), zones spanning nearly the whole height stretch to the new height (sidebar).
- */
-export function moveToScreen(rect: Rect, from: Size, to: Size): Rect {
-  if (rect.h >= from.h * 0.9) {
-    return { ...placeRect(toAnchor(rect, from, 1), rect, to, 1), y: 0, h: to.h };
-  }
-  return placeRect(toAnchor(rect, from, 1), rect, to, 1);
 }

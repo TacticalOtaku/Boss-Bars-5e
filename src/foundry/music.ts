@@ -1,23 +1,22 @@
 import { MODULE_ID } from "../constants";
-import { aggregate } from "../core/aggregate";
 import {
+  emptySnapshot,
   leadMusic,
   musicActive,
   readSnapshot,
   rememberFade,
   resolveMusic,
   sameSource,
-  emptySnapshot,
   type MusicCandidate,
-  type PlaylistInfo,
   type MusicSnapshot,
   type MusicSource,
+  type PlaylistInfo,
   type TrackRef,
 } from "../core/music";
 import { musicOf } from "../core/phases";
-import { defeatedOf } from "../core/view";
 import { logger } from "../logger";
-import { sceneItems, subjectOf, type BossHud } from "./store";
+import { liveFoundryEnv, type FoundryEnv } from "./env";
+import type { BossHud, WorldSnapshot } from "./store";
 
 /** Foundry 14 PLAYLIST_MODES (common/constants.mjs). */
 const MODES = { DISABLED: -1, SIMULTANEOUS: 2 } as const;
@@ -26,15 +25,16 @@ const refOf = (sound: PlaylistSoundDocument): TrackRef => ({
   playlistId: sound.parent.id,
   soundId: sound.id,
 });
-const soundOf = (ref: TrackRef) => game.playlists.get(ref.playlistId)?.sounds.get(ref.soundId);
+const soundOf = (ref: TrackRef, env: Pick<FoundryEnv, "game">) =>
+  env.game.playlists.get(ref.playlistId)?.sounds.get(ref.soundId);
 const inSource = (source: MusicSource | null, sound: PlaylistSoundDocument) =>
   source !== null &&
   sound.parent.id === source.playlistId &&
   (source.type === "playlist" || sound.id === source.soundId);
 
 /** The world's playlists and tracks by id and name, for finding a boss's music (core/music resolveMusic). */
-export const worldPlaylists = (): PlaylistInfo[] =>
-  game.playlists.contents.map((playlist) => ({
+export const worldPlaylists = (env: Pick<FoundryEnv, "game"> = liveFoundryEnv()): PlaylistInfo[] =>
+  env.game.playlists.contents.map((playlist) => ({
     id: playlist.id,
     name: playlist.name,
     sounds: playlist.sounds.contents.map((sound) => ({ id: sound.id, name: sound.name })),
@@ -44,18 +44,14 @@ export const worldPlaylists = (): PlaylistInfo[] =>
  * Bosses with music on the scene the players stand on (decision 9): shown, not hidden (decision 4), not defeated
  * (decision 5; a form next in line is no defeat). The music is found by id, else by its saved names.
  */
-function candidates(): MusicCandidate[] {
-  const scene = game.scenes.active;
-  if (!scene) return [];
-  const playlists = worldPlaylists();
-  return sceneItems(scene).flatMap((item): MusicCandidate[] => {
-    const subject = subjectOf(scene, item);
-    if (subject?.profile.kind !== "boss") return [];
-    const { profile } = subject;
+function candidates(snapshot: WorldSnapshot, env: Pick<FoundryEnv, "game">): MusicCandidate[] {
+  if (!snapshot.activeSceneId) return [];
+  const playlists = worldPlaylists(env);
+  return snapshot.activeEntries.flatMap(({ subject, total, defeated }): MusicCandidate[] => {
+    const { instance: item, profile } = subject;
+    if (profile.kind !== "boss") return [];
     const source = resolveMusic(musicOf(profile, item.phase), playlists);
-    const total = aggregate(subject.tokens, true);
-    if (!source || !total || total.hidden) return [];
-    if (defeatedOf(subject, total)) return [];
+    if (!source || !total || total.hidden || defeated) return [];
     return [
       {
         instanceId: item.id,
@@ -70,8 +66,8 @@ function candidates(): MusicCandidate[] {
 }
 
 /** The tracks a source starts: the track, or what Playlist#playAll would start in the playlist's mode. */
-function soundsToStart(source: MusicSource): PlaylistSoundDocument[] {
-  const playlist = game.playlists.get(source.playlistId);
+function soundsToStart(source: MusicSource, env: Pick<FoundryEnv, "game">): PlaylistSoundDocument[] {
+  const playlist = env.game.playlists.get(source.playlistId);
   if (!playlist) return [];
   if (source.type === "sound") {
     const sound = playlist.sounds.get(source.soundId);
@@ -97,21 +93,22 @@ async function updateTracks(changes: Map<PlaylistSoundDocument, Change>): Promis
   }
 }
 
-const save = (snapshot: MusicSnapshot) => game.settings.set(MODULE_ID, "music", snapshot);
+const save = (snapshot: MusicSnapshot, env: Pick<FoundryEnv, "game">) =>
+  env.game.settings.set(MODULE_ID, "music", snapshot);
 
 /**
  * Puts the original `fade` back on every track a transition changed (the ticket's trap). It waits for the
  * transition to end: a `fade` change re-syncs the tracks and would cut a running fade short.
  */
-async function restoreFades(): Promise<void> {
-  const read = readSnapshot(game.settings.get(MODULE_ID, "music"));
+async function restoreFades(env: Pick<FoundryEnv, "game">): Promise<void> {
+  const read = readSnapshot(env.game.settings.get(MODULE_ID, "music"));
   if (read.status !== "ok" || !read.value.fades.length) return;
   const changes = new Map<PlaylistSoundDocument, Change>();
   for (const entry of read.value.fades) {
-    const sound = soundOf(entry);
+    const sound = soundOf(entry, env);
     if (sound && sound.fade !== entry.fade) changes.set(sound, { _id: sound.id, fade: entry.fade });
   }
-  await save({ ...read.value, fades: [] });
+  await save({ ...read.value, fades: [] }, env);
   await updateTracks(changes);
 }
 
@@ -121,11 +118,15 @@ async function restoreFades(): Promise<void> {
  * the new ones fade in. End: the module's tracks fade out, the remembered ones that still wait resume from their
  * place. A transition fades with a temporary `fade` (the profile's length), originals kept in the snapshot first.
  */
-async function sync(schedule: (ms: number) => void): Promise<void> {
-  const read = readSnapshot(game.settings.get(MODULE_ID, "music"));
+async function sync(
+  world: WorldSnapshot,
+  schedule: (ms: number) => void,
+  env: Pick<FoundryEnv, "game">,
+): Promise<void> {
+  const read = readSnapshot(env.game.settings.get(MODULE_ID, "music"));
   if (read.status !== "ok") return;
   let snapshot = read.value;
-  const lead = leadMusic(candidates());
+  const lead = leadMusic(candidates(world, env));
   if (lead ? sameSource(lead.source, snapshot.source) : !musicActive(snapshot)) return;
   const ms = lead?.fade ?? snapshot.fade;
   const changes = new Map<PlaylistSoundDocument, Change>();
@@ -140,7 +141,7 @@ async function sync(schedule: (ms: number) => void): Promise<void> {
   if (!musicActive(snapshot)) {
     // Begin: everything playing stops with its place remembered (a pause would cut it without fading).
     const paused: MusicSnapshot["paused"] = [];
-    for (const playlist of game.playlists.values()) {
+    for (const playlist of env.game.playlists.values()) {
       for (const sound of playlist.sounds.values()) {
         if (!sound.playing || inSource(lead?.source ?? null, sound)) continue;
         paused.push({ ...refOf(sound), time: sound.sound?.currentTime ?? sound.pausedTime ?? 0 });
@@ -151,23 +152,23 @@ async function sync(schedule: (ms: number) => void): Promise<void> {
   } else {
     // Only the module's own tracks, and only if they still play: the GM may have stopped them.
     for (const ref of snapshot.started) {
-      const sound = soundOf(ref);
+      const sound = soundOf(ref, env);
       if (sound?.playing && !inSource(lead?.source ?? null, sound)) fadeOut(sound);
     }
   }
   if (lead) {
-    const start = soundsToStart(lead.source);
+    const start = soundsToStart(lead.source, env);
     for (const sound of start) if (!sound.playing) fadeIn(sound, null);
     snapshot = { ...snapshot, source: lead.source, fade: lead.fade, started: start.map(refOf) };
   } else {
     // End: what still waits on the module's stop resumes; what the GM started meanwhile is left alone.
     for (const entry of snapshot.paused) {
-      const sound = soundOf(entry);
+      const sound = soundOf(entry, env);
       if (sound && !sound.playing) fadeIn(sound, entry.time || null);
     }
     snapshot = { ...emptySnapshot(), fades: snapshot.fades };
   }
-  await save(snapshot);
+  await save(snapshot, env);
   await updateTracks(changes);
   schedule(ms);
 }
@@ -176,18 +177,20 @@ async function sync(schedule: (ms: number) => void): Promise<void> {
  * Boss music on the active GM: after each recompute (a shown, hidden or defeated boss, a phase, a new active scene)
  * the music follows the leading boss. Steps run one at a time; after a load, fades a crash left are put back first.
  */
-export function startMusicWatch(hud: BossHud): void {
+export function startMusicWatch(hud: BossHud, env: Pick<FoundryEnv, "game"> = liveFoundryEnv()): void {
   let chain: Promise<void> = Promise.resolve();
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let latest: WorldSnapshot | null = null;
   const queue = (task: () => Promise<void>) => {
     chain = chain.then(task).catch((error: unknown) => logger.error("Music change failed", error));
   };
   const schedule = (ms: number) => {
     clearTimeout(timer);
-    timer = setTimeout(() => queue(restoreFades), ms + 300);
+    timer = setTimeout(() => queue(() => restoreFades(env)), ms + 300);
   };
-  if (game.user.isActiveGM) queue(restoreFades);
-  hud.subscribe(() => {
-    if (game.user.isActiveGM) queue(() => sync(schedule));
+  if (env.game.user.isActiveGM) queue(() => restoreFades(env));
+  hud.subscribe((snapshot) => {
+    latest = snapshot;
+    if (snapshot.isActiveGM) queue(() => (latest ? sync(latest, schedule, env) : Promise.resolve()));
   });
 }

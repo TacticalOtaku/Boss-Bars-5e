@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TokenState } from "../../src/core/aggregate";
 import { DEFAULT_AUTO_SHOW, type BossProfile, type EliteProfile } from "../../src/core/profile";
 import { defaultRanks } from "../../src/core/ranks";
-import { buildViews, type SubjectInput, type Viewer } from "../../src/core/view";
+import { buildViews, numberLabels, type SubjectInput, type Viewer } from "../../src/core/view";
 
 const ranks = defaultRanks(["Captain", "Veteran", "Fighter", "Guard"]);
 const token = (id: string, extra: Partial<TokenState> = {}): TokenState => ({
@@ -262,9 +262,8 @@ describe("buildViews — statuses, mini-bars and shield", () => {
 
 describe("buildViews — look", () => {
   it("takes status limits and the shield switch from the subject's look", async () => {
-    const { BUILTIN_SOURCES, CLASSIC } = await import("../../src/core/look/builtin");
-    const { resolveLook } = await import("../../src/core/look/resolve");
-    const neon = resolveLook("neon", {}, BUILTIN_SOURCES, CLASSIC);
+    const { compileLook } = await import("../../src/core/look/compile");
+    const neon = compileLook("neon");
     const effect = (name: string) => ({
       id: name,
       name,
@@ -281,7 +280,7 @@ describe("buildViews — look", () => {
     const boss = { ...subject("Neon", bossProfile, tokens), look: neon };
     const view = buildViews([boss], ranks, gm, 12).bosses[0]!;
     expect([view.statuses.length, view.statusOverflow, view.look.attrs.bar]).toEqual([12, 2, "thick"]);
-    const noShield = { ...neon, fill: { ...neon.fill, params: { ...neon.fill.params, shield: false } } };
+    const noShield = { ...neon, shield: false };
     expect(buildViews([{ ...boss, look: noShield }], ranks, gm, 12).bosses[0]?.shield).toBe(0);
   });
 });
@@ -350,5 +349,26 @@ describe("buildViews — phases", () => {
       phase: null,
       ticks: [],
     });
+  });
+});
+
+describe("numberLabels", () => {
+  it("keeps the first name plain and numbers the next ones in show order", () => {
+    const labels = numberLabels([
+      { id: "c", label: "Orc", hidden: false, order: 3 },
+      { id: "a", label: "Orc", hidden: false, order: 1 },
+      { id: "w", label: "Wolf", hidden: false, order: 2 },
+      { id: "b", label: "Orc", hidden: false, order: 2 },
+    ]);
+    expect(Object.fromEntries(labels)).toEqual({ a: "Orc", b: "Orc 2", c: "Orc 3", w: "Wolf" });
+  });
+
+  it("numbers visible ones first, so a hidden enemy never shows in players' numbers", () => {
+    const labels = numberLabels([
+      { id: "hidden", label: "Orc", hidden: true, order: 1 },
+      { id: "x", label: "Orc", hidden: false, order: 2 },
+      { id: "y", label: "Orc", hidden: false, order: 3 },
+    ]);
+    expect(Object.fromEntries(labels)).toEqual({ x: "Orc", y: "Orc 2", hidden: "Orc 3" });
   });
 });

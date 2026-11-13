@@ -1,11 +1,10 @@
-import { aggregate } from "../core/aggregate";
-import { hpFraction } from "../core/hp";
+import { hpFraction } from "../core/aggregate";
 import type { Instance } from "../core/instances";
-import { defeatedOf } from "../core/view";
 import type { QuoteEvent } from "../core/quotes";
 import { dnd5eAttack, midiAttack, type AttackResult } from "../integrations/attacks";
 import { applyQuoteEvents } from "./authority";
-import { instanceFor, sceneItems, subjectOf, type BossHud } from "./store";
+import { liveFoundryEnv, type FoundryEnv } from "./env";
+import { instanceFor, sceneItems, type BossHud } from "./store";
 
 /** What the active GM last saw of a boss with quotes. */
 interface Seen {
@@ -20,25 +19,6 @@ interface Seen {
   bound: string;
 }
 
-function seenOf(scene: SceneDocument, item: Instance): Seen | null {
-  const subject = subjectOf(scene, item);
-  if (subject?.profile.kind !== "boss" || !subject.profile.quotes.length) return null;
-  const total = aggregate(subject.tokens, true);
-  return {
-    appeared: total !== null && !total.hidden,
-    fraction: total?.hp ? hpFraction(total.hp) : null,
-    value: total?.hp?.value ?? null,
-    defeated: defeatedOf(subject, total),
-    statuses: new Set(
-      (total?.tokens ?? []).flatMap((token) =>
-        (token.effects ?? []).flatMap((effect) => [...effect.statuses, effect.name]),
-      ),
-    ),
-    phaseId: item.phase && !item.phase.waiting ? item.phase.id : null,
-    bound: item.tokenId ?? item.actorId ?? "",
-  };
-}
-
 /** Events between two looks at the same boss (decision 6): from the data, never from damage hooks (ADR 0001). */
 function eventsBetween(before: Seen, now: Seen): QuoteEvent[] {
   const events: QuoteEvent[] = [];
@@ -48,7 +28,13 @@ function eventsBetween(before: Seen, now: Seen): QuoteEvent[] {
     if (before.fraction !== null && now.fraction !== null && now.fraction < before.fraction) {
       events.push({ type: "hp", from: before.fraction, to: now.fraction });
     }
-    if (before.value !== null && now.value !== null && now.value > before.value)
+    if (
+      before.value !== null &&
+      now.value !== null &&
+      before.value > 0 &&
+      now.value > before.value &&
+      !now.defeated
+    )
       events.push({ type: "heal" });
   }
   if (now.defeated && !before.defeated) events.push({ type: "defeat" });
@@ -58,9 +44,12 @@ function eventsBetween(before: Seen, now: Seen): QuoteEvent[] {
 }
 
 /** The instances an attack's target covers: one token, or every token of a linked world actor. */
-function targetsOf(result: AttackResult): { scene: SceneDocument; instance: Instance }[] {
+function targetsOf(
+  result: AttackResult,
+  env: Pick<FoundryEnv, "game">,
+): { scene: SceneDocument; instance: Instance }[] {
   const found: { scene: SceneDocument; instance: Instance }[] = [];
-  for (const scene of game.scenes.values()) {
+  for (const scene of env.game.scenes.values()) {
     const target = result.target;
     if ("sceneId" in target && target.sceneId !== scene.id) continue;
     const items = sceneItems(scene);
@@ -78,77 +67,91 @@ function targetsOf(result: AttackResult): { scene: SceneDocument; instance: Inst
 }
 
 /** The attacker's token name from the roll message's speaker. */
-function attackerOf(message: ChatMessageDocument): string {
+function attackerOf(message: ChatMessageDocument, env: Pick<FoundryEnv, "game">): string {
   const { scene, token, alias } = message.speaker ?? {};
-  return game.scenes.get(scene ?? "")?.tokens.get(token ?? "")?.name ?? alias ?? "";
+  return env.game.scenes.get(scene ?? "")?.tokens.get(token ?? "")?.name ?? alias ?? "";
 }
 
 /**
  * Quote events on the active GM: data changes after each recompute (the first recompute after a load only looks),
  * the boss's turn from the tracker, crits and misses from the chat (dnd5e and Midi, both always: decision 8).
  */
-export function startQuoteWatch(hud: BossHud): void {
+export function startQuoteWatch(hud: BossHud, env: FoundryEnv = liveFoundryEnv()): void {
   let seen: Map<string, Seen> | null = null;
-  hud.subscribe(() => {
-    if (!game.user.isActiveGM) {
+  hud.subscribe((snapshot) => {
+    if (!snapshot.isActiveGM) {
       seen = null;
       return;
     }
     const next = new Map<string, Seen>();
-    for (const scene of game.scenes.values()) {
-      for (const item of sceneItems(scene)) {
-        const now = item.kind === "boss" ? seenOf(scene, item) : null;
-        if (!now) continue;
-        const before = seen?.get(item.id);
-        // Preparing a hidden boss must not spend its arrival phrase before players can see it.
-        // Once visible, hiding and revealing the same showing is not another arrival.
-        now.appeared ||= before?.appeared ?? false;
-        next.set(item.id, now);
-        if (!seen) continue;
-        applyQuoteEvents(
-          scene,
-          item.id,
-          before ? eventsBetween(before, now) : now.appeared ? [{ type: "appear" }] : [],
-        );
-      }
+    for (const { scene, subject, total, defeated } of snapshot.allEntries) {
+      if (subject.profile.kind !== "boss" || !subject.profile.quotes.length) continue;
+      const item = subject.instance;
+      const now: Seen = {
+        appeared: total !== null && !total.hidden,
+        fraction: total?.hp ? hpFraction(total.hp) : null,
+        value: total?.hp?.value ?? null,
+        defeated,
+        statuses: new Set(
+          (total?.tokens ?? []).flatMap((token) =>
+            (token.effects ?? []).flatMap((effect) => [...effect.statuses, effect.name]),
+          ),
+        ),
+        phaseId: item.phase && !item.phase.waiting ? item.phase.id : null,
+        bound: item.tokenId ?? item.actorId ?? "",
+      };
+      const before = seen?.get(item.id);
+      // Preparing a hidden boss must not spend its arrival phrase before players can see it.
+      // Once visible, hiding and revealing the same showing is not another arrival.
+      now.appeared ||= before?.appeared ?? false;
+      next.set(item.id, now);
+      if (!seen) continue;
+      applyQuoteEvents(
+        scene,
+        item.id,
+        before ? eventsBetween(before, now) : now.appeared ? [{ type: "appear" }] : [],
+        env,
+      );
     }
     seen = next;
   });
 
   // One turn of one combatant per round speaks once, whatever rewinds or reorders happen.
   const turns = new Set<string>();
-  Hooks.on(
+  env.Hooks.on(
     "combatTurnChange",
     (combat: CombatDocument, _prior: unknown, current: { round: number; combatantId: string | null }) => {
-      if (!game.user.isActiveGM || !current.combatantId) return;
+      if (!env.game.user.isActiveGM || !current.combatantId) return;
       const key = `${combat.id}:${current.round}:${current.combatantId}`;
       if (turns.has(key)) return;
       turns.add(key);
       const combatant = combat.combatants.get(current.combatantId);
-      const scene = game.scenes.get(combatant?.sceneId ?? "");
+      const scene = env.game.scenes.get(combatant?.sceneId ?? "");
       const token = scene?.tokens.get(combatant?.tokenId ?? "");
       const instance = token ? instanceFor(sceneItems(scene), token) : undefined;
-      if (scene && instance) applyQuoteEvents(scene, instance.id, [{ type: "turn" }]);
+      if (scene && instance) applyQuoteEvents(scene, instance.id, [{ type: "turn" }], env);
     },
   );
 
   // shortcut: a re-rolled attack in the same Midi card counts once; per message and boss is enough for 1.0.
   const attacks = new Set<string>();
   const onAttack = (message: ChatMessageDocument, results: AttackResult[] | null) => {
-    if (!game.user.isActiveGM || !results) return;
-    const attacker = attackerOf(message);
+    if (!env.game.user.isActiveGM || !results) return;
+    const attacker = attackerOf(message, env);
     for (const result of results) {
       if (result.outcome === "hit") continue;
-      for (const { scene, instance } of targetsOf(result)) {
+      for (const { scene, instance } of targetsOf(result, env)) {
         const key = `${message.id}:${instance.id}`;
         if (attacks.has(key)) continue;
         attacks.add(key);
-        applyQuoteEvents(scene, instance.id, [{ type: result.outcome, attacker }]);
+        applyQuoteEvents(scene, instance.id, [{ type: result.outcome, attacker }], env);
       }
     }
   };
-  Hooks.on("createChatMessage", (message: ChatMessageDocument) => onAttack(message, dnd5eAttack(message)));
-  Hooks.on("updateChatMessage", (message: ChatMessageDocument, changed: { flags?: unknown }) =>
+  env.Hooks.on("createChatMessage", (message: ChatMessageDocument) =>
+    onAttack(message, dnd5eAttack(message)),
+  );
+  env.Hooks.on("updateChatMessage", (message: ChatMessageDocument, changed: { flags?: unknown }) =>
     onAttack(message, midiAttack(changed, message)),
   );
 }

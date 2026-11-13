@@ -2,6 +2,7 @@ import { MODULE_ID } from "../constants";
 import { readProfile } from "../core/profile";
 import { baseActorOf, hasHp } from "../integrations/dnd5e/actor";
 import { writeOrNotify } from "./authority";
+import { liveFoundryEnv, type FoundryEnv } from "./env";
 import { instanceFor, sceneItems } from "./store";
 
 const HUD_LABELS = {
@@ -15,12 +16,15 @@ export interface EntryPoints {
 }
 
 /** GM-only ways in: token HUD button, actor sheet ⋮ menu item, scene control button. */
-export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): void {
+export function registerEntryPoints(
+  { openProfile, openPanel }: EntryPoints,
+  env: FoundryEnv = liveFoundryEnv(),
+): void {
   // The HUD is rebuilt on every render (root part), so the button is added each time (research/foundry-ui §5).
-  Hooks.on(
+  env.Hooks.on(
     "renderTokenHUD",
     (app: ApplicationV2Instance & { document: TokenDocument }, element: HTMLElement) => {
-      if (!game.user.isGM) return;
+      if (!env.game.user.isGM) return;
       const token = app.document;
       const actor = token.baseActor;
       const scene = token.parent;
@@ -39,8 +43,8 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
       button.setAttribute(
         "aria-label",
         hasProfile
-          ? `${game.i18n.localize(label)}. ${game.i18n.localize("BB5E.Hud.RightClick")}`
-          : game.i18n.localize(label),
+          ? `${env.game.i18n.localize(label)}. ${env.game.i18n.localize("BB5E.Hud.RightClick")}`
+          : env.game.i18n.localize(label),
       );
       button.innerHTML = '<i class="fa-solid fa-skull" inert></i>';
       button.addEventListener("click", (event) => {
@@ -49,7 +53,7 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
         const action = instance
           ? ({ type: "hide", sceneId: scene.id, instanceId: instance.id } as const)
           : ({ type: "show", sceneId: scene.id, tokenId: token.id } as const);
-        void writeOrNotify(action).then((done) => {
+        void writeOrNotify(action, env).then((done) => {
           if (done) void app.render();
         });
       });
@@ -62,11 +66,11 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
   );
 
   // getHeaderControlsActorSheetV2 reaches only actor sheets (research/old-boss-bar F6).
-  Hooks.on(
+  env.Hooks.on(
     "getHeaderControlsActorSheetV2",
     (app: ApplicationV2Instance, controls: Record<string, unknown>[]) => {
       const actor = app.document;
-      if (!game.user.isGM || !actor || !["npc", "character"].includes(actor.type)) return;
+      if (!env.game.user.isGM || !actor || !["npc", "character"].includes(actor.type)) return;
       controls.push({
         action: "bb5eProfile",
         icon: "fa-solid fa-skull",
@@ -81,7 +85,7 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
   );
 
   // v13+: controls and tools are records, not arrays (research/foundry-ui §6).
-  Hooks.on("getSceneControlButtons", (controls: Record<string, { tools: Record<string, unknown> }>) => {
+  env.Hooks.on("getSceneControlButtons", (controls: Record<string, { tools: Record<string, unknown> }>) => {
     const tokens = controls.tokens;
     if (!tokens) return;
     tokens.tools.bb5eActiveBosses = {
@@ -90,7 +94,7 @@ export function registerEntryPoints({ openProfile, openPanel }: EntryPoints): vo
       title: "BB5E.Hub.Title",
       icon: "fa-solid fa-skull-crossbones",
       button: true,
-      visible: game.user.isGM,
+      visible: env.game.user.isGM,
       onChange: () => openPanel(),
     };
   });

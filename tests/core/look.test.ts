@@ -6,8 +6,8 @@ import {
   BUILTIN_SOURCES,
   CLASSIC,
 } from "../../src/core/look/builtin";
+import { compileLook, lookStyle, resolveLook, sourcesOf } from "../../src/core/look/compile";
 import { effectStrength, hpChange, hpColor, isLow } from "../../src/core/look/effects";
-import { resolveLook } from "../../src/core/look/resolve";
 import {
   CATEGORIES,
   IMPORT_MAX_BYTES,
@@ -17,7 +17,6 @@ import {
   readLibrary,
   readParams,
 } from "../../src/core/look/schema";
-import { lookStyle } from "../../src/core/look/style";
 import { existsSync } from "node:fs";
 import { BAR_LAYOUTS, CARD_LAYOUTS } from "../../src/core/look/catalog/layouts";
 import { THEMES } from "../../src/core/look/catalog/themes";
@@ -150,6 +149,16 @@ describe("resolveLook", () => {
   it("falls back on unknown looks and on presets of the wrong category", () => {
     const look = resolveLook("gone", { frame: "frost-fill", fill: "missing" }, sources, CLASSIC);
     expect([look.id, look.frame.id, look.fill.id]).toEqual(["classic", "classic-frame", "classic-fill"]);
+  });
+
+  it("compiles custom library looks and overrides via sourcesOf + compileLook", () => {
+    const merged = sourcesOf({
+      dataVersion: LIBRARY_VERSION,
+      looks: [sources.looks.at(-1)!],
+      presets: [own],
+    });
+    expect(compileLook("mine", { font: "neon-font" }, merged).vars["--bb5e-gold"]).toBe("#ff0000");
+    expect(compileLook("classic").attrs.frame).toBe("classic");
   });
 });
 

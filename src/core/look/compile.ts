@@ -1,7 +1,23 @@
+import { BUILTIN_LOOKS, BUILTIN_PRESETS, BUILTIN_SOURCES, CLASSIC } from "./builtin";
 import { customFamily, FONTS } from "./fonts";
 import { barMaterial, hitColors, type BarMaterial } from "./material";
-import type { ResolvedLook } from "./resolve";
-import type { Params } from "./schema";
+import {
+  CATEGORIES,
+  readParams,
+  type Category,
+  type Library,
+  type Look,
+  type Params,
+  type Preset,
+} from "./schema";
+
+export type ResolvedLook = { id: string } & { [C in Category]: Preset<C> };
+
+/** Everything a look can come from: the built-ins and the GM's library together. */
+export interface LookSources {
+  looks: Look[];
+  presets: Preset[];
+}
 
 /** How a resolved look draws: data attributes and CSS variables for the bar or card root, plus behaviour. */
 export interface LookStyle {
@@ -19,6 +35,46 @@ export interface LookStyle {
   portraitShake: boolean;
   /** The boss bar body's shader uniforms (stage VFX). */
   material: BarMaterial;
+}
+
+/** Built-ins plus a (draft) library: what editors and HUD resolve looks from. */
+export const sourcesOf = (library: Library | null = null): LookSources =>
+  library
+    ? { looks: [...BUILTIN_LOOKS, ...library.looks], presets: [...BUILTIN_PRESETS, ...library.presets] }
+    : BUILTIN_SOURCES;
+
+/** Default values of a category, for a fallback look that lacks a preset. */
+const defaultPreset = <C extends Category>(category: C): Preset<C> => ({
+  id: `default-${category}`,
+  name: category,
+  category,
+  params: readParams(category, {}),
+});
+
+/**
+ * One preset per category for a boss profile (look + overrides) or a rank (look only). An unknown look takes the
+ * fallback; an unknown or mismatched preset takes the fallback look's preset of that category. Never fails.
+ */
+export function resolveLook(
+  lookId: string | null | undefined,
+  overrides: Partial<Record<Category, string>> | undefined = undefined,
+  sources: LookSources = BUILTIN_SOURCES,
+  fallback: Look = CLASSIC,
+): ResolvedLook {
+  const look = sources.looks.find((each) => each.id === lookId) ?? fallback;
+  const find = (category: Category, id: string | undefined) =>
+    id === undefined
+      ? undefined
+      : sources.presets.find((each) => each.id === id && each.category === category);
+  const resolved: Record<string, unknown> = { id: look.id };
+  for (const category of CATEGORIES) {
+    resolved[category] =
+      find(category, overrides?.[category]) ??
+      find(category, look.presets[category]) ??
+      find(category, fallback.presets[category]) ??
+      defaultPreset(category);
+  }
+  return resolved as ResolvedLook;
 }
 
 const em = (value: number) => `${value}em`;
@@ -159,3 +215,17 @@ export function lookStyle(look: ResolvedLook): LookStyle {
     material: barMaterial(look),
   };
 }
+
+/** Resolves a look id and category overrides and compiles the resulting `LookStyle`. */
+export function compileLook(
+  lookId: string | null | undefined,
+  overrides: Partial<Record<Category, string>> | undefined = undefined,
+  sources: LookSources = BUILTIN_SOURCES,
+  fallback: Look = CLASSIC,
+): LookStyle {
+  return lookStyle(resolveLook(lookId, overrides, sources, fallback));
+}
+
+/** The default look, resolved and compiled once. */
+export const CLASSIC_RESOLVED: ResolvedLook = resolveLook(CLASSIC.id, {}, BUILTIN_SOURCES, CLASSIC);
+export const CLASSIC_STYLE: LookStyle = lookStyle(CLASSIC_RESOLVED);

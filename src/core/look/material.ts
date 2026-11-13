@@ -1,5 +1,5 @@
 import { palette } from "./live";
-import type { ResolvedLook } from "./resolve";
+import type { ResolvedLook } from "./compile";
 import { PARAMS } from "./schema";
 
 /** Fill types in the order of the bar shader's `u_fillType`. */

@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { profileRows } from "../../src/core/hub";
-import { defaultProfile, PROFILE_VERSION } from "../../src/core/profile";
+import { describe, expect, it, vi } from "vitest";
+import { defaultProfile, PROFILE_VERSION } from "../src/core/profile";
+
+vi.stubGlobal("foundry", {
+  applications: {
+    api: {
+      ApplicationV2: class {
+        element = undefined;
+      },
+      HandlebarsApplicationMixin: <T>(base: T) => base,
+      DialogV2: {},
+    },
+  },
+});
+
+const { profileRows } = await import("../src/apps/hub");
+vi.unstubAllGlobals();
 
 const actor = (id: string, name: string, profile: unknown) => ({ id, name, img: `${id}.webp`, profile });
 

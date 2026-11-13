@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { TokenState } from "../../src/core/aggregate";
-import { isCombatStart, newlyDefeated } from "../../src/core/combat";
 import { buildMiniBars } from "../../src/core/minibars";
 import type { MiniBar, MiniBarSource } from "../../src/core/profile";
 
@@ -97,28 +96,5 @@ describe("buildMiniBars", () => {
     expect(at(2)[0]?.fraction).toBe(0.25);
     expect(at(0)).toEqual([]);
     expect(at(5)[0]?.fraction).toBe(1);
-  });
-});
-
-describe("combat decisions", () => {
-  it("starts on round 0 → 1 only", () => {
-    expect(isCombatStart(0, 1)).toBe(true);
-    expect(isCombatStart(2, 1)).toBe(false);
-    expect(isCombatStart(1, 2)).toBe(false);
-    expect(isCombatStart(undefined, 1)).toBe(false);
-  });
-
-  it("hides everything defeated on the first check, then only fresh defeats", () => {
-    const now = new Map([
-      ["a", true],
-      ["b", false],
-    ]);
-    expect(newlyDefeated(null, now)).toEqual(["a"]);
-    const later = new Map([
-      ["a", true],
-      ["b", true],
-      ["c", true],
-    ]);
-    expect(newlyDefeated(now, later)).toEqual(["b"]);
   });
 });
