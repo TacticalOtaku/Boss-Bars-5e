@@ -4,7 +4,7 @@ import { isRecord } from "../core/schema";
 import { saveClientPreferences } from "../foundry/client-layout";
 import { currentLayout, setLayoutDraft } from "../foundry/layout";
 import type { BossHud } from "../foundry/store";
-import { confirmDiscard } from "./shared";
+import { DirtyGuard } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
@@ -15,11 +15,7 @@ const t = (key: string) => game.i18n.localize(key);
 
 /** Retained as the public layoutMode API's local preferences/reset surface. */
 export interface LayoutHost {
-  host: HTMLElement;
-  overlay: HTMLElement;
-  blocks: Record<BlockKey, HTMLElement>;
   hud: BossHud;
-  uiScale(): number;
 }
 
 /** Positions are always directly draggable; opening this window never starts a separate HUD mode. */
@@ -39,8 +35,7 @@ class LayoutPanel extends HandlebarsApplicationMixin(ApplicationV2) {
   readonly #scene = canvas?.scene ?? null;
   #layout: Layout = structuredClone(currentLayout(this.#scene));
   #resetPositions = false;
-  #dirty = false;
-  #confirming = false;
+  #dirty = new DirtyGuard();
 
   constructor(host: LayoutHost) {
     super();
@@ -92,18 +87,12 @@ class LayoutPanel extends HandlebarsApplicationMixin(ApplicationV2) {
         setLayoutDraft(this.#layout);
         this.#host.hud.refresh();
       }
-      this.#dirty = true;
+      this.#dirty.set(true);
     });
   }
 
   override async close(options: Record<string, unknown> = {}) {
-    if (this.#dirty && !options.force) {
-      if (this.#confirming) return this;
-      this.#confirming = true;
-      const discard = await confirmDiscard();
-      this.#confirming = false;
-      if (!discard) return this;
-    }
+    if (await this.#dirty.keepOpen(options)) return this;
     setLayoutDraft(null);
     this.#host.hud.refresh();
     return super.close(options);
@@ -119,7 +108,7 @@ class LayoutPanel extends HandlebarsApplicationMixin(ApplicationV2) {
         ui.notifications.error("BB5E.Layout.SaveFailed", { localize: true });
         return;
       }
-      this.#dirty = false;
+      this.#dirty.set(false);
       await this.close();
     } catch {
       ui.notifications.error("BB5E.Layout.SaveFailed", { localize: true });

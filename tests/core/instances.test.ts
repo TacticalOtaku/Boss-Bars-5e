@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   hideInstance,
+  instanceEvents,
   INSTANCES_VERSION,
   moveInstance,
+  newlyDefeated,
   pruneInstances,
   readInstances,
   rebindInstances,
@@ -11,6 +13,7 @@ import {
   setQuote,
   showInstance,
   toggleStatus,
+  type Instance,
 } from "../../src/core/instances";
 
 const empty = { dataVersion: INSTANCES_VERSION, items: [] };
@@ -266,5 +269,59 @@ describe("quotes in the instance", () => {
       quote: shown,
       quoteState: { roar: { fight: "c1", cursor: 1 } },
     });
+  });
+});
+
+describe("instanceEvents", () => {
+  const item = (id: string, extra: Partial<Instance> = {}): Instance => ({
+    id,
+    kind: "boss",
+    tokenId: `t-${id}`,
+    order: 1,
+    ...extra,
+  });
+  const phaseKey = (each: Instance) => each.phase?.id ?? "first";
+  const types = (before: Instance[], after: Instance[]) =>
+    instanceEvents(before, after, phaseKey).map((event) => `${event.type}:${event.item.id}`);
+
+  it("shows new ids and hides missing ones", () => {
+    expect(types([item("a")], [item("b")])).toEqual(["hide:a", "show:b"]);
+    expect(types([item("a")], [item("a")])).toEqual([]);
+  });
+
+  it("treats a form moving to another token as neither hide nor show", () => {
+    expect(types([item("a")], [item("a", { tokenId: "other", phase: { id: "first", mark: 100 } })])).toEqual(
+      [],
+    );
+  });
+
+  it("reports a phase change with the previous item, but not a bar shown straight into a phase", () => {
+    const before = item("a");
+    const events = instanceEvents([before], [item("a", { phase: { id: "fury", mark: 50 } })], phaseKey);
+    expect(events).toEqual([expect.objectContaining({ type: "phaseChange", previous: before })]);
+    expect(types([], [item("a", { phase: { id: "fury", mark: 50 } })])).toEqual(["show:a"]);
+  });
+
+  it("reports each new quote key once", () => {
+    const quote = { key: "q1", text: "Hi", priority: 1, at: 0, duration: 3 };
+    expect(types([item("a")], [item("a", { quote })])).toEqual(["quote:a"]);
+    expect(types([item("a", { quote })], [item("a", { quote })])).toEqual([]);
+    expect(types([], [item("a", { quote })])).toEqual(["show:a", "quote:a"]);
+  });
+});
+
+describe("newlyDefeated", () => {
+  it("hides everything defeated on the first check, then only fresh defeats", () => {
+    const now = new Map([
+      ["a", true],
+      ["b", false],
+    ]);
+    expect(newlyDefeated(null, now)).toEqual(["a"]);
+    const later = new Map([
+      ["a", true],
+      ["b", true],
+      ["c", true],
+    ]);
+    expect(newlyDefeated(now, later)).toEqual(["b"]);
   });
 });

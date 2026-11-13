@@ -415,6 +415,30 @@ describe("hosted profile editor", () => {
     expect(actor.flags[MODULE_ID]!.profile).toMatchObject({ look: null, overrides: {} });
   });
 
+  it("renders quote and phase previews with unsaved look and category overrides before saving", async () => {
+    await open({ ...rawProfile(), look: null, overrides: {} });
+    const neon = editor.element.querySelector<HTMLButtonElement>('[data-action="pickLook"][data-id="neon"]')!;
+    await (editor.constructor as typeof ApplicationStub).DEFAULT_OPTIONS.actions.pickLook!.call(
+      editor,
+      new Event("click"),
+      neon,
+    );
+    edit("overrides.fill", "frost-fill");
+    await action("addQuote");
+    edit("quotes.0.texts", "Fear the frost!");
+
+    await action("playQuote");
+    const quoteBoss = editor.element.querySelector<HTMLElement>(".bb5e-quote-preview .bb5e-boss");
+    expect(quoteBoss?.dataset.lookFill).toBe("ice");
+    expect(quoteBoss?.dataset.lookBar).toBe("thick");
+
+    await action("playPhase");
+    const phaseBoss = editor.element.querySelector<HTMLElement>(".bb5e-phase-preview .bb5e-boss");
+    expect(phaseBoss?.dataset.lookFill).toBe("ice");
+    expect(phaseBoss?.dataset.lookBar).toBe("thick");
+    expect(actor.setFlag).not.toHaveBeenCalled();
+  });
+
   it("creates an absent profile and uses the current stored unknown fields at submission", async () => {
     await open(null);
     edit("playerName", "New boss");

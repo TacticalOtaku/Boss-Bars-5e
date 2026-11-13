@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { hpFraction } from "../src/core/hp";
+import { hpFraction } from "../src/core/aggregate";
 import {
   baseActorOf,
   hasDefeatedStatus,

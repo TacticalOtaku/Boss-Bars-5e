@@ -18,11 +18,10 @@ import { FONT_FACES } from "./core/look/fonts";
 import { createEliteColumn } from "./ui/elite-column";
 import { createParticleLayer } from "./ui/particles";
 import { registerFonts } from "./ui/look";
-import { reducedMotion } from "./ui/dom";
-import { mountOverlay } from "./ui/overlay";
+import { mountOverlay, reducedMotion } from "./ui/dom";
 import { startHudDrag } from "./ui/hud-drag";
 import { clientPosition, saveClientPosition } from "./foundry/client-layout";
-import { serverTime } from "./foundry/time";
+import { serverTime } from "./foundry/env";
 
 let hud: BossHud | null = null;
 let layoutHost: LayoutHost | null = null;
@@ -126,7 +125,7 @@ Hooks.once("ready", () => {
         : []),
     ]);
   });
-  layoutHost = { host, overlay, blocks: { bosses: stack.element, elites: column.element }, hud, uiScale };
+  layoutHost = { hud };
   // API effects play on the viewed scene's HUD only.
   playEffect = ({ sceneId, instanceId, effect }) => {
     if (canvas?.scene?.id !== sceneId) return;
@@ -139,7 +138,7 @@ Hooks.once("ready", () => {
   // Before the first recompute: its defeat check hides what fell while no page was watching.
   startCombatWatch(hud);
   // Boss phases follow HP on the active GM; one that returns catches up on its first recompute.
-  hud.subscribe(() => syncPhases(game.scenes.contents));
+  hud.subscribe((snapshot) => syncPhases(snapshot));
   // Boss quotes: the active GM decides and writes the quote on screen into the instance.
   startQuoteWatch(hud);
   // Boss music: the active GM switches the world's playlists after the leading boss.

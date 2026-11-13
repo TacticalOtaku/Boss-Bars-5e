@@ -1,10 +1,11 @@
 import { MODULE_ID } from "../constants";
+import { CLASSIC } from "../core/look/builtin";
+import { compileLook } from "../core/look/compile";
 import { readProfile } from "../core/profile";
 import { RANK_LIMITS, RANKS_VERSION, rankErrors, readRanks, type Rank } from "../core/ranks";
+import { lookSources } from "../foundry/library";
 import { currentRanks, defaultRankList } from "../foundry/settings";
-import { BUILTIN_IDS, CLASSIC } from "../core/look/builtin";
-import { readLibrary } from "../core/look/schema";
-import { confirmDiscard, displayName, previewCard, sourcesOf, styleFor } from "./shared";
+import { DirtyGuard, displayName, mountHosted, previewCard } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
@@ -40,19 +41,14 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
   override async _insertElement(element: HTMLElement) {
-    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
+    mountHosted(this.slot, element);
   }
 
   #draft: Rank[] = structuredClone(currentRanks());
-  /** Looks to pick from: built-ins and the world library. */
-  readonly #sources = (() => {
-    const read = readLibrary(game.settings.get(MODULE_ID, "library"), BUILTIN_IDS);
-    return sourcesOf(read.status === "ok" ? read.value : null);
-  })();
-  #dirty = false;
-  #confirming = false;
+  #dirty = new DirtyGuard();
 
   override async _prepareContext(options: Record<string, unknown>) {
+    const sources = lookSources();
     return {
       ...(await super._prepareContext(options)),
       rows: this.#draft.map((rank, index) => ({
@@ -60,7 +56,7 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
         index,
         first: index === 0,
         last: index === this.#draft.length - 1,
-        looks: this.#sources.looks.map((look) => ({
+        looks: sources.looks.map((look) => ({
           id: look.id,
           name: displayName(look),
           selected: look.id === (rank.look ?? CLASSIC.id),
@@ -72,12 +68,12 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
     await super._onRender(context, options);
-    this.#setDirty(this.#dirty);
+    this.#dirty.set(this.#dirty.dirty, this.element);
     this.#updatePreviews();
     if (options.isFirstRender) {
       const edited = () => {
         this.#collect();
-        this.#setDirty(true);
+        this.#dirty.set(true, this.element);
         this.#updatePreviews();
       };
       this.element.addEventListener("input", edited);
@@ -106,35 +102,29 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
 
   #updatePreviews() {
     const label = game.i18n.localize("BB5E.Ranks.Sample");
+    const sources = lookSources();
     for (const row of this.element.querySelectorAll<HTMLElement>("[data-rank-index]")) {
       const rank = this.#draft[Number(row.dataset.rankIndex)];
       const host = row.querySelector<HTMLElement>(".bb5e-preview");
       if (rank && host)
-        previewCard(host, { label, img: SAMPLE_IMG, rank, look: styleFor(this.#sources, rank.look) });
+        previewCard(host, {
+          label,
+          img: SAMPLE_IMG,
+          rank,
+          look: compileLook(rank.look, undefined, sources),
+        });
     }
-  }
-
-  #setDirty(dirty: boolean) {
-    this.#dirty = dirty;
-    const badge = this.element.querySelector<HTMLElement>(".bb5e-footer__dirty");
-    if (badge) badge.hidden = !dirty;
   }
 
   override async close(options: Record<string, unknown> = {}) {
-    if (this.#dirty && !options.force) {
-      if (this.#confirming) return this;
-      this.#confirming = true;
-      const discard = await confirmDiscard();
-      this.#confirming = false;
-      if (!discard) return this;
-    }
+    if (await this.#dirty.keepOpen(options)) return this;
     return super.close(options);
   }
 
   async #restructure(change: () => void) {
     this.#collect();
     change();
-    this.#setDirty(true);
+    this.#dirty.set(true, this.element);
     await this.render();
   }
 
@@ -205,7 +195,7 @@ class RanksEditor extends HandlebarsApplicationMixin(ApplicationV2) {
     const stored = readRanks(game.settings.get(MODULE_ID, "ranks"), defaultRankList());
     if (stored.status === "newer") return ui.notifications.warn("BB5E.Error.NewerData", { localize: true });
     await game.settings.set(MODULE_ID, "ranks", { dataVersion: RANKS_VERSION, items: this.#draft });
-    this.#setDirty(false);
+    this.#dirty.set(false, this.element);
   }
 }
 

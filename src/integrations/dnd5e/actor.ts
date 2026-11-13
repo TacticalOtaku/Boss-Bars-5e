@@ -1,4 +1,4 @@
-import type { HpData } from "../../core/hp";
+import type { HpData } from "../../core/aggregate";
 import type { BarValue } from "../../core/minibars";
 import type { MiniBarSource } from "../../core/profile";
 import type { EffectInput } from "../../core/statuses";
@@ -19,8 +19,11 @@ export function hasHp(actor: Pick<ActorDocument, "system">): boolean {
 }
 
 /** The defeated status ("dead" by default); the combat tracker sets it together with `combatant.defeated`. */
-export function hasDefeatedStatus(actor: Pick<ActorDocument, "statuses">): boolean {
-  return actor.statuses.has(CONFIG.specialStatusEffects.DEFEATED);
+export function hasDefeatedStatus(
+  actor: Pick<ActorDocument, "statuses">,
+  defeatedStatus: string = CONFIG.specialStatusEffects.DEFEATED,
+): boolean {
+  return actor.statuses.has(defeatedStatus);
 }
 
 /** Profiles live on the world actor: an unlinked token's synthetic actor would write into the token's delta. */

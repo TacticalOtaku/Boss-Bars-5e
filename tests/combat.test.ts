@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const writes = vi.hoisted(() => vi.fn<(action: unknown) => Promise<void>>(async () => undefined));
 vi.mock("../src/foundry/authority", () => ({ requestWrite: writes }));
 
-const { startCombatWatch } = await import("../src/foundry/combat");
+const { isCombatStart, startCombatWatch } = await import("../src/foundry/combat");
 
 const SCENE = "Scene00000000001";
 const TOKEN = "Token00000000001";
@@ -100,5 +100,14 @@ describe("hide at the end of combat", () => {
     combats.set(prepared.id, prepared);
     vi.advanceTimersByTime(30_000);
     expect(writes).toHaveBeenCalledOnce();
+  });
+});
+
+describe("isCombatStart", () => {
+  it("starts on round 0 → 1 only", () => {
+    expect(isCombatStart(0, 1)).toBe(true);
+    expect(isCombatStart(2, 1)).toBe(false);
+    expect(isCombatStart(1, 2)).toBe(false);
+    expect(isCombatStart(undefined, 1)).toBe(false);
   });
 });

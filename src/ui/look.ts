@@ -1,6 +1,6 @@
 import { hpColor } from "../core/look/effects";
 import type { FontFaceSpec } from "../core/look/fonts";
-import type { LookStyle } from "../core/look/style";
+import type { LookStyle } from "../core/look/compile";
 
 const applied = new WeakMap<HTMLElement, string>();
 const fonts = new Set<string>();

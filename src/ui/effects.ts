@@ -1,5 +1,5 @@
 import { effectStrength, type HpChange } from "../core/look/effects";
-import type { LookStyle } from "../core/look/style";
+import type { LookStyle } from "../core/look/compile";
 
 /** Parts of a bar or card the effects touch; the overlays sit inside the meter (or the ring). */
 export interface EffectTargets {

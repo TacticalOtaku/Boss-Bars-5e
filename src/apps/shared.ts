@@ -1,8 +1,6 @@
 import { DEFAULT_LAYOUT } from "../core/layout";
-import { BUILTIN_IDS, BUILTIN_LOOKS, BUILTIN_PRESETS, CLASSIC, CLASSIC_STYLE } from "../core/look/builtin";
-import { resolveLook, type LookSources } from "../core/look/resolve";
-import type { Category, Library } from "../core/look/schema";
-import { lookStyle, type LookStyle } from "../core/look/style";
+import { BUILTIN_IDS } from "../core/look/builtin";
+import { CLASSIC_STYLE, type LookStyle } from "../core/look/compile";
 import type { PortraitFocus } from "../core/profile";
 import type { Rank } from "../core/ranks";
 import { isVideoPath, type BossBarView, type EliteCardView, type PhaseView } from "../core/view";
@@ -11,7 +9,7 @@ import { reducedMotion } from "../ui/dom";
 import { createEliteColumn } from "../ui/elite-column";
 
 /** Asks before closing a window with unsaved edits. */
-export async function confirmDiscard(): Promise<boolean> {
+async function confirmDiscard(): Promise<boolean> {
   const discard = await foundry.applications.api.DialogV2.confirm({
     window: { title: game.i18n.localize("BB5E.Unsaved.Title") },
     content: `<p>${game.i18n.localize("BB5E.Unsaved.Body")}</p>`,
@@ -19,18 +17,53 @@ export async function confirmDiscard(): Promise<boolean> {
   return discard === true;
 }
 
-/** Built-ins plus a (draft) library: what editors resolve looks from. */
-export const sourcesOf = (library: Library | null): LookSources => ({
-  looks: [...BUILTIN_LOOKS, ...(library?.looks ?? [])],
-  presets: [...BUILTIN_PRESETS, ...(library?.presets ?? [])],
-});
+/** Places a hosted editor's element directly in its Hub slot instead of document.body. */
+export function mountHosted(slot: HTMLElement, element: HTMLElement): void {
+  if (element.parentElement !== slot) slot.replaceChildren(element);
+}
 
-/** The style of a look id with overrides, from the given sources. */
-export const styleFor = (
-  sources: LookSources,
-  lookId: string | null,
-  overrides: Partial<Record<Category, string>> = {},
-): LookStyle => lookStyle(resolveLook(lookId, overrides, sources, CLASSIC));
+/** Tracks unsaved edits, syncs `.bb5e-footer__dirty`, and guards close behind one confirmation prompt. */
+export class DirtyGuard {
+  #dirty = false;
+  #confirming = false;
+
+  get dirty(): boolean {
+    return this.#dirty;
+  }
+
+  set(dirty: boolean, element?: HTMLElement | null): void {
+    this.#dirty = dirty;
+    const badge = element?.querySelector<HTMLElement>(".bb5e-footer__dirty");
+    if (badge) badge.hidden = !dirty;
+  }
+
+  /** Returns true when close should stay open (already confirming or user chose not to discard). */
+  async keepOpen(options: Record<string, unknown>, dirty = this.#dirty): Promise<boolean> {
+    if (!dirty || options.force) return false;
+    if (this.#confirming) return true;
+    this.#confirming = true;
+    const discard = await confirmDiscard();
+    this.#confirming = false;
+    return !discard;
+  }
+}
+
+/** Downloads JSON-formatted settings or library data using Foundry's file exporter. */
+export function downloadJson(data: unknown, filename: string): void {
+  foundry.utils.saveDataToFile(JSON.stringify(data, null, 2), "application/json", filename);
+}
+
+/** Opens a JSON file picker and passes the selected file text to `onText`. */
+export function pickJsonText(onText: (text: string) => unknown): void {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.addEventListener("change", () => {
+    const file = input.files?.[0];
+    if (file) void foundry.utils.readTextFromFile(file).then((text) => onText(text));
+  });
+  input.click();
+}
 
 /** Built-in names are i18n keys; the GM's are plain text. */
 export const displayName = (item: { name: string; id: string }) =>

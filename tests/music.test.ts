@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startMusicWatch } from "../src/foundry/music";
-import { musicFrom } from "../src/core/profile-form";
+import { musicFrom } from "../src/core/profile-session";
 import { startStore } from "../src/foundry/store";
 
 const SCENE = "Scene00000000001";

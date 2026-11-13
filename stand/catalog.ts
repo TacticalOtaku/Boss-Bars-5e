@@ -1,9 +1,9 @@
 import "../styles/boss-bars-5e.scss";
 import ru from "../lang/ru.json";
 import { DEFAULT_LAYOUT } from "../src/core/layout";
-import { BUILTIN_LOOKS, BUILTIN_PRESETS, BUILTIN_SOURCES, CLASSIC } from "../src/core/look/builtin";
+import { BUILTIN_LOOKS, BUILTIN_PRESETS, CLASSIC } from "../src/core/look/builtin";
 import { FONT_FACES } from "../src/core/look/fonts";
-import { resolveLook, type ResolvedLook } from "../src/core/look/resolve";
+import { compileLook, type LookStyle } from "../src/core/look/compile";
 import { CATEGORIES, type Category } from "../src/core/look/schema";
 import { buildViews, type SubjectInput } from "../src/core/view";
 import { createBossStack } from "../src/ui/boss-stack";
@@ -59,7 +59,7 @@ function tile(parent: HTMLElement, title: string): HTMLElement {
 }
 
 /** One boss bar (and, if asked, one elite card) drawn by the HUD renderer in the given look. */
-function draw(host: HTMLElement, look: ResolvedLook, parts: { bar: boolean; card: boolean }, scale: number) {
+function draw(host: HTMLElement, look: LookStyle, parts: { bar: boolean; card: boolean }, scale: number) {
   host.style.setProperty("--bb5e-ui-scale", String(scale));
   const views = buildViews(
     [
@@ -113,16 +113,19 @@ function section(id: string, title: string, width: string): HTMLElement {
 // 1. The 30 looks: bar and card.
 const looks = section("looks", "Облики", "560px");
 BUILTIN_LOOKS.forEach((look, index) => {
-  const resolved = resolveLook(look.id, {}, BUILTIN_SOURCES, CLASSIC);
-  draw(tile(looks, `${index + 1}. ${t(look.name)}`), resolved, { bar: true, card: true }, 0.7);
+  draw(tile(looks, `${index + 1}. ${t(look.name)}`), compileLook(look.id), { bar: true, card: true }, 0.7);
 });
 
 // 2. Each category: its 30 presets over Classic RPG (the card layouts on a card, everything else on a bar).
 for (const category of CATEGORIES) {
   const grid = section(category, t(CATEGORY_KEYS[category]), category === "layoutCard" ? "260px" : "420px");
   for (const preset of BUILTIN_PRESETS.filter((each) => each.category === category)) {
-    const resolved = resolveLook(CLASSIC.id, { [category]: preset.id }, BUILTIN_SOURCES, CLASSIC);
     const card = category === "layoutCard";
-    draw(tile(grid, t(preset.name)), resolved, { bar: !card, card }, card ? 0.7 : 0.55);
+    draw(
+      tile(grid, t(preset.name)),
+      compileLook(CLASSIC.id, { [category]: preset.id }),
+      { bar: !card, card },
+      card ? 0.7 : 0.55,
+    );
   }
 }

@@ -17,17 +17,19 @@ import {
 import { isRecord } from "../core/schema";
 import { logger } from "../logger";
 import { CATEGORY_LABELS, FONT_LABELS, PARAM_LABELS, VALUE_LABELS } from "./look-labels";
+import { compileLook, sourcesOf } from "../core/look/compile";
 import {
-  confirmDiscard,
+  DirtyGuard,
   displayName,
+  downloadJson,
   freshPreview,
+  mountHosted,
+  pickJsonText,
   previewBoss,
   playPreview,
   previewCard,
   previewSteps,
   type PreviewStep,
-  sourcesOf,
-  styleFor,
 } from "./shared";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
@@ -144,8 +146,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #sheet = false;
   /** The previews' state: the play buttons hit, heal, defeat and change phase on it. */
   #preview = freshPreview();
-  #dirty = false;
-  #confirming = false;
+  #dirty = new DirtyGuard();
 
   constructor(
     readonly slot: HTMLElement,
@@ -157,7 +158,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Drawn inside the hub (stage 13): the element goes into the hub's slot, not the page. */
   override async _insertElement(element: HTMLElement) {
-    if (element.parentElement !== this.slot) this.slot.replaceChildren(element);
+    mountHosted(this.slot, element);
   }
 
   #items(): Item[] {
@@ -254,8 +255,8 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
   #styleOf(item: Item) {
     const sources = sourcesOf(this.#draft);
     return "params" in item
-      ? styleFor(sources, null, { [item.category]: item.id })
-      : styleFor(sources, item.id);
+      ? compileLook(null, { [item.category]: item.id }, sources)
+      : compileLook(item.id, undefined, sources);
   }
 
   #drawPreviews() {
@@ -281,7 +282,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   override async _onRender(context: Record<string, unknown>, options: Record<string, unknown>) {
     await super._onRender(context, options);
-    this.#setDirty(this.#dirty);
+    this.#dirty.set(this.#dirty.dirty, this.element);
     this.#drawPreviews();
     if (options.isFirstRender) {
       this.element.addEventListener("change", (event) => this.#onChange(event));
@@ -315,24 +316,12 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
         if (isCategory(category) && typeof id === "string") item.presets[category] = id;
       }
     }
-    this.#setDirty(true);
+    this.#dirty.set(true, this.element);
     this.#drawPreviews();
   }
 
-  #setDirty(dirty: boolean) {
-    this.#dirty = dirty;
-    const badge = this.element.querySelector<HTMLElement>(".bb5e-footer__dirty");
-    if (badge) badge.hidden = !dirty;
-  }
-
   override async close(options: Record<string, unknown> = {}) {
-    if (this.#dirty && !options.force) {
-      if (this.#confirming) return this;
-      this.#confirming = true;
-      const discard = await confirmDiscard();
-      this.#confirming = false;
-      if (!discard) return this;
-    }
+    if (await this.#dirty.keepOpen(options)) return this;
     return super.close(options);
   }
 
@@ -379,7 +368,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     this.#selected = id;
     this.#filter = "all";
-    this.#setDirty(true);
+    this.#dirty.set(true, this.element);
     await this.render();
   }
 
@@ -404,13 +393,12 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ("params" in item) this.#draft.presets = this.#draft.presets.filter((each) => each.id !== item.id);
     else this.#draft.looks = this.#draft.looks.filter((each) => each.id !== item.id);
     this.#selected = this.#items()[0]?.id ?? null;
-    this.#setDirty(true);
+    this.#dirty.set(true, this.element);
     await this.render();
   }
 
   #download(library: Pick<Library, "looks" | "presets">, file: string) {
-    const json = JSON.stringify({ dataVersion: LIBRARY_VERSION, ...library }, null, 2);
-    foundry.utils.saveDataToFile(json, "application/json", file);
+    downloadJson({ dataVersion: LIBRARY_VERSION, ...library }, file);
   }
 
   static async #onExportAll(this: LibraryApp) {
@@ -428,19 +416,12 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   static async #onImportClick(this: LibraryApp) {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json,application/json";
-    input.addEventListener("change", () => {
-      const file = input.files?.[0];
-      if (file) void this.#import(file);
-    });
-    input.click();
+    pickJsonText((text) => this.#import(text));
   }
 
   /** Imported entries are added; an id already in the draft is replaced (re-importing an export updates it). */
-  async #import(file: File) {
-    const result = parseImport(await foundry.utils.readTextFromFile(file), BUILTIN_IDS);
+  async #import(text: string) {
+    const result = parseImport(text, BUILTIN_IDS);
     if ("error" in result) return ui.notifications.error(result.error, { localize: true });
     const replace = <T extends { id: string }>(current: T[], added: T[]) => [
       ...current.filter((each) => !added.some((other) => other.id === each.id)),
@@ -448,7 +429,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
     ];
     this.#draft.looks = replace(this.#draft.looks, result.looks);
     this.#draft.presets = replace(this.#draft.presets, result.presets);
-    this.#setDirty(true);
+    this.#dirty.set(true, this.element);
     ui.notifications.info(
       game.i18n.format("BB5E.Library.Imported", {
         looks: String(result.looks.length),
@@ -472,7 +453,7 @@ class LibraryApp extends HandlebarsApplicationMixin(ApplicationV2) {
       logger.error("Library not saved", error);
       return ui.notifications.error("BB5E.Error.WriteFailed", { localize: true });
     }
-    this.#setDirty(false);
+    this.#dirty.set(false, this.element);
   }
 }
 

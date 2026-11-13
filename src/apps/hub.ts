@@ -1,5 +1,5 @@
 import { MODULE_ID } from "../constants";
-import { profileRows } from "../core/hub";
+import { readProfile, type ProfileKind } from "../core/profile";
 import { readSettingsFile, settingsFile, SETTING_KEYS } from "../core/settings-file";
 import { currentLibrary } from "../foundry/library";
 import { currentRanks } from "../foundry/settings";
@@ -8,6 +8,52 @@ import { hostActiveBosses } from "./active-bosses";
 import { hostLibrary } from "./library";
 import { hostProfileEditor } from "./profile-editor";
 import { hostRanksEditor } from "./ranks-editor";
+import { downloadJson, pickJsonText } from "./shared";
+
+/** An actor as the hub lists it: its raw Boss Bars profile flag is read here. */
+export interface HubActor {
+  id: string;
+  name: string;
+  img: string;
+  profile: unknown;
+}
+
+export interface HubProfileRow {
+  id: string;
+  name: string;
+  img: string;
+  kind: ProfileKind;
+  /** The name players see, when the profile sets one. */
+  playerName: string;
+}
+
+/**
+ * The hub's "Profiles" list (stage 13): boss and elite profiles apart, by name, filtered by the actor name or the
+ * name players see. Data written by a newer version is listed apart and never offered for editing.
+ */
+export function profileRows(
+  actors: readonly HubActor[],
+  query: string,
+): { bosses: HubProfileRow[]; elites: HubProfileRow[]; newer: { id: string; name: string }[] } {
+  const needle = query.trim().toLocaleLowerCase();
+  const rows: HubProfileRow[] = [];
+  const newer: { id: string; name: string }[] = [];
+  for (const actor of actors) {
+    const read = readProfile(actor.profile);
+    if (read.status === "newer") newer.push({ id: actor.id, name: actor.name });
+    if (read.status !== "ok") continue;
+    const { kind, playerName } = read.value;
+    const haystack = `${actor.name}\n${playerName}`.toLocaleLowerCase();
+    if (!needle || haystack.includes(needle))
+      rows.push({ id: actor.id, name: actor.name, img: actor.img, kind, playerName });
+  }
+  rows.sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    bosses: rows.filter((row) => row.kind === "boss"),
+    elites: rows.filter((row) => row.kind === "elite"),
+    newer: newer.sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 const TEMPLATES = `modules/${MODULE_ID}/templates`;
@@ -32,12 +78,11 @@ const SECTIONS = [
 const isSection = (value: unknown): value is HubSection => SECTIONS.some((each) => each.id === value);
 
 /**
- * A section window is alive while it shows or re-renders: Foundry marks every re-render RENDERING, so `rendered`
- * alone would remount a section caught mid-render and lose its drafts. One that closed itself (a removed profile)
- * is not.
+ * A section window is alive while it shows or re-renders (its root element remains connected inside the hub's
+ * slot even while Foundry toggles `rendered` during a re-render). One that closed itself is neither rendered
+ * nor connected.
  */
-const alive = (child: ApplicationV2Instance) =>
-  child.rendered || child.state === ApplicationV2.RENDER_STATES.RENDERING;
+const alive = (child: ApplicationV2Instance) => child.rendered || Boolean(child.element?.isConnected);
 
 /**
  * "Boss Bars" (stage 13): one window for everything a GM sets up. The navigation and the profile list are its own
@@ -289,27 +334,19 @@ class Hub extends HandlebarsApplicationMixin(ApplicationV2) {
 
   static #onExportSettings() {
     const settings = Object.fromEntries(SETTING_KEYS.map((key) => [key, game.settings.get(MODULE_ID, key)]));
-    const json = JSON.stringify(settingsFile(settings), null, 2);
-    foundry.utils.saveDataToFile(json, "application/json", "boss-bars-5e-settings.json");
+    downloadJson(settingsFile(settings), "boss-bars-5e-settings.json");
   }
 
   static #onImportSettings(this: Hub) {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json,application/json";
-    input.addEventListener("change", () => {
-      const file = input.files?.[0];
-      if (file) void this.#importSettings(file);
-    });
-    input.click();
+    pickJsonText((text) => this.#importSettings(text));
   }
 
   /**
    * A settings file replaces the world's ranks, own looks and layout, after the GM confirms; a bad file changes
    * nothing. The open section closes first and opens again on the imported data: its draft would save over it.
    */
-  async #importSettings(file: File) {
-    const read = readSettingsFile(await foundry.utils.readTextFromFile(file));
+  async #importSettings(text: string) {
+    const read = readSettingsFile(text);
     if ("error" in read) return ui.notifications.error(read.error, { localize: true });
     const confirmed = await DialogV2.confirm({
       window: { title: loc("BB5E.SettingsFile.Import") },

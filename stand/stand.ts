@@ -1,10 +1,9 @@
 import "../styles/boss-bars-5e.scss";
-import { PLAYER_SCREENS } from "../src/core/screens";
-import { ANCHORS, DEFAULT_LAYOUT, type Direction, type Placement } from "../src/core/layout";
+import { DEFAULT_LAYOUT, readPlacement, type Direction, type Placement } from "../src/core/layout";
 import { isRecord } from "../src/core/schema";
-import { BUILTIN_LOOKS, BUILTIN_SOURCES, CLASSIC } from "../src/core/look/builtin";
-import { resolveLook } from "../src/core/look/resolve";
-import { hpFraction } from "../src/core/hp";
+import { BUILTIN_LOOKS } from "../src/core/look/builtin";
+import { lookStyle, resolveLook } from "../src/core/look/compile";
+import { hpFraction } from "../src/core/aggregate";
 import { nextPhase, phaseIndex, pickPhase } from "../src/core/phases";
 import { pickQuote, speak, type QuoteEvent } from "../src/core/quotes";
 import { LIVE_FILLS, type LiveFill } from "../src/core/look/live";
@@ -14,11 +13,18 @@ import { FONT_FACES } from "../src/core/look/fonts";
 import { createBossStack } from "../src/ui/boss-stack";
 import { registerFonts } from "../src/ui/look";
 import { createEliteColumn } from "../src/ui/elite-column";
-import { reducedMotion } from "../src/ui/dom";
-import { mountOverlay } from "../src/ui/overlay";
+import { mountOverlay, reducedMotion } from "../src/ui/dom";
 import { startHudDrag } from "../src/ui/hud-drag";
 import { logger } from "../src/logger";
 import { FIXTURE_BOSSES, FIXTURE_ELITES, FIXTURE_RANKS } from "./fixtures";
+
+const PLAYER_SCREENS = [
+  { width: 1366, height: 768 },
+  { width: 1600, height: 900 },
+  { width: 1920, height: 1080 },
+  { width: 2560, height: 1440 },
+  { width: 3440, height: 1440 },
+] as const;
 
 const select = document.querySelector<HTMLSelectElement>("#screen")!;
 const viewport = document.querySelector<HTMLElement>(".stand-viewport")!;
@@ -62,8 +68,9 @@ const fontUrls = import.meta.glob<string>("../fonts/*.woff2", {
 });
 registerFonts(FONT_FACES, (file) => fontUrls[`../fonts/${file}`] ?? "");
 const peaks = new Map<string, number>();
-// One resolved object per look, as the store keeps them: equal looks share one style.
-const looks = BUILTIN_LOOKS.map((look) => resolveLook(look.id, {}, BUILTIN_SOURCES, CLASSIC));
+// One resolved look & compiled style per look, as the store keeps them: equal looks share one style.
+const resolvedLooks = BUILTIN_LOOKS.map((look) => resolveLook(look.id));
+const looks = resolvedLooks.map(lookStyle);
 let lookIndex = 0;
 let quotePlace: "above" | "below" | "side" = "above";
 /** A live fill type forced onto the current look; null — the look's own. */
@@ -98,18 +105,12 @@ function loadPositions(): Record<string, Placement> {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(POSITION_KEY) ?? "{}");
     if (!isRecord(value)) return {};
-    return Object.fromEntries(
-      Object.entries(value).filter(
-        ([, item]) =>
-          isRecord(item) &&
-          typeof item.anchor === "string" &&
-          Object.hasOwn(ANCHORS, item.anchor) &&
-          typeof item.dx === "number" &&
-          Number.isFinite(item.dx) &&
-          typeof item.dy === "number" &&
-          Number.isFinite(item.dy),
-      ),
-    ) as Record<string, Placement>;
+    const result: Record<string, Placement> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const placement = readPlacement(item);
+      if (placement) result[key] = placement;
+    }
+    return result;
   } catch {
     return {};
   }
@@ -182,11 +183,11 @@ function runPhases(): void {
 function render(): void {
   runPhases();
   const viewer = { isGM: state.gm, collapsed: state.collapsed, mayCollapse: true, mayCollapseElites: true };
-  const base = looks[lookIndex];
+  const base = resolvedLooks[lookIndex];
   const look =
     base && liveType
-      ? { ...base, fill: { ...base.fill, params: { ...base.fill.params, type: liveType } } }
-      : base;
+      ? lookStyle({ ...base, fill: { ...base.fill, params: { ...base.fill.params, type: liveType } } })
+      : looks[lookIndex];
   const subjects = [...state.bosses, ...state.elites].map((subject) => ({ ...subject, look }));
   const views = buildViews(subjects, FIXTURE_RANKS, viewer, state.limit, peaks);
   stack.update(views.bosses, { ...DEFAULT_LAYOUT.bosses, dir: state.bossDir }, state.uiScale);

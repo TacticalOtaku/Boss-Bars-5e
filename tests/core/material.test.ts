@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BUILTIN_SOURCES, CLASSIC, CLASSIC_RESOLVED } from "../../src/core/look/builtin";
+import { BUILTIN_SOURCES, CLASSIC } from "../../src/core/look/builtin";
+import { CLASSIC_RESOLVED, resolveLook } from "../../src/core/look/compile";
 import {
   barMaterial,
   FILL_MOTES,
@@ -8,7 +9,6 @@ import {
   FRAME_STYLES,
   PORTRAIT_SHAPES,
 } from "../../src/core/look/material";
-import { resolveLook } from "../../src/core/look/resolve";
 
 const rgb = (hex: string) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
 

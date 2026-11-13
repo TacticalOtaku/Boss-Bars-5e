@@ -1,3 +1,5 @@
+import { MODULE_ID } from "../constants";
+import { ANCHORS, type Block } from "../core/layout";
 import { CENTRED_FOCUS, type PortraitFocus } from "../core/profile";
 
 /** prefers-reduced-motion or Foundry's performance-low: only opacity changes are animated. */
@@ -43,4 +45,26 @@ export function setPortrait(
 
 export function formatNumbers(numbers: { value: number; max: number; temp: number }): string {
   return `${numbers.value} / ${numbers.max}${numbers.temp ? ` +${numbers.temp}` : ""}`;
+}
+
+/** Places a HUD block by its anchor, percentage offset, UI scale and growth direction. */
+export function positionBlock(el: HTMLElement, block: Block, uiScale: number): void {
+  const [fx, fy] = ANCHORS[block.anchor];
+  el.style.setProperty("--bb5e-fx", String(fx));
+  el.style.setProperty("--bb5e-fy", String(fy));
+  el.style.setProperty("--bb5e-dx", String(block.dx));
+  el.style.setProperty("--bb5e-dy", String(block.dy));
+  el.style.setProperty("--bb5e-ui-scale", String(uiScale));
+  el.dataset.dir = block.dir;
+}
+
+/** The HUD root over the whole Foundry interface. Reuses an existing root, so mounting twice is harmless. */
+export function mountOverlay(host: HTMLElement): HTMLElement {
+  const existing = host.querySelector<HTMLElement>(`:scope > #${MODULE_ID}`);
+  if (existing) return existing;
+  const overlay = document.createElement("div");
+  overlay.id = MODULE_ID;
+  overlay.className = "bb5e-overlay";
+  host.append(overlay);
+  return overlay;
 }

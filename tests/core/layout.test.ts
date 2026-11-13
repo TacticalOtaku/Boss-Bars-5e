@@ -2,13 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LAYOUT,
   effectiveLayout,
-  moveToScreen,
-  offscreen,
-  overlapping,
   placeRect,
   readLayout,
   readOverride,
-  snap,
+  readPlacement,
   toAnchor,
 } from "../../src/core/layout";
 
@@ -52,6 +49,19 @@ describe("readLayout", () => {
     expect(readOverride(undefined)).toEqual({});
     expect(readOverride({ dataVersion: 5, bosses: {} })).toEqual({});
   });
+
+  it("reads strict placements and rejects out-of-range or malformed ones", () => {
+    expect(readPlacement({ anchor: "tc", dx: 12, dy: -34, extra: "ignored" })).toEqual({
+      anchor: "tc",
+      dx: 12,
+      dy: -34,
+    });
+    expect(readPlacement(null)).toBeNull();
+    expect(readPlacement({ anchor: "zz", dx: 0, dy: 0 })).toBeNull();
+    expect(readPlacement({ anchor: "tc", dx: "5", dy: 0 })).toBeNull();
+    expect(readPlacement({ anchor: "tc", dx: Number.POSITIVE_INFINITY, dy: 0 })).toBeNull();
+    expect(readPlacement({ anchor: "tc", dx: 10001, dy: 0 })).toBeNull();
+  });
 });
 
 describe("geometry", () => {
@@ -84,51 +94,5 @@ describe("geometry", () => {
     expect(placed).toEqual({ anchor: "br", dx: -100, dy: -100 });
     expect(placeRect(placed, rect, screen, 1)).toEqual(rect);
     expect(toAnchor({ x: 700, y: 10, w: 200, h: 100 }, screen, 2)).toEqual({ anchor: "tc", dx: 0, dy: 5 });
-  });
-
-  it("snaps to the centre and the edges within 12 px", () => {
-    const near = snap({ x: 705, y: 395, w: 200, h: 100 }, screen);
-    expect(near).toEqual({
-      rect: { x: 700, y: 400, w: 200, h: 100 },
-      guides: { vertical: true, horizontal: true },
-    });
-    expect(snap({ x: 8, y: 795, w: 200, h: 100 }, screen).rect).toEqual({ x: 0, y: 800, w: 200, h: 100 });
-    expect(snap({ x: 300, y: 300, w: 200, h: 100 }, screen).guides).toEqual({
-      vertical: false,
-      horizontal: false,
-    });
-  });
-
-  it("finds overlapping zones and blocks past the edge", () => {
-    const zones = [
-      { id: "hotbar", rect: { x: 418, y: 824, w: 764, h: 60 } },
-      { id: "controls", rect: { x: 16, y: 16, w: 72, h: 300 } },
-    ];
-    expect(overlapping({ x: 500, y: 800, w: 200, h: 50 }, zones).map((z) => z.id)).toEqual(["hotbar"]);
-    expect(overlapping({ x: 100, y: 16, w: 200, h: 50 }, zones)).toEqual([]);
-    expect(offscreen({ x: 1500, y: 0, w: 200, h: 50 }, screen)).toBe(true);
-    expect(offscreen({ x: 0, y: 0, w: 200, h: 50 }, screen)).toBe(false);
-  });
-
-  it("moves Foundry zones to a player's screen by their anchor; full-height zones stretch", () => {
-    const player = { w: 1366, h: 768 };
-    expect(moveToScreen({ x: 16, y: 16, w: 72, h: 300 }, screen, player)).toEqual({
-      x: 16,
-      y: 16,
-      w: 72,
-      h: 300,
-    });
-    expect(moveToScreen({ x: 418, y: 824, w: 764, h: 60 }, screen, player)).toEqual({
-      x: 301,
-      y: 692,
-      w: 764,
-      h: 60,
-    });
-    expect(moveToScreen({ x: 1552, y: 0, w: 48, h: 900 }, screen, player)).toEqual({
-      x: 1318,
-      y: 0,
-      w: 48,
-      h: 768,
-    });
   });
 });
