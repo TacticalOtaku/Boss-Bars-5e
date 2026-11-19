@@ -63,12 +63,22 @@ Only GMs change bars; when several GMs are online, the active GM writes every ch
   before rolling. A target picked after the roll is not known.
 - Music switches only on the scene the players stand on (the active scene).
 
+## Installation
+
+Install from Foundry VTT **Add-on Modules → Install Module** using the Manifest URL:
+
+```text
+https://github.com/TacticalOtaku/Boss-Bars-5e/releases/latest/download/module.json
+```
+
+Or download `boss-bars-5e-v<version>.zip` from [GitHub Releases](https://github.com/TacticalOtaku/Boss-Bars-5e/releases/latest) and extract it into `Data/modules/boss-bars-5e`.
+
 ## Development checks
 
-GitHub Actions checks pull requests into `main` and pushes to `main` on Node.js 24 and 26. It runs `npm ci`,
-`npm run check` (types, lint, formatting, tests, build, and HUD size), and `npm run package` to validate the installable
-ZIP. The workflow can also be run manually from Actions. It does not publish releases.
+GitHub Actions checks pushes to `main` on Node.js 24 and 26. It runs `npm ci`, `npm run check` (types, lint, formatting, tests, build, and HUD size), and `npm run package` to validate the installable ZIP. Tagged releases (`v*`) automatically publish the ZIP archive and `module.json`.
+
+Pull Requests are disabled on this repository; bug reports and suggestions are welcome via [GitHub Issues](https://github.com/TacticalOtaku/Boss-Bars-5e/issues) (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## License
 
-MIT. Fonts in `fonts/` are under the SIL Open Font License 1.1 (license texts next to them).
+GNU General Public License v3.0 ([LICENSE](LICENSE)). Fonts in `fonts/` are under the SIL Open Font License 1.1 (license texts next to them).

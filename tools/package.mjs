@@ -1,7 +1,7 @@
 /**
  * Build a Foundry release from dist/module/: validates module.json, then writes dist/<id>-v<version>.zip
  * (module.json at the archive root, as Foundry expects), where the other TacticalOtaku modules keep their archives.
- * Foundry reads the manifest from the repository's main branch, so only the archive is attached to the release.
+ * Attach both the archive and module.json to the GitHub release.
  * Run through `npm run release`, which checks and builds first.
  */
 import { existsSync } from "node:fs";
@@ -64,7 +64,7 @@ console.log(
   `Packaged ${manifest.id} ${manifest.version}: ${files.length} files, ${(zip.length / 1024).toFixed(1)} KiB`,
 );
 console.log(`  ${target}`);
-console.log(`Push module.json to main and attach the archive to the GitHub release v${manifest.version}.`);
+console.log(`Attach the archive and module.json to the GitHub release v${manifest.version}.`);
 
 function stripSourceMapUrl(data) {
   return Buffer.from(data.toString("utf8").replace(/\n\/\/# sourceMappingURL=\S+\s*$/, "\n"), "utf8");

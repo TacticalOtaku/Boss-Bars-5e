@@ -22,3 +22,8 @@ coverage/
 !.env.example
 *.pem
 *.key
+AGENTS.md
+docs/agents/
+docs/plans/
+docs/superpowers/
+release-notes/

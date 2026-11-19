@@ -65,7 +65,7 @@ describe("release manifest", () => {
     expect(archiveName("boss-bars-5e", "0.1.0")).toBe("boss-bars-5e-v0.1.0.zip");
     expect(releaseUrls(`${REPO}/`, "boss-bars-5e", "0.1.0")).toEqual({
       url: REPO,
-      manifest: "https://raw.githubusercontent.com/TacticalOtaku/Boss-Bars-5e/main/module.json",
+      manifest: `${REPO}/releases/latest/download/module.json`,
       download: `${REPO}/releases/download/v0.1.0/boss-bars-5e-v0.1.0.zip`,
     });
   });
