@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.1
+
+- **Fixed:** Moving the portrait position sliders near the edges (`0%` or `100%`) at any zoom pushed the media edge inside `.bb5e-face` and exposed empty frame background across up to half (or more at `100%` zoom) of the frame. `setPortrait` now aligns `transform-origin` with `object-position` and clears `translate` so positioning pans smoothly edge-to-edge without empty gaps on both square and non-square portraits/videos.
+- Updated portrait position labels and hint copy (`BB5E.Profile.Focus`) in English and Russian.
+- Added regression tests (`tests/portrait-focus.test.ts`, bringing the suite to 41 files / 380 tests) and verified the fix live in Foundry VTT 14.367 (dnd5e 5.3.3).
+
 ## 1.6.0
 
 - **Live look updates in Elite Ranks.** Looks added or edited in the Look Library now appear in the Elite Ranks editor immediately on render without reopening the Boss Bars Hub.

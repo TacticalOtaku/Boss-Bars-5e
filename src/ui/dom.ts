@@ -15,9 +15,9 @@ export function part(tag: string, className: string, parent?: HTMLElement): HTML
 }
 
 /**
- * Image or looping muted video, replaced only when the source or its kind changes, framed at the focus: the zoomed
- * picture moves so that its focus point lands in the frame's centre, at any zoom; an edge moved inside the frame
- * shows the frame's empty colour. The `translate` and `scale` properties leave effect transforms alone.
+ * Image or looping muted video, replaced only when the source or its kind changes, framed at the focus:
+ * `object-position` pans across covered axes and `scale` zooms around the same `(x%, y%)` origin so the media
+ * always covers the frame without empty borders while leaving effect `transform`s alone.
  */
 export function setPortrait(
   container: HTMLElement,
@@ -34,12 +34,13 @@ export function setPortrait(
     media.setAttribute("src", src);
     container.replaceChildren(media);
   }
-  const scale = focus.zoom / 100;
-  // The point lands at at × zoom after scaling from the top left corner: shift it to 50%.
-  const shift = (at: number) => 50 - at * scale;
-  media.style.objectPosition = `${focus.x}% ${focus.y}%`;
-  media.style.transformOrigin = "0 0";
-  media.style.translate = `${shift(focus.x)}% ${shift(focus.y)}%`;
+  const clampPct = (n: number) => Math.min(100, Math.max(0, Number.isFinite(n) ? n : 50));
+  const x = clampPct(focus.x);
+  const y = clampPct(focus.y);
+  const scale = Math.max(1, Number.isFinite(focus.zoom) ? focus.zoom / 100 : 1);
+  media.style.objectPosition = `${x}% ${y}%`;
+  media.style.transformOrigin = `${x}% ${y}%`;
+  media.style.translate = "";
   media.style.scale = String(scale);
 }
 
