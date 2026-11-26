@@ -1,5 +1,7 @@
 <div align="center">
 
+**English** · [Русский](README.ru.md)
+
 # Boss Bars 5e
 
 **RPG boss bars and elite cards for important enemies in Foundry VTT (D&D 5e)**
@@ -95,6 +97,14 @@ npm run deploy       # Deploy built module to Foundry Data/modules/boss-bars-5e
 npm run package      # Package dist/boss-bars-5e-v<version>.zip from dist/module
 npm run release      # Run check + package
 ```
+
+---
+
+## AI Disclosure
+
+AI-assisted tools were used during development for tasks such as code drafting, refactoring, tests, documentation, and localization drafts. All architecture, code, behavior, user-facing copy, and Russian/English translations are reviewed, tested, and maintained by **TacticalOtaku**, who retains sole authorship and responsibility for the module.
+
+All bundled package assets and user-facing materials comply with Foundry VTT's [AI Content Policy](https://foundryvtt.com/article/ai-policy/) — no pre-generated AI art, audio, or lore assets are included.
 
 ---
 
